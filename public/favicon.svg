@@ -1,0 +1,32 @@
+
+<svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Cerveau -->
+  <path 
+    d="M45,20 C35,20 20,25 20,45 C20,60 35,70 50,70 C65,70 80,60 80,45 C80,25 65,20 55,20" 
+    stroke="#3B82F6" 
+    strokeWidth="8" 
+    fill="none" 
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  />
+  
+  <!-- Vagues -->
+  <path 
+    d="M30,80 C40,75 60,75 70,80" 
+    stroke="#68D9FF" 
+    strokeWidth="6" 
+    fill="none" 
+    strokeLinecap="round"
+  />
+  <path 
+    d="M25,90 C40,83 60,83 75,90" 
+    stroke="#3B99D9" 
+    strokeWidth="6" 
+    fill="none" 
+    strokeLinecap="round"
+  />
+  
+  <!-- Points -->
+  <circle cx="80" cy="30" r="4" fill="#68D9FF" />
+  <circle cx="70" cy="20" r="3" fill="#68D9FF" />
+</svg>

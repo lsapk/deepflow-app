@@ -12,9 +12,9 @@ import {
 } from "firebase/auth";
 import { toast } from "sonner";
 
-// Votre configuration Firebase
+// Configuration Firebase - Avec une clé corrigée pour l'API
 const firebaseConfig = {
-  apiKey: "AIzaSyBt51Oj_RX-9gupLV90a_BXxxVSM8Xcy7k", // Ceci est une clé publique, pas d'inquiétude
+  apiKey: "AIzaSyDI0a5sOVCj-0cu2uiW7fGPDMDZ1BaQnjI",
   authDomain: "deepflow-app.firebaseapp.com",
   projectId: "deepflow-app",
   storageBucket: "deepflow-app.appspot.com",
