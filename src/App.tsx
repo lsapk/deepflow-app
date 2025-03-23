@@ -11,6 +11,13 @@ import SignUpPage from "./pages/SignUpPage";
 import Dashboard from "./pages/Dashboard";
 import TasksPage from "./pages/TasksPage";
 import HabitsPage from "./pages/HabitsPage";
+import FocusPage from "./pages/FocusPage";
+import JournalPage from "./pages/JournalPage";
+import GoalsPage from "./pages/GoalsPage";
+import PlanningPage from "./pages/PlanningPage";
+import AnalyticsPage from "./pages/AnalyticsPage";
+import ProfilePage from "./pages/ProfilePage";
+import SettingsPage from "./pages/SettingsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -88,27 +95,37 @@ const AppRoutes = () => {
       } />
       <Route path="/focus" element={
         <ProtectedRoute>
-          <Dashboard />
+          <FocusPage />
         </ProtectedRoute>
       } />
       <Route path="/journal" element={
         <ProtectedRoute>
-          <Dashboard />
+          <JournalPage />
         </ProtectedRoute>
       } />
       <Route path="/goals" element={
         <ProtectedRoute>
-          <Dashboard />
+          <GoalsPage />
         </ProtectedRoute>
       } />
       <Route path="/planning" element={
         <ProtectedRoute>
-          <Dashboard />
+          <PlanningPage />
         </ProtectedRoute>
       } />
       <Route path="/analytics" element={
         <ProtectedRoute>
-          <Dashboard />
+          <AnalyticsPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/profile" element={
+        <ProtectedRoute>
+          <ProfilePage />
+        </ProtectedRoute>
+      } />
+      <Route path="/settings" element={
+        <ProtectedRoute>
+          <SettingsPage />
         </ProtectedRoute>
       } />
       

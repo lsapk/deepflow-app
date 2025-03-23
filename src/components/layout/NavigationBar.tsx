@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/common/Logo';
 import { useAuth } from '@/contexts/AuthContext';
@@ -52,6 +52,7 @@ const navItems: NavItem[] = [
 export const NavigationBar = () => {
   const { currentUser, logout } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
@@ -73,6 +74,14 @@ export const NavigationBar = () => {
         .join('')
         .toUpperCase()
     : 'U';
+
+  const navigateToProfile = () => {
+    navigate('/profile');
+  };
+
+  const navigateToSettings = () => {
+    navigate('/settings');
+  };
 
   return (
     <>
@@ -125,11 +134,11 @@ export const NavigationBar = () => {
               <DropdownMenuContent className="w-56" align="end">
                 <DropdownMenuLabel>Mon compte</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={navigateToProfile}>
                   <User className="mr-2 h-4 w-4" />
                   <span>Profil</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={navigateToSettings}>
                   <Settings className="mr-2 h-4 w-4" />
                   <span>Paramètres</span>
                 </DropdownMenuItem>
@@ -229,6 +238,26 @@ export const NavigationBar = () => {
                   );
                 })}
               </nav>
+              
+              <div className="space-y-2">
+                <Link
+                  to="/profile"
+                  className="px-4 py-3 rounded-md text-sm font-medium flex items-center text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <User className="mr-3 h-5 w-5" />
+                  Profil
+                </Link>
+                
+                <Link
+                  to="/settings"
+                  className="px-4 py-3 rounded-md text-sm font-medium flex items-center text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <Settings className="mr-3 h-5 w-5" />
+                  Paramètres
+                </Link>
+              </div>
               
               <div className="mt-auto pt-6 border-t border-gray-200 dark:border-gray-800">
                 <Button 
