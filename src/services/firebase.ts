@@ -12,12 +12,12 @@ import {
 } from "firebase/auth";
 import { toast } from "sonner";
 
-// Configuration Firebase - Avec une clé corrigée pour l'API
+// Configuration Firebase - With updated API key and project ID
 const firebaseConfig = {
-  apiKey: "AIzaSyDI0a5sOVCj-0cu2uiW7fGPDMDZ1BaQnjI",
-  authDomain: "deepflow-app.firebaseapp.com",
-  projectId: "deepflow-app",
-  storageBucket: "deepflow-app.appspot.com",
+  apiKey: "AIzaSyBWFY7Tg4-VOuUJP4qBKdR4I_BaJNM99AI",
+  authDomain: "deep-flow-rkayer.firebaseapp.com",
+  projectId: "deep-flow-rkayer",
+  storageBucket: "deep-flow-rkayer.appspot.com",
   messagingSenderId: "862245633483",
   appId: "1:862245633483:web:80d3ebef4c2fa5c4faea01"
 };
