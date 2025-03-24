@@ -1,4 +1,3 @@
-
 import { initializeApp } from "firebase/app";
 import { 
   getAuth, 
@@ -28,7 +27,7 @@ import {
 } from "firebase/storage";
 import { toast } from "sonner";
 
-// Configuration Firebase - With updated API key and project ID
+// Configuration Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyBWFY7Tg4-VOuUJP4qBKdR4I_BaJNM99AI",
   authDomain: "deep-flow-rkayer.firebaseapp.com",
@@ -67,6 +66,7 @@ const initializeUserCollections = async (userId: string, displayName: string, em
       displayName,
       email,
       bio: '',
+      photoURL: '',
       createdAt: new Date().toISOString(),
       lastActive: new Date().toISOString(),
     };
@@ -85,8 +85,7 @@ const initializeUserCollections = async (userId: string, displayName: string, em
     ];
     
     for (const collectionName of emptyCollections) {
-      // Just create a sample document that will be a placeholder
-      // In a real app, you might want to create specific schemas for each collection
+      // Create an empty placeholder document in each collection
       await setDoc(doc(db, `users/${userId}/${collectionName}/placeholder`), {
         isPlaceholder: true,
         createdAt: new Date().toISOString()
@@ -94,8 +93,10 @@ const initializeUserCollections = async (userId: string, displayName: string, em
     }
     
     console.log("User collections initialized successfully");
+    toast.success("Compte initialisé avec succès");
   } catch (error) {
     console.error("Error initializing user collections:", error);
+    toast.error("Erreur lors de l'initialisation du compte");
   }
 };
 
@@ -197,22 +198,40 @@ export const resetPassword = async (email: string) => {
 // Profile management
 export const updateUserProfile = async (user: User, updates: any) => {
   try {
-    // Update auth profile
-    await updateProfile(user, {
-      displayName: updates.displayName || user.displayName,
-      photoURL: updates.photoURL || user.photoURL
-    });
+    const updateData: any = { ...updates };
+    
+    // Remove photoURL from updates if it's not changed to avoid overwriting
+    if (updates.photoURL === undefined) {
+      delete updateData.photoURL;
+    }
+    
+    // Update auth profile if displayName or photoURL is provided
+    if (updates.displayName || updates.photoURL) {
+      const profileUpdates: { displayName?: string; photoURL?: string } = {};
+      
+      if (updates.displayName) {
+        profileUpdates.displayName = updates.displayName;
+      }
+      
+      if (updates.photoURL) {
+        profileUpdates.photoURL = updates.photoURL;
+      }
+      
+      await updateProfile(user, profileUpdates);
+    }
     
     // Update Firestore profile
     const userProfileRef = doc(db, "userProfiles", user.uid);
     await setDoc(userProfileRef, { 
-      ...updates,
+      ...updateData,
       updatedAt: new Date().toISOString() 
     }, { merge: true });
     
+    toast.success("Profil mis à jour avec succès");
     return true;
   } catch (error) {
     console.error("Error updating profile:", error);
+    toast.error("Erreur lors de la mise à jour du profil");
     throw error;
   }
 };
@@ -220,7 +239,7 @@ export const updateUserProfile = async (user: User, updates: any) => {
 // File upload helpers
 export const uploadProfileImage = async (user: User, file: File): Promise<string> => {
   try {
-    // Create a reference to the user's profile image
+    // Create a reference to the user's profile image with a unique timestamp
     const fileRef = storageRef(storage, `profile_images/${user.uid}/${Date.now()}_${file.name}`);
     
     // Validate file type and size before upload
@@ -233,10 +252,12 @@ export const uploadProfileImage = async (user: User, file: File): Promise<string
     }
     
     // Upload file
-    await uploadBytes(fileRef, file);
+    const snapshot = await uploadBytes(fileRef, file);
+    console.log('Image uploaded successfully:', snapshot);
     
     // Get download URL
     const downloadURL = await getDownloadURL(fileRef);
+    console.log('Download URL:', downloadURL);
     
     // Update user profile with the new photo URL
     await updateProfile(user, {
@@ -250,9 +271,11 @@ export const uploadProfileImage = async (user: User, file: File): Promise<string
       updatedAt: new Date().toISOString() 
     }, { merge: true });
     
+    toast.success("Photo de profil mise à jour avec succès");
     return downloadURL;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error uploading image:", error);
+    toast.error(error.message || "Erreur lors de l'upload de la photo de profil");
     throw error;
   }
 };

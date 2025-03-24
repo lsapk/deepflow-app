@@ -54,7 +54,7 @@ const ProfilePage = () => {
         const userProfileDoc = await getDoc(userProfileRef);
         
         if (userProfileDoc.exists()) {
-          const profileData = userProfileDoc.data() as UserProfile;
+          const profileData = userProfileDoc.data() as any;
           setProfileData(prev => ({
             ...prev,
             displayName: profileData.displayName || currentUser.displayName || '',
@@ -64,6 +64,8 @@ const ProfilePage = () => {
           
           if (profileData.photoURL) {
             setPhotoURL(profileData.photoURL);
+          } else if (currentUser.photoURL) {
+            setPhotoURL(currentUser.photoURL);
           }
         }
       } catch (err) {
@@ -195,7 +197,9 @@ const ProfilePage = () => {
     setError(null);
     
     try {
+      console.log("Starting file upload...");
       const downloadURL = await uploadProfileImage(currentUser, file);
+      console.log("File uploaded successfully, URL:", downloadURL);
       
       setPhotoURL(downloadURL);
       toast.success("Photo de profil mise à jour avec succès");
@@ -255,37 +259,7 @@ const ProfilePage = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <Card className="md:col-span-1">
             <CardContent className="pt-6 flex flex-col items-center">
-              <div className="relative mb-4">
-                <Avatar className="w-24 h-24 cursor-pointer" onClick={handleAvatarClick}>
-                  {fileUploading ? (
-                    <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-700">
-                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                    </div>
-                  ) : (
-                    <>
-                      <AvatarImage src={photoURL || undefined} alt={currentUser?.displayName || 'Utilisateur'} />
-                      <AvatarFallback className="text-lg">{getInitials(currentUser?.displayName)}</AvatarFallback>
-                    </>
-                  )}
-                </Avatar>
-                <Button 
-                  size="icon" 
-                  variant="secondary" 
-                  className="absolute bottom-0 right-0 rounded-full w-8 h-8" 
-                  onClick={handleAvatarClick}
-                  disabled={fileUploading}
-                >
-                  <Camera className="h-4 w-4" />
-                </Button>
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  className="hidden" 
-                  accept="image/*" 
-                  onChange={handleFileChange}
-                  disabled={fileUploading}
-                />
-              </div>
+              {renderAvatar()}
               
               <h2 className="text-xl font-semibold mb-1">{currentUser?.displayName || 'Utilisateur'}</h2>
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{currentUser?.email}</p>

@@ -74,11 +74,11 @@ export const Logo: React.FC<LogoProps> = ({
           whileTap="tap"
         >
           <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-            {/* Brain shape - with improved shape */}
+            {/* Brain shape - improved with more detailed curves */}
             <motion.path 
               d="M50,15 C35,15 20,25 20,45 C20,65 35,80 50,80 C65,80 80,65 80,45 C80,25 65,15 50,15"
               stroke="currentColor" 
-              strokeWidth="6" 
+              strokeWidth="5" 
               fill="none" 
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -86,11 +86,11 @@ export const Logo: React.FC<LogoProps> = ({
               variants={brainVariants}
             />
             
-            {/* Inner Lines - more detailed */}
+            {/* Inner Lines - more detailed neural connections */}
             <motion.path 
               d="M50,15 C40,25 40,45 40,60" 
               stroke="currentColor" 
-              strokeWidth="3" 
+              strokeWidth="2.5" 
               fill="none" 
               strokeLinecap="round"
               className="text-primary"
@@ -99,7 +99,7 @@ export const Logo: React.FC<LogoProps> = ({
             <motion.path 
               d="M50,15 C60,25 60,45 60,60" 
               stroke="currentColor" 
-              strokeWidth="3" 
+              strokeWidth="2.5" 
               fill="none" 
               strokeLinecap="round"
               className="text-primary"
@@ -115,7 +115,18 @@ export const Logo: React.FC<LogoProps> = ({
               variants={brainVariants}
             />
             
-            {/* Waves - animated */}
+            {/* Additional neural connections */}
+            <motion.path 
+              d="M30,35 C40,40 60,40 70,35" 
+              stroke="currentColor" 
+              strokeWidth="1.5" 
+              fill="none" 
+              strokeLinecap="round"
+              className="text-primary"
+              variants={brainVariants}
+            />
+            
+            {/* Waves - animated with improved flow */}
             <motion.path 
               d="M30,85 C40,80 60,80 70,85" 
               stroke="#68D9FF" 
@@ -138,7 +149,7 @@ export const Logo: React.FC<LogoProps> = ({
               transition={{ delay: 0.3 }}
             />
             
-            {/* Circles - pulsing */}
+            {/* Circles - enhanced pulsing effect */}
             <motion.circle 
               cx="70" 
               cy="30" 
@@ -158,8 +169,6 @@ export const Logo: React.FC<LogoProps> = ({
               animate="animate"
               transition={{ delay: 0.3 }}
             />
-            
-            {/* Additional detail */}
             <motion.circle 
               cx="50" 
               cy="35" 
@@ -169,6 +178,28 @@ export const Logo: React.FC<LogoProps> = ({
               initial="initial" 
               animate="animate"
               transition={{ delay: 0.6 }}
+            />
+            
+            {/* Additional highlight elements */}
+            <motion.circle 
+              cx="40" 
+              cy="45" 
+              r="1.5" 
+              fill="#68D9FF" 
+              variants={circleVariants} 
+              initial="initial" 
+              animate="animate"
+              transition={{ delay: 0.9 }}
+            />
+            <motion.circle 
+              cx="60" 
+              cy="45" 
+              r="1.5" 
+              fill="#68D9FF" 
+              variants={circleVariants} 
+              initial="initial" 
+              animate="animate"
+              transition={{ delay: 1.2 }}
             />
           </svg>
         </motion.div>
