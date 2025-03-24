@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,11 +12,14 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { updateProfile, updateEmail, updatePassword, User } from 'firebase/auth';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Bell, Camera, CheckCircle, Key, User as UserIcon, Mail, Shield } from 'lucide-react';
 
 const ProfilePage = () => {
   const { currentUser } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [photoURL, setPhotoURL] = useState(currentUser?.photoURL || '');
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [profileData, setProfileData] = useState({
     displayName: currentUser?.displayName || '',
@@ -40,6 +43,7 @@ const ProfilePage = () => {
     try {
       await updateProfile(currentUser, {
         displayName: profileData.displayName,
+        photoURL: photoURL
       });
       
       toast.success("Profil mis à jour avec succès");
@@ -94,6 +98,36 @@ const ProfilePage = () => {
     }
   };
 
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !currentUser) return;
+
+    setIsLoading(true);
+    try {
+      const storage = getStorage();
+      const storageRef = ref(storage, `profile_photos/${currentUser.uid}`);
+      
+      await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(storageRef);
+      
+      setPhotoURL(downloadURL);
+      await updateProfile(currentUser, {
+        photoURL: downloadURL
+      });
+      
+      toast.success("Photo de profil mise à jour avec succès");
+    } catch (error) {
+      console.error("Error uploading profile photo:", error);
+      toast.error("Erreur lors de l'upload de la photo de profil");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const getInitials = (name: string | null) => {
     if (!name) return 'U';
     return name
@@ -117,13 +151,20 @@ const ProfilePage = () => {
           <Card className="md:col-span-1">
             <CardContent className="pt-6 flex flex-col items-center">
               <div className="relative mb-4">
-                <Avatar className="w-24 h-24">
-                  <AvatarImage src={currentUser?.photoURL || undefined} alt={currentUser?.displayName || 'Utilisateur'} />
+                <Avatar className="w-24 h-24 cursor-pointer" onClick={handleAvatarClick}>
+                  <AvatarImage src={photoURL || undefined} alt={currentUser?.displayName || 'Utilisateur'} />
                   <AvatarFallback className="text-lg">{getInitials(currentUser?.displayName)}</AvatarFallback>
                 </Avatar>
-                <Button size="icon" variant="secondary" className="absolute bottom-0 right-0 rounded-full w-8 h-8">
+                <Button size="icon" variant="secondary" className="absolute bottom-0 right-0 rounded-full w-8 h-8" onClick={handleAvatarClick}>
                   <Camera className="h-4 w-4" />
                 </Button>
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  className="hidden" 
+                  accept="image/*" 
+                  onChange={handleFileChange}
+                />
               </div>
               
               <h2 className="text-xl font-semibold mb-1">{currentUser?.displayName || 'Utilisateur'}</h2>

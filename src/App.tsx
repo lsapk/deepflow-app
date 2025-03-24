@@ -19,17 +19,25 @@ import AnalyticsPage from "./pages/AnalyticsPage";
 import ProfilePage from "./pages/ProfilePage";
 import SettingsPage from "./pages/SettingsPage";
 import NotFound from "./pages/NotFound";
+import { useEffect } from "react";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
-// Composant pour protéger les routes authentifiées
+// Component to protect authenticated routes
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { currentUser, loading } = useAuth();
   
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="loader"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -41,14 +49,14 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-// Composant pour rediriger les utilisateurs déjà connectés
+// Component to redirect already logged in users
 const PublicRoute = ({ children }: { children: React.ReactNode }) => {
   const { currentUser, loading } = useAuth();
   
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="loader"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -61,11 +69,27 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 const AppRoutes = () => {
+  // Apply mobile viewport height fix
+  useEffect(() => {
+    // Fix for mobile viewport height
+    const setVh = () => {
+      const vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--vh', `${vh}px`);
+    };
+
+    setVh();
+    window.addEventListener('resize', setVh);
+    
+    return () => {
+      window.removeEventListener('resize', setVh);
+    };
+  }, []);
+
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
       
-      {/* Routes publiques (accessibles uniquement si non connecté) */}
+      {/* Public routes (accessible only when not logged in) */}
       <Route path="/signin" element={
         <PublicRoute>
           <SignInPage />
@@ -77,7 +101,7 @@ const AppRoutes = () => {
         </PublicRoute>
       } />
       
-      {/* Routes protégées (nécessitent d'être connecté) */}
+      {/* Protected routes (require authentication) */}
       <Route path="/dashboard" element={
         <ProtectedRoute>
           <Dashboard />
@@ -135,18 +159,62 @@ const AppRoutes = () => {
   );
 };
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <BrowserRouter>
-        <AuthProvider>
-          <Toaster />
-          <Sonner />
-          <AppRoutes />
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  // Apply responsive styles
+  useEffect(() => {
+    // Add CSS variables to control responsive behavior
+    const style = document.createElement('style');
+    style.innerHTML = `
+      :root {
+        --vh: 1vh;
+      }
+      
+      @media (max-width: 640px) {
+        body {
+          overscroll-behavior: none;
+        }
+        
+        .min-h-screen {
+          min-height: calc(var(--vh, 1vh) * 100);
+        }
+      }
+      
+      /* Improve mobile scrolling */
+      .overflow-y-auto {
+        -webkit-overflow-scrolling: touch;
+      }
+      
+      /* Add responsive padding */
+      @media (max-width: 640px) {
+        .sm-p-responsive {
+          padding: 1rem !important;
+        }
+        
+        .card-mobile-compact {
+          padding: 1rem !important;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <BrowserRouter>
+          <AuthProvider>
+            <Toaster />
+            <Sonner />
+            <AppRoutes />
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;

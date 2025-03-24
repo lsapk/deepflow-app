@@ -1,319 +1,293 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { BookOpen, Calendar, Edit, Plus, Save, Search, Trash2 } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { db } from '@/services/firebase';
+import { collection, addDoc, getDocs, query, where, orderBy, deleteDoc, doc, Timestamp } from 'firebase/firestore';
+import { FilePlus, FileText, Trash2, Calendar, Tag, Search, Edit } from 'lucide-react';
 
-// Types pour les entries du journal
 interface JournalEntry {
   id: string;
   title: string;
   content: string;
-  date: string;
-  mood?: 'happy' | 'neutral' | 'sad';
+  mood?: string;
+  tags?: string[];
+  createdAt: Date;
 }
 
 const JournalPage = () => {
-  const [activeTab, setActiveTab] = useState("write");
-  const [entries, setEntries] = useState<JournalEntry[]>([
-    {
-      id: '1',
-      title: 'Première journée de travail',
-      content: 'Aujourd\'hui était ma première journée au nouveau bureau. L\'équipe semble sympa et les projets sont intéressants.',
-      date: '2025-03-22',
-      mood: 'happy'
-    },
-    {
-      id: '2',
-      title: 'Réflexions sur le projet',
-      content: 'J\'ai des doutes sur la direction que prend le projet. Je dois en parler avec l\'équipe demain.',
-      date: '2025-03-21',
-      mood: 'neutral'
-    }
-  ]);
-  
-  const [currentEntry, setCurrentEntry] = useState<JournalEntry>({
-    id: '',
+  const { currentUser } = useAuth();
+  const [entries, setEntries] = useState<JournalEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [newEntry, setNewEntry] = useState({
     title: '',
     content: '',
-    date: new Date().toISOString().slice(0, 10),
-    mood: 'neutral'
+    mood: 'neutral',
+    tags: ''
   });
-  
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [editingId, setEditingId] = useState<string | null>(null);
 
-  const handleSaveEntry = () => {
-    if (!currentEntry.title || !currentEntry.content) {
-      toast.error("Veuillez remplir tous les champs requis");
+  useEffect(() => {
+    fetchEntries();
+  }, [currentUser]);
+
+  const fetchEntries = async () => {
+    if (!currentUser) return;
+    
+    try {
+      setLoading(true);
+      const entriesQuery = query(
+        collection(db, 'journalEntries'),
+        where('userId', '==', currentUser.uid),
+        orderBy('createdAt', 'desc')
+      );
+      
+      const querySnapshot = await getDocs(entriesQuery);
+      const fetchedEntries = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          title: data.title,
+          content: data.content,
+          mood: data.mood,
+          tags: data.tags,
+          createdAt: data.createdAt.toDate()
+        } as JournalEntry;
+      });
+      
+      setEntries(fetchedEntries);
+    } catch (error) {
+      console.error("Error fetching journal entries:", error);
+      toast.error("Erreur lors du chargement des entrées de journal");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setNewEntry(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async () => {
+    if (!currentUser) return;
+    
+    if (!newEntry.title.trim() || !newEntry.content.trim()) {
+      toast.error("Le titre et le contenu sont requis");
       return;
     }
     
-    if (editingId) {
-      // Mettre à jour une entrée existante
-      setEntries(entries.map(entry => 
-        entry.id === editingId ? {...currentEntry, id: editingId} : entry
-      ));
-      setEditingId(null);
-      toast.success("Journal mis à jour avec succès");
-    } else {
-      // Créer une nouvelle entrée
-      const newEntry = {
-        ...currentEntry,
-        id: Date.now().toString(),
-        date: new Date().toISOString().slice(0, 10)
-      };
-      setEntries([newEntry, ...entries]);
-      toast.success("Journal enregistré avec succès");
+    try {
+      const tags = newEntry.tags
+        ? newEntry.tags.split(',').map(tag => tag.trim())
+        : [];
+      
+      await addDoc(collection(db, 'journalEntries'), {
+        userId: currentUser.uid,
+        title: newEntry.title,
+        content: newEntry.content,
+        mood: newEntry.mood,
+        tags,
+        createdAt: Timestamp.now(),
+      });
+      
+      setNewEntry({
+        title: '',
+        content: '',
+        mood: 'neutral',
+        tags: ''
+      });
+      
+      setIsDialogOpen(false);
+      toast.success("Entrée de journal ajoutée avec succès");
+      fetchEntries();
+    } catch (error) {
+      console.error("Error adding journal entry:", error);
+      toast.error("Erreur lors de l'ajout de l'entrée de journal");
     }
-    
-    // Réinitialiser le formulaire
-    setCurrentEntry({
-      id: '',
-      title: '',
-      content: '',
-      date: new Date().toISOString().slice(0, 10),
-      mood: 'neutral'
+  };
+
+  const deleteEntry = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'journalEntries', id));
+      setEntries(entries.filter(entry => entry.id !== id));
+      toast.success("Entrée supprimée avec succès");
+    } catch (error) {
+      console.error("Error deleting journal entry:", error);
+      toast.error("Erreur lors de la suppression de l'entrée");
+    }
+  };
+
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString('fr-FR', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
     });
   };
 
-  const handleEditEntry = (entry: JournalEntry) => {
-    setCurrentEntry(entry);
-    setEditingId(entry.id);
-    setActiveTab("write");
-  };
-
-  const handleDeleteEntry = (id: string) => {
-    setEntries(entries.filter(entry => entry.id !== id));
-    toast.success("Journal supprimé");
-    
-    if (editingId === id) {
-      setEditingId(null);
-      setCurrentEntry({
-        id: '',
-        title: '',
-        content: '',
-        date: new Date().toISOString().slice(0, 10),
-        mood: 'neutral'
-      });
-    }
-  };
-
-  const filteredEntries = entries.filter(entry => 
-    entry.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    entry.content.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const getMoodEmoji = (mood?: 'happy' | 'neutral' | 'sad') => {
-    switch (mood) {
-      case 'happy': return '😊';
-      case 'sad': return '😔';
-      default: return '😐';
-    }
-  };
+  const filteredEntries = searchTerm
+    ? entries.filter(entry =>
+        entry.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        entry.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (entry.tags && entry.tags.some(tag => 
+          tag.toLowerCase().includes(searchTerm.toLowerCase())
+        ))
+      )
+    : entries;
 
   return (
     <MainLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold mb-2">Journal</h1>
-          <p className="text-gray-500 dark:text-gray-400">
-            Notez vos réflexions quotidiennes et suivez votre progression
-          </p>
-        </div>
-
-        <Tabs defaultValue="write" value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <div className="flex items-center justify-between">
-            <TabsList>
-              <TabsTrigger value="write" className="flex items-center">
-                <Edit className="mr-2 h-4 w-4" />
-                Écrire
-              </TabsTrigger>
-              <TabsTrigger value="entries" className="flex items-center">
-                <BookOpen className="mr-2 h-4 w-4" />
-                Mes entrées
-              </TabsTrigger>
-            </TabsList>
-            {activeTab === "entries" && (
-              <div className="relative w-64">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Rechercher dans le journal..."
-                  className="pl-8"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-            )}
-            {activeTab === "write" && !editingId && (
-              <Button variant="outline" onClick={() => {
-                setCurrentEntry({
-                  id: '',
-                  title: '',
-                  content: '',
-                  date: new Date().toISOString().slice(0, 10),
-                  mood: 'neutral'
-                });
-              }}>
-                <Plus className="mr-2 h-4 w-4" />
-                Nouvelle entrée
-              </Button>
-            )}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Journal</h1>
+            <p className="text-gray-500 dark:text-gray-400">
+              Notez vos pensées, réflexions et idées
+            </p>
           </div>
-
-          <TabsContent value="write" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>{editingId ? 'Modifier l\'entrée' : 'Nouvelle entrée'}</CardTitle>
-                <CardDescription>
-                  {editingId 
-                    ? 'Modifiez votre entrée de journal' 
-                    : 'Écrivez vos pensées et sentiments pour aujourd\'hui'}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-1">
-                  <label htmlFor="title" className="text-sm font-medium">
-                    Titre
-                  </label>
+          
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button data-testid="new-note-button" className="sm:self-start">
+                <FilePlus className="mr-2 h-4 w-4" />
+                Nouvelle note
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[550px]">
+              <DialogHeader>
+                <DialogTitle>Ajouter une nouvelle entrée</DialogTitle>
+                <DialogDescription>
+                  Notez vos pensées, idées ou réflexions du jour.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
                   <Input
-                    id="title"
-                    placeholder="Titre de votre entrée"
-                    value={currentEntry.title}
-                    onChange={(e) => setCurrentEntry({...currentEntry, title: e.target.value})}
+                    name="title"
+                    placeholder="Titre"
+                    value={newEntry.title}
+                    onChange={handleChange}
                   />
                 </div>
-                <div className="space-y-1">
-                  <label htmlFor="content" className="text-sm font-medium">
-                    Contenu
-                  </label>
+                <div className="space-y-2">
                   <Textarea
-                    id="content"
-                    placeholder="Qu'avez-vous en tête aujourd'hui?"
-                    className="min-h-32"
-                    value={currentEntry.content}
-                    onChange={(e) => setCurrentEntry({...currentEntry, content: e.target.value})}
+                    name="content"
+                    placeholder="Contenu de votre note..."
+                    value={newEntry.content}
+                    onChange={handleChange}
+                    rows={8}
                   />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-medium">
-                    Humeur
-                  </label>
-                  <div className="flex space-x-4">
-                    <Button
-                      type="button"
-                      variant={currentEntry.mood === 'happy' ? 'default' : 'outline'}
-                      className="w-full"
-                      onClick={() => setCurrentEntry({...currentEntry, mood: 'happy'})}
-                    >
-                      😊 Bonne
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={currentEntry.mood === 'neutral' ? 'default' : 'outline'}
-                      className="w-full"
-                      onClick={() => setCurrentEntry({...currentEntry, mood: 'neutral'})}
-                    >
-                      😐 Neutre
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={currentEntry.mood === 'sad' ? 'default' : 'outline'}
-                      className="w-full"
-                      onClick={() => setCurrentEntry({...currentEntry, mood: 'sad'})}
-                    >
-                      😔 Mauvaise
-                    </Button>
-                  </div>
+                <div className="space-y-2">
+                  <Input
+                    name="tags"
+                    placeholder="Tags (séparés par des virgules)"
+                    value={newEntry.tags}
+                    onChange={handleChange}
+                  />
                 </div>
-              </CardContent>
-              <CardFooter className="flex justify-between">
-                <Button variant="outline" onClick={() => {
-                  setActiveTab("entries");
-                  if (editingId) {
-                    setEditingId(null);
-                    setCurrentEntry({
-                      id: '',
-                      title: '',
-                      content: '',
-                      date: new Date().toISOString().slice(0, 10),
-                      mood: 'neutral'
-                    });
-                  }
-                }}>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Annuler
                 </Button>
-                <Button onClick={handleSaveEntry}>
-                  <Save className="mr-2 h-4 w-4" />
-                  {editingId ? 'Mettre à jour' : 'Enregistrer'}
-                </Button>
-              </CardFooter>
-            </Card>
-          </TabsContent>
+                <Button onClick={handleSubmit}>Enregistrer</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
 
-          <TabsContent value="entries" className="space-y-4">
-            {filteredEntries.length === 0 ? (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-10">
-                  <BookOpen className="h-12 w-12 text-muted-foreground mb-4" />
-                  <p className="text-lg font-medium text-center">Aucune entrée trouvée</p>
-                  <p className="text-sm text-muted-foreground text-center mt-1">
-                    {searchTerm 
-                      ? 'Essayez avec un autre terme de recherche'
-                      : 'Commencez à écrire votre première entrée de journal'}
-                  </p>
-                  {!searchTerm && (
-                    <Button className="mt-4" onClick={() => setActiveTab("write")}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Créer une entrée
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
+          <Input
+            className="pl-10"
+            placeholder="Rechercher dans votre journal..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+
+        <div className="space-y-4">
+          {loading ? (
+            <div className="space-y-4">
+              {[...Array(3)].map((_, index) => (
+                <Card key={index} className="animate-pulse">
+                  <CardHeader className="pb-2">
+                    <div className="h-6 bg-gray-200 dark:bg-gray-800 rounded w-1/3 mb-2"></div>
+                    <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-1/4"></div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded"></div>
+                      <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded"></div>
+                      <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-2/3"></div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : filteredEntries.length > 0 ? (
+            filteredEntries.map(entry => (
+              <Card key={entry.id}>
+                <CardHeader className="pb-2">
+                  <div className="flex justify-between items-start">
+                    <CardTitle>{entry.title}</CardTitle>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => deleteEntry(entry.id)}
+                      className="h-8 w-8 text-gray-500 hover:text-red-500"
+                    >
+                      <Trash2 size={16} />
                     </Button>
-                  )}
+                  </div>
+                  <CardDescription className="flex items-center">
+                    <Calendar className="mr-1 h-3 w-3" />
+                    {formatDate(entry.createdAt)}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="whitespace-pre-line">{entry.content}</p>
                 </CardContent>
-              </Card>
-            ) : (
-              <>
-                {filteredEntries.map((entry) => (
-                  <Card key={entry.id}>
-                    <CardHeader className="pb-2">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <CardTitle className="flex items-center">
-                            {entry.title}
-                            <span className="ml-2 text-lg">{getMoodEmoji(entry.mood)}</span>
-                          </CardTitle>
-                          <CardDescription>
-                            <Calendar className="inline h-3 w-3 mr-1" />
-                            {new Date(entry.date).toLocaleDateString('fr-FR', {
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric'
-                            })}
-                          </CardDescription>
-                        </div>
-                        <div className="flex space-x-2">
-                          <Button variant="ghost" size="icon" onClick={() => handleEditEntry(entry)}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleDeleteEntry(entry.id)}>
-                            <Trash2 className="h-4 w-4 text-red-500" />
-                          </Button>
-                        </div>
+                {entry.tags && entry.tags.length > 0 && (
+                  <CardFooter className="pt-0 flex flex-wrap gap-1">
+                    {entry.tags.map((tag, index) => (
+                      <div 
+                        key={index} 
+                        className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-2 py-1 rounded-full flex items-center"
+                      >
+                        <Tag className="mr-1 h-3 w-3" />
+                        {tag}
                       </div>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="whitespace-pre-line">{entry.content}</p>
-                    </CardContent>
-                  </Card>
-                ))}
-              </>
-            )}
-          </TabsContent>
-        </Tabs>
+                    ))}
+                  </CardFooter>
+                )}
+              </Card>
+            ))
+          ) : (
+            <div className="text-center py-12">
+              <FileText className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+              <h3 className="text-lg font-medium mb-2">Votre journal est vide</h3>
+              <p className="text-gray-500 dark:text-gray-400 mb-6">
+                Commencez à écrire vos pensées et réflexions
+              </p>
+              <Button onClick={() => setIsDialogOpen(true)}>
+                <Edit className="mr-2 h-4 w-4" />
+                Créer une première note
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
     </MainLayout>
   );
