@@ -34,7 +34,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
       <NavigationBar />
       <FeaturePanel />
       
-      <main className="flex-1 py-6 px-4 md:px-6 lg:px-8 max-w-7xl mx-auto w-full">
+      <main className="flex-1 py-6 pt-20 px-4 md:px-6 lg:px-8 max-w-7xl mx-auto w-full">
         {children}
       </main>
       

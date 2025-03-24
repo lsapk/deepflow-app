@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -21,19 +22,17 @@ import {
   SheetClose,
 } from '@/components/ui/sheet';
 import {
-  Bell,
-  Calendar,
-  CheckSquare,
-  Home,
   Menu,
-  Settings,
   LogOut,
   User,
-  BarChart2,
+  Settings,
+  Home,
+  CheckSquare,
   BookOpen,
   Target,
   Clock,
-  Search
+  Calendar,
+  BarChart2,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -100,7 +99,7 @@ export const NavigationBar = () => {
       <SheetContent side="left" className="overflow-y-auto">
         <SheetHeader className="mb-4">
           <SheetTitle className="text-left">
-            <Logo size="md" textColor="text-primary" />
+            <Logo size="md" textColor="text-primary" noRedirect={true} />
           </SheetTitle>
         </SheetHeader>
         
@@ -209,7 +208,7 @@ export const NavigationBar = () => {
     return (
       <header className={`fixed top-0 left-0 right-0 z-40 py-3 px-4 transition-all ${isScrolled ? 'bg-white/90 dark:bg-gray-900/90 backdrop-blur-md shadow-sm' : 'bg-transparent'}`}>
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <Logo size="sm" textColor="text-primary" />
+          <Logo size="sm" textColor="text-primary" noRedirect={true} />
           
           <div className="flex items-center gap-2">
             <Link to="/signin">
@@ -233,18 +232,16 @@ export const NavigationBar = () => {
       <div className="max-w-7xl mx-auto flex items-center justify-between h-14">
         <div className="flex items-center gap-4">
           <MobileNav />
-          <Logo size="sm" textColor="text-primary" />
+          <Logo size="sm" textColor="text-primary" noRedirect={true} />
           {!isMobile && <DesktopNav />}
         </div>
         
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="text-gray-600 dark:text-gray-400">
-            <Search className="h-5 w-5" />
-          </Button>
-          
-          <Button variant="ghost" size="icon" className="text-gray-600 dark:text-gray-400">
-            <Bell className="h-5 w-5" />
-          </Button>
+        <div className="flex items-center gap-4">
+          {currentUser && (
+            <div className="hidden md:block mr-2">
+              <span className="font-medium">Bonjour, {currentUser.displayName?.split(' ')[0] || 'Utilisateur'}</span>
+            </div>
+          )}
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

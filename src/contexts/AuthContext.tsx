@@ -32,6 +32,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   useEffect(() => {
     const unsubscribe = authStateListener((user) => {
+      console.log("Auth state changed:", user ? "User logged in" : "User logged out");
       setCurrentUser(user);
       setLoading(false);
     });
@@ -43,9 +44,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       await logoutUser();
       navigate('/signin');
+      toast.success("Déconnexion réussie");
     } catch (error) {
-      toast.error("Erreur lors de la déconnexion");
       console.error("Logout error:", error);
+      toast.error("Erreur lors de la déconnexion");
     }
   };
 

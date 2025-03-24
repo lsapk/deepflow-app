@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,9 +11,9 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { User, updateEmail, updatePassword } from 'firebase/auth';
+import { User, updateEmail, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { db, uploadProfileImage, updateUserProfile } from '@/services/firebase';
-import { Bell, Camera, CheckCircle, Key, User as UserIcon, Mail, Shield, Loader2, AlertCircle } from 'lucide-react';
+import { Camera, CheckCircle, Key, User as UserIcon, Mail, Shield, Loader2, AlertCircle } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
 
 interface UserProfile {
@@ -20,8 +21,8 @@ interface UserProfile {
   email: string;
   photoURL?: string;
   bio: string;
-  createdAt: string;
-  lastActive: string;
+  createdAt: any;
+  lastActive: any;
 }
 
 const ProfilePage = () => {
@@ -32,6 +33,8 @@ const ProfilePage = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [fileUploading, setFileUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showReauthDialog, setShowReauthDialog] = useState(false);
+  const [reauthPassword, setReauthPassword] = useState('');
   
   const [profileData, setProfileData] = useState({
     displayName: currentUser?.displayName || '',
@@ -129,6 +132,7 @@ const ProfilePage = () => {
       
       if (error.code === 'auth/requires-recent-login') {
         errorMessage = "Pour des raisons de sécurité, veuillez vous reconnecter avant de modifier votre email";
+        // Ici on pourrait demander à l'utilisateur de se réauthentifier
       } else if (error.code === 'auth/email-already-in-use') {
         errorMessage = "Cet email est déjà utilisé par un autre compte";
       } else if (error.code === 'auth/invalid-email') {
@@ -212,7 +216,7 @@ const ProfilePage = () => {
     }
   };
 
-  const getInitials = (name: string | null) => {
+  const getInitials = (name: string | null | undefined) => {
     if (!name) return 'U';
     return name
       .split(' ')
@@ -309,10 +313,6 @@ const ProfilePage = () => {
                 <div className="flex items-center p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800">
                   <Shield className="mr-2 h-5 w-5 text-gray-500" />
                   <span>Sécurité</span>
-                </div>
-                <div className="flex items-center p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800">
-                  <Bell className="mr-2 h-5 w-5 text-gray-500" />
-                  <span>Notifications</span>
                 </div>
               </div>
               

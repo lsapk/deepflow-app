@@ -3,39 +3,45 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { X, Info, Star, Zap, Lightbulb, Clock, Calendar, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Link } from 'react-router-dom';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetClose } from '@/components/ui/sheet';
 import { Card, CardContent } from '@/components/ui/card';
 
 export const FeaturePanel = () => {
   const features = [
     {
-      title: "Tableau de bord personnalisé",
+      title: "Tableau de bord",
       description: "Visualisez vos tâches, habitudes et objectifs en un seul endroit",
       icon: Star,
+      path: "/dashboard",
       color: "bg-purple-100 text-purple-600 dark:bg-purple-950 dark:text-purple-300"
     },
     {
-      title: "Sessions de concentration",
+      title: "Focus",
       description: "Utilisez la technique Pomodoro pour améliorer votre productivité",
       icon: Clock,
+      path: "/focus",
       color: "bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-300"
     },
     {
-      title: "Suivi des habitudes",
+      title: "Habitudes",
       description: "Créez et suivez vos habitudes quotidiennes pour progresser",
       icon: CheckCircle,
+      path: "/habits",
       color: "bg-green-100 text-green-600 dark:bg-green-950 dark:text-green-300"
     },
     {
-      title: "Journal personnel",
+      title: "Journal",
       description: "Notez vos pensées et réflexions quotidiennes",
       icon: Calendar,
+      path: "/journal",
       color: "bg-orange-100 text-orange-600 dark:bg-orange-950 dark:text-orange-300"
     },
     {
-      title: "Insights IA",
+      title: "Insights",
       description: "Obtenez des conseils personnalisés basés sur vos activités",
       icon: Lightbulb,
+      path: "/analytics",
       color: "bg-yellow-100 text-yellow-600 dark:bg-yellow-950 dark:text-yellow-300"
     }
   ];
@@ -58,24 +64,27 @@ export const FeaturePanel = () => {
           
           <div className="space-y-4">
             {features.map((feature, index) => (
-              <motion.div
-                key={feature.title}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1, duration: 0.3 }}
-              >
-                <Card>
-                  <CardContent className="p-4 flex items-start gap-4">
-                    <div className={`p-2 rounded-lg ${feature.color}`}>
-                      <feature.icon className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <h3 className="font-medium">{feature.title}</h3>
-                      <p className="text-sm text-muted-foreground mt-1">{feature.description}</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
+              <SheetClose asChild key={feature.title}>
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1, duration: 0.3 }}
+                >
+                  <Link to={feature.path}>
+                    <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
+                      <CardContent className="p-4 flex items-start gap-4">
+                        <div className={`p-2 rounded-lg ${feature.color}`}>
+                          <feature.icon className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <h3 className="font-medium">{feature.title}</h3>
+                          <p className="text-sm text-muted-foreground mt-1">{feature.description}</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                </motion.div>
+              </SheetClose>
             ))}
           </div>
           
