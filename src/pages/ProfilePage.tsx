@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { UpdateData, User, updateEmail, updatePassword } from 'firebase/auth';
+import { User, updateEmail, updatePassword } from 'firebase/auth';
 import { db, uploadProfileImage, updateUserProfile } from '@/services/firebase';
 import { Bell, Camera, CheckCircle, Key, User as UserIcon, Mail, Shield, Loader2, AlertCircle } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
@@ -43,7 +42,6 @@ const ProfilePage = () => {
     confirmPassword: '',
   });
 
-  // Load user profile data
   useEffect(() => {
     const loadUserProfile = async () => {
       if (!currentUser) return;
@@ -118,7 +116,6 @@ const ProfilePage = () => {
     try {
       await updateEmail(currentUser, profileData.email);
       
-      // Also update in Firestore
       await updateUserProfile(currentUser, {
         email: profileData.email
       });
@@ -198,10 +195,8 @@ const ProfilePage = () => {
     setError(null);
     
     try {
-      // Use the improved upload function from firebase.ts
       const downloadURL = await uploadProfileImage(currentUser, file);
       
-      // Update state with new photo URL
       setPhotoURL(downloadURL);
       toast.success("Photo de profil mise à jour avec succès");
     } catch (error: any) {

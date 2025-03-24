@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -37,7 +36,7 @@ import {
   Search
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { useMobile } from '@/hooks/use-mobile';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface NavItem {
   name: string;
@@ -50,7 +49,7 @@ export const NavigationBar = () => {
   const { currentUser, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const isMobile = useMobile();
+  const isMobile = useIsMobile();
   const [isScrolled, setIsScrolled] = useState(false);
 
   const navItems: NavItem[] = [
@@ -91,7 +90,6 @@ export const NavigationBar = () => {
       .toUpperCase();
   };
 
-  // Mobile Navigation
   const MobileNav = () => (
     <Sheet>
       <SheetTrigger asChild>
@@ -183,7 +181,6 @@ export const NavigationBar = () => {
     </Sheet>
   );
 
-  // Desktop Navigation
   const DesktopNav = () => (
     <div className="hidden md:flex items-center gap-1">
       {navItems.map((item) => (
