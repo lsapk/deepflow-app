@@ -37,12 +37,12 @@ export const Logo: React.FC<LogoProps> = ({
     initial: { opacity: 0.5, pathLength: 0 },
     animate: { 
       opacity: 1, 
-      pathLength: 1, 
+      pathLength: 1,
       transition: { 
         duration: 1.5, 
         ease: "easeInOut", 
         repeat: Infinity, 
-        repeatType: "reverse",
+        repeatType: "reverse" as const,
         repeatDelay: 0.5
       } 
     }
@@ -56,7 +56,7 @@ export const Logo: React.FC<LogoProps> = ({
       transition: { 
         duration: 1.2, 
         repeat: Infinity, 
-        repeatType: "reverse" 
+        repeatType: "reverse" as const
       }
     }
   };
