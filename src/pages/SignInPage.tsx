@@ -37,11 +37,13 @@ const SignInPage = () => {
         </motion.div>
       </div>
       
-      <div className="w-full md:w-1/2 flex items-center justify-center p-8">
-        <div className="md:hidden flex justify-center mb-8 w-full">
-          <Logo size="lg" textColor="text-primary" />
+      <div className="w-full md:w-1/2 flex items-center justify-center p-4 md:p-8">
+        <div className="w-full max-w-md">
+          <div className="md:hidden flex justify-center mb-8 w-full">
+            <Logo size="lg" textColor="text-primary" />
+          </div>
+          <SignInForm />
         </div>
-        <SignInForm />
       </div>
     </div>
   );

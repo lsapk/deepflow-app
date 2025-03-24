@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/common/Logo';
@@ -31,6 +31,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface NavItem {
   name: string;
@@ -55,6 +56,22 @@ export const NavigationBar = () => {
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [scrollLocked, setScrollLocked] = useState(false);
+
+  // Effect to handle body scroll lock when mobile menu is open
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+      setScrollLocked(true);
+    } else {
+      document.body.style.overflow = '';
+      setScrollLocked(false);
+    }
+    
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isMobileMenuOpen]);
 
   const toggleDarkMode = () => {
     // Toggle dark mode
@@ -77,10 +94,12 @@ export const NavigationBar = () => {
 
   const navigateToProfile = () => {
     navigate('/profile');
+    setIsMobileMenuOpen(false);
   };
 
   const navigateToSettings = () => {
     navigate('/settings');
+    setIsMobileMenuOpen(false);
   };
 
   return (
@@ -179,7 +198,7 @@ export const NavigationBar = () => {
         </div>
       </div>
       
-      {/* Mobile Menu */}
+      {/* Mobile Menu with proper scroll handling */}
       <AnimatePresence>
         {isMobileMenuOpen && (
           <motion.div 
@@ -195,10 +214,10 @@ export const NavigationBar = () => {
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="absolute right-0 top-0 h-full w-4/5 max-w-sm bg-white dark:bg-gray-900 p-4 shadow-lg"
+              className="absolute right-0 top-0 h-full w-4/5 max-w-sm bg-white dark:bg-gray-900 shadow-lg"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex justify-between items-center mb-6">
+              <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-800">
                 <Logo size="sm" textColor="text-primary dark:text-white" />
                 <Button 
                   variant="ghost" 
@@ -209,69 +228,73 @@ export const NavigationBar = () => {
                 </Button>
               </div>
               
-              <div className="flex flex-col items-center mb-8">
-                <Avatar className="h-20 w-20 mb-4">
-                  <AvatarImage src={currentUser?.photoURL || undefined} alt={currentUser?.displayName || 'Utilisateur'} />
-                  <AvatarFallback>{initials}</AvatarFallback>
-                </Avatar>
-                <h2 className="text-xl font-bold">{currentUser?.displayName || 'Utilisateur'}</h2>
-                <p className="text-sm text-gray-500">{currentUser?.email}</p>
-              </div>
-              
-              <nav className="space-y-1 mb-6">
-                {navItems.map((item) => {
-                  const isActive = location.pathname === item.path;
-                  return (
-                    <Link
-                      key={item.path}
-                      to={item.path}
-                      className={`px-4 py-3 rounded-md text-sm font-medium flex items-center ${
-                        isActive
-                          ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-                          : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'
-                      }`}
-                      onClick={() => setIsMobileMenuOpen(false)}
+              <ScrollArea className="h-[calc(100%-60px)]">
+                <div className="p-4">
+                  <div className="flex flex-col items-center mb-8">
+                    <Avatar className="h-20 w-20 mb-4">
+                      <AvatarImage src={currentUser?.photoURL || undefined} alt={currentUser?.displayName || 'Utilisateur'} />
+                      <AvatarFallback>{initials}</AvatarFallback>
+                    </Avatar>
+                    <h2 className="text-xl font-bold">{currentUser?.displayName || 'Utilisateur'}</h2>
+                    <p className="text-sm text-gray-500">{currentUser?.email}</p>
+                  </div>
+                  
+                  <nav className="space-y-1 mb-6">
+                    {navItems.map((item) => {
+                      const isActive = location.pathname === item.path;
+                      return (
+                        <Link
+                          key={item.path}
+                          to={item.path}
+                          className={`px-4 py-3 rounded-md text-sm font-medium flex items-center ${
+                            isActive
+                              ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                              : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'
+                          }`}
+                          onClick={() => setIsMobileMenuOpen(false)}
+                        >
+                          <span className="mr-3">{item.icon}</span>
+                          {item.name}
+                        </Link>
+                      );
+                    })}
+                  </nav>
+                  
+                  <div className="space-y-2">
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+                      onClick={navigateToProfile}
                     >
-                      <span className="mr-3">{item.icon}</span>
-                      {item.name}
-                    </Link>
-                  );
-                })}
-              </nav>
-              
-              <div className="space-y-2">
-                <Link
-                  to="/profile"
-                  className="px-4 py-3 rounded-md text-sm font-medium flex items-center text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  <User className="mr-3 h-5 w-5" />
-                  Profil
-                </Link>
-                
-                <Link
-                  to="/settings"
-                  className="px-4 py-3 rounded-md text-sm font-medium flex items-center text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  <Settings className="mr-3 h-5 w-5" />
-                  Paramètres
-                </Link>
-              </div>
-              
-              <div className="mt-auto pt-6 border-t border-gray-200 dark:border-gray-800">
-                <Button 
-                  variant="ghost" 
-                  className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
-                  onClick={() => {
-                    logout();
-                    setIsMobileMenuOpen(false);
-                  }}
-                >
-                  <LogOut className="mr-3 h-5 w-5" />
-                  Déconnexion
-                </Button>
-              </div>
+                      <User className="mr-3 h-5 w-5" />
+                      Profil
+                    </Button>
+                    
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+                      onClick={navigateToSettings}
+                    >
+                      <Settings className="mr-3 h-5 w-5" />
+                      Paramètres
+                    </Button>
+                  </div>
+                  
+                  <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-800">
+                    <Button 
+                      variant="ghost" 
+                      className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                      onClick={() => {
+                        logout();
+                        setIsMobileMenuOpen(false);
+                      }}
+                    >
+                      <LogOut className="mr-3 h-5 w-5" />
+                      Déconnexion
+                    </Button>
+                  </div>
+                </div>
+              </ScrollArea>
             </motion.div>
           </motion.div>
         )}
