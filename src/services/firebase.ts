@@ -1,3 +1,4 @@
+
 import { initializeApp } from "firebase/app";
 import { 
   getAuth, 
@@ -9,8 +10,22 @@ import {
   updateProfile,
   sendPasswordResetEmail
 } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
-import { getStorage } from "firebase/storage";
+import { 
+  getFirestore, 
+  doc, 
+  setDoc, 
+  getDoc, 
+  collection,
+  where, 
+  query,
+  getDocs
+} from "firebase/firestore";
+import { 
+  getStorage, 
+  ref as storageRef, 
+  uploadBytes, 
+  getDownloadURL 
+} from "firebase/storage";
 import { toast } from "sonner";
 
 // Configuration Firebase - With updated API key and project ID
@@ -29,6 +44,61 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
 
+// Initialisation des collections par défaut pour un nouvel utilisateur
+const initializeUserCollections = async (userId: string, displayName: string, email: string) => {
+  try {
+    // Create default settings
+    const defaultSettings = {
+      theme: 'system',
+      language: 'fr',
+      notificationsEnabled: true,
+      soundEnabled: true,
+      focusMode: false,
+      clockFormat: '24h',
+      privacy: {
+        shareActivity: false,
+        publicProfile: false,
+        dataCollection: true,
+      }
+    };
+    
+    // Create default user profile
+    const userProfile = {
+      displayName,
+      email,
+      bio: '',
+      createdAt: new Date().toISOString(),
+      lastActive: new Date().toISOString(),
+    };
+    
+    // Create batch writes for initial user data
+    await setDoc(doc(db, "userSettings", userId), defaultSettings);
+    await setDoc(doc(db, "userProfiles", userId), userProfile);
+    
+    // Create empty collections for user data
+    const emptyCollections = [
+      "tasks", 
+      "habits", 
+      "goals", 
+      "journalEntries", 
+      "focusSessions"
+    ];
+    
+    for (const collectionName of emptyCollections) {
+      // Just create a sample document that will be a placeholder
+      // In a real app, you might want to create specific schemas for each collection
+      await setDoc(doc(db, `users/${userId}/${collectionName}/placeholder`), {
+        isPlaceholder: true,
+        createdAt: new Date().toISOString()
+      });
+    }
+    
+    console.log("User collections initialized successfully");
+  } catch (error) {
+    console.error("Error initializing user collections:", error);
+  }
+};
+
 // Services d'authentification
 export const registerUser = async (email: string, password: string, displayName: string) => {
   try {
@@ -39,6 +109,9 @@ export const registerUser = async (email: string, password: string, displayName:
       await updateProfile(userCredential.user, {
         displayName: displayName
       });
+      
+      // Initialize collections for the new user
+      await initializeUserCollections(userCredential.user.uid, displayName, email);
       
       toast.success("Compte créé avec succès!");
       return userCredential.user;
@@ -62,6 +135,13 @@ export const registerUser = async (email: string, password: string, displayName:
 export const loginUser = async (email: string, password: string) => {
   try {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    
+    // Update last active timestamp
+    if (userCredential.user) {
+      const userProfileRef = doc(db, "userProfiles", userCredential.user.uid);
+      await setDoc(userProfileRef, { lastActive: new Date().toISOString() }, { merge: true });
+    }
+    
     toast.success("Connexion réussie!");
     return userCredential.user;
   } catch (error: any) {
@@ -80,6 +160,12 @@ export const loginUser = async (email: string, password: string) => {
 
 export const logoutUser = async () => {
   try {
+    // Update last active timestamp before logout
+    if (auth.currentUser) {
+      const userProfileRef = doc(db, "userProfiles", auth.currentUser.uid);
+      await setDoc(userProfileRef, { lastActive: new Date().toISOString() }, { merge: true });
+    }
+    
     await signOut(auth);
     toast.success("Déconnexion réussie");
     return true;
@@ -105,6 +191,90 @@ export const resetPassword = async (email: string) => {
     
     toast.error(message);
     throw new Error(message);
+  }
+};
+
+// Profile management
+export const updateUserProfile = async (user: User, updates: any) => {
+  try {
+    // Update auth profile
+    await updateProfile(user, {
+      displayName: updates.displayName || user.displayName,
+      photoURL: updates.photoURL || user.photoURL
+    });
+    
+    // Update Firestore profile
+    const userProfileRef = doc(db, "userProfiles", user.uid);
+    await setDoc(userProfileRef, { 
+      ...updates,
+      updatedAt: new Date().toISOString() 
+    }, { merge: true });
+    
+    return true;
+  } catch (error) {
+    console.error("Error updating profile:", error);
+    throw error;
+  }
+};
+
+// File upload helpers
+export const uploadProfileImage = async (user: User, file: File): Promise<string> => {
+  try {
+    // Create a reference to the user's profile image
+    const fileRef = storageRef(storage, `profile_images/${user.uid}/${Date.now()}_${file.name}`);
+    
+    // Validate file type and size before upload
+    if (!file.type.match('image.*')) {
+      throw new Error('Le fichier doit être une image');
+    }
+    
+    if (file.size > 5 * 1024 * 1024) { // 5MB max
+      throw new Error('La taille de l\'image ne doit pas dépasser 5MB');
+    }
+    
+    // Upload file
+    await uploadBytes(fileRef, file);
+    
+    // Get download URL
+    const downloadURL = await getDownloadURL(fileRef);
+    
+    // Update user profile with the new photo URL
+    await updateProfile(user, {
+      photoURL: downloadURL
+    });
+    
+    // Update the Firestore profile as well
+    const userProfileRef = doc(db, "userProfiles", user.uid);
+    await setDoc(userProfileRef, { 
+      photoURL: downloadURL,
+      updatedAt: new Date().toISOString() 
+    }, { merge: true });
+    
+    return downloadURL;
+  } catch (error) {
+    console.error("Error uploading image:", error);
+    throw error;
+  }
+};
+
+// Firestore helpers
+export const getUserData = async (userId: string, collectionName: string) => {
+  try {
+    const q = query(collection(db, `users/${userId}/${collectionName}`), where("isPlaceholder", "!=", true));
+    const querySnapshot = await getDocs(q);
+    
+    const data: any[] = [];
+    querySnapshot.forEach((doc) => {
+      data.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+    
+    return data;
+  } catch (error) {
+    console.error(`Error getting ${collectionName}:`, error);
+    throw error;
   }
 };
 

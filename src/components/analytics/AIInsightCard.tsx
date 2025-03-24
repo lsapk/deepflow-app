@@ -1,197 +1,252 @@
 
-import React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { BrainCircuit, Trophy, TrendingUp, AlertTriangle, Lightbulb, Star, ArrowUp, ArrowDown, Clock, Target, Calendar } from 'lucide-react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Sparkles, TrendingUp, TrendingDown, ArrowRight, Calendar, Target, Brain } from 'lucide-react';
+import { motion } from "framer-motion";
+import { useAuth } from '@/contexts/AuthContext';
+import { formatDistanceToNow } from 'date-fns';
+import { fr } from 'date-fns/locale';
 
 interface AIInsightProps {
-  type: 'success' | 'warning' | 'info' | 'improvement';
-  title: string;
-  description: string;
-  icon?: React.ReactNode;
-  data?: {
-    label: string;
-    value: string | number;
-    trend?: 'up' | 'down' | 'neutral';
-    trendValue?: string | number;
-  }[];
-  actionLabel?: string;
-  onAction?: () => void;
+  title?: string;
+  description?: string;
+  type?: 'productivity' | 'habits' | 'goals' | 'general';
+  data?: any;
 }
 
-const getTypeStyles = (type: AIInsightProps['type']) => {
-  switch (type) {
-    case 'success':
-      return {
-        bgColor: 'bg-green-50 dark:bg-green-950/30',
-        borderColor: 'border-green-100 dark:border-green-900',
-        textColor: 'text-green-800 dark:text-green-300',
-        icon: <Trophy className="mr-2 h-5 w-5" />
-      };
-    case 'warning':
-      return {
-        bgColor: 'bg-amber-50 dark:bg-amber-950/30',
-        borderColor: 'border-amber-100 dark:border-amber-900',
-        textColor: 'text-amber-800 dark:text-amber-300',
-        icon: <AlertTriangle className="mr-2 h-5 w-5" />
-      };
-    case 'improvement':
-      return {
-        bgColor: 'bg-blue-50 dark:bg-blue-950/30',
-        borderColor: 'border-blue-100 dark:border-blue-900',
-        textColor: 'text-blue-800 dark:text-blue-300',
-        icon: <TrendingUp className="mr-2 h-5 w-5" />
-      };
-    case 'info':
-    default:
-      return {
-        bgColor: 'bg-indigo-50 dark:bg-indigo-950/30',
-        borderColor: 'border-indigo-100 dark:border-indigo-900',
-        textColor: 'text-indigo-800 dark:text-indigo-300',
-        icon: <Lightbulb className="mr-2 h-5 w-5" />
-      };
-  }
-};
+export const AIInsightCard = ({ 
+  title = "Analyse IA",
+  description = "Voici quelques analyses basées sur vos données récentes",
+  type = 'general',
+  data 
+}: AIInsightProps) => {
+  const { currentUser } = useAuth();
+  const [showAll, setShowAll] = useState(false);
+  const [insights, setInsights] = useState<InsightItem[]>([]);
+  const [lastUpdated, setLastUpdated] = useState(new Date());
 
-export const AIInsightCard = ({ type, title, description, icon, data, actionLabel, onAction }: AIInsightProps) => {
-  const styles = getTypeStyles(type);
+  interface InsightItem {
+    id: string;
+    text: string;
+    category: string;
+    trend?: 'up' | 'down' | 'neutral';
+    value?: number;
+    recommendation?: string;
+    priority: 'high' | 'medium' | 'low';
+  }
+
+  // Generate insights based on type and user data
+  useEffect(() => {
+    if (!currentUser) return;
+
+    // In a real app, this would come from an API call or database
+    // For now, we'll use mock data based on the insight type
+    generateInsights();
+    
+    // Set last updated to current time
+    setLastUpdated(new Date());
+  }, [currentUser, type, data]);
+
+  const generateInsights = () => {
+    // Simulate loading insights from user data
+    // In a real implementation, this would come from analyzing user data
+    
+    const mockInsights: InsightItem[] = [];
+    
+    if (type === 'productivity' || type === 'general') {
+      mockInsights.push({
+        id: '1',
+        text: 'Votre productivité a augmenté de 15% cette semaine',
+        category: 'Productivité',
+        trend: 'up',
+        value: 15,
+        recommendation: 'Continuez avec vos sessions de focus quotidiennes',
+        priority: 'high'
+      });
+    }
+    
+    if (type === 'habits' || type === 'general') {
+      mockInsights.push({
+        id: '2',
+        text: 'Vous avez maintenu votre habitude de lecture pendant 7 jours consécutifs',
+        category: 'Habitudes',
+        trend: 'up',
+        value: 7,
+        recommendation: 'Essayez d\'augmenter légèrement votre durée de lecture',
+        priority: 'medium'
+      });
+    }
+    
+    if (type === 'goals' || type === 'general') {
+      mockInsights.push({
+        id: '3',
+        text: 'Vous êtes à 60% de votre objectif mensuel principal',
+        category: 'Objectifs',
+        trend: 'neutral',
+        value: 60,
+        recommendation: 'Concentrez-vous sur les tâches à forte valeur pour progresser plus rapidement',
+        priority: 'high'
+      });
+    }
+    
+    if (type === 'general') {
+      mockInsights.push({
+        id: '4',
+        text: 'Votre temps de sommeil moyen a diminué de 30 minutes',
+        category: 'Bien-être',
+        trend: 'down',
+        value: 30,
+        recommendation: 'Essayez de vous coucher 30 minutes plus tôt',
+        priority: 'medium'
+      });
+    }
+    
+    setInsights(mockInsights);
+  };
+
+  const getTrendIcon = (trend?: 'up' | 'down' | 'neutral') => {
+    switch(trend) {
+      case 'up':
+        return <TrendingUp className="h-4 w-4 text-green-500" />;
+      case 'down':
+        return <TrendingDown className="h-4 w-4 text-red-500" />;
+      default:
+        return null;
+    }
+  };
   
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-    >
-      <Card className={`${styles.bgColor} border ${styles.borderColor} overflow-hidden`}>
+  const getPriorityColor = (priority: string) => {
+    switch(priority) {
+      case 'high':
+        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
+      case 'medium':
+        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
+      case 'low':
+        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
+      default:
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
+    }
+  };
+
+  const getCategoryIcon = (category: string) => {
+    switch(category.toLowerCase()) {
+      case 'productivité':
+        return <Target className="h-4 w-4 mr-1" />;
+      case 'habitudes':
+        return <Calendar className="h-4 w-4 mr-1" />;
+      case 'objectifs':
+        return <Target className="h-4 w-4 mr-1" />;
+      case 'bien-être':
+        return <Brain className="h-4 w-4 mr-1" />;
+      default:
+        return <Sparkles className="h-4 w-4 mr-1" />;
+    }
+  };
+
+  // Display placeholder for new users with no data
+  if (insights.length === 0) {
+    return (
+      <Card>
         <CardHeader className="pb-2">
-          <CardTitle className={`text-lg flex items-center ${styles.textColor}`}>
-            {icon || styles.icon}
+          <CardTitle className="text-xl flex items-center">
+            <Sparkles className="h-5 w-5 mr-2 text-primary" />
             {title}
           </CardTitle>
+          <CardDescription>{description}</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-gray-700 dark:text-gray-300 mb-3">{description}</p>
-          
-          {data && data.length > 0 && (
-            <div className="mt-4 space-y-2">
-              {data.map((item, index) => (
-                <div key={index} className="flex items-center justify-between p-2 bg-white/40 dark:bg-gray-800/40 rounded-md">
-                  <span className="text-sm font-medium">{item.label}</span>
-                  <div className="flex items-center">
-                    <span className="font-bold mr-2">{item.value}</span>
-                    {item.trend && (
-                      <span className={`flex items-center text-xs ${
-                        item.trend === 'up' ? 'text-green-600 dark:text-green-400' : 
-                        item.trend === 'down' ? 'text-red-600 dark:text-red-400' : 
-                        'text-gray-500'
-                      }`}>
-                        {item.trend === 'up' && <ArrowUp className="h-3 w-3 mr-1" />}
-                        {item.trend === 'down' && <ArrowDown className="h-3 w-3 mr-1" />}
-                        {item.trendValue && item.trendValue}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-          
-          {actionLabel && onAction && (
-            <button 
-              onClick={onAction}
-              className={`mt-4 px-4 py-2 rounded-md text-sm font-medium text-white 
-                ${type === 'success' ? 'bg-green-600 hover:bg-green-700' : 
-                  type === 'warning' ? 'bg-amber-600 hover:bg-amber-700' : 
-                  type === 'improvement' ? 'bg-blue-600 hover:bg-blue-700' : 
-                  'bg-indigo-600 hover:bg-indigo-700'}`}
-            >
-              {actionLabel}
-            </button>
-          )}
+          <div className="flex flex-col items-center justify-center py-6 text-center">
+            <Brain className="h-12 w-12 text-gray-300 dark:text-gray-600 mb-3" />
+            <h3 className="text-lg font-medium mb-2">Pas encore d'analyses disponibles</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs">
+              Continuez à utiliser DeepFlow pour recevoir des analyses personnalisées et des recommandations basées sur vos données.
+            </p>
+          </div>
         </CardContent>
       </Card>
-    </motion.div>
-  );
-};
+    );
+  }
 
-export const AIAnalysisSection = () => {
-  const currentDate = new Date();
-  const formattedDate = new Intl.DateTimeFormat('fr-FR', { 
-    weekday: 'long', 
-    day: 'numeric',
-    month: 'long'
-  }).format(currentDate);
-  
-  // Capitalize first letter
-  const capitalizedDate = formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1);
-  
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col space-y-2 mb-6">
-        <div className="flex items-center space-x-2">
-          <BrainCircuit className="h-6 w-6 text-purple-600" />
-          <h2 className="text-2xl font-bold">Analyse IA de vos performances</h2>
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-xl flex items-center">
+          <Sparkles className="h-5 w-5 mr-2 text-primary" />
+          {title}
+        </CardTitle>
+        <CardDescription className="flex justify-between items-center">
+          <span>{description}</span>
+          <Badge variant="outline" className="text-xs">
+            Mis à jour {formatDistanceToNow(lastUpdated, { addSuffix: true, locale: fr })}
+          </Badge>
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="pb-2">
+        <div className="space-y-4">
+          {insights.slice(0, showAll ? insights.length : 2).map((insight, index) => (
+            <motion.div 
+              key={insight.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.1 }}
+              className="rounded-md border p-3 shadow-sm"
+            >
+              <div className="flex justify-between items-start mb-2">
+                <div className="flex items-center">
+                  {getCategoryIcon(insight.category)}
+                  <span className="text-sm font-medium">{insight.category}</span>
+                </div>
+                <Badge className={`text-xs ${getPriorityColor(insight.priority)}`}>
+                  {insight.priority === 'high' ? 'Haute' : insight.priority === 'medium' ? 'Moyenne' : 'Basse'}
+                </Badge>
+              </div>
+              
+              <p className="text-sm mb-2">{insight.text}</p>
+              
+              {insight.trend && (
+                <div className="flex items-center text-sm mb-2">
+                  {getTrendIcon(insight.trend)}
+                  <span className={`ml-1 ${
+                    insight.trend === 'up' ? 'text-green-600 dark:text-green-400' : 
+                    insight.trend === 'down' ? 'text-red-600 dark:text-red-400' : ''
+                  }`}>
+                    {insight.value && `${insight.value}%`}
+                  </span>
+                </div>
+              )}
+              
+              {insight.recommendation && (
+                <>
+                  <Separator className="my-2" />
+                  <div className="text-xs text-gray-500 dark:text-gray-400 italic mt-1">
+                    Conseil: {insight.recommendation}
+                  </div>
+                </>
+              )}
+            </motion.div>
+          ))}
+          
+          {insights.length > 2 && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="w-full" 
+              onClick={() => setShowAll(!showAll)}
+            >
+              {showAll ? "Afficher moins" : "Afficher plus"}
+            </Button>
+          )}
         </div>
-        <p className="text-muted-foreground">Analyse personnalisée pour {capitalizedDate}</p>
-      </div>
-      
-      <AIInsightCard
-        type="success"
-        title="Performance optimale"
-        description="Vos meilleures performances sont enregistrées le matin entre 9h et 11h. Essayez de planifier vos tâches les plus importantes durant cette période."
-        data={[
-          { label: "Productivité matinale", value: "87%", trend: "up", trendValue: "+12%" },
-          { label: "Tâches complétées", value: "23", trend: "up", trendValue: "+5" }
-        ]}
-        actionLabel="Planifier demain"
-        onAction={() => window.location.href = '/planning'}
-      />
-      
-      <AIInsightCard
-        type="improvement"
-        title="Habitudes les plus constantes"
-        description="Les habitudes liées à la santé montrent la meilleure progression. Vous avez maintenu une régularité de 87% ce mois-ci."
-        icon={<Star className="mr-2 h-5 w-5" />}
-        data={[
-          { label: "Méditation quotidienne", value: "92%", trend: "up", trendValue: "+8%" },
-          { label: "Exercice physique", value: "78%", trend: "up", trendValue: "+15%" }
-        ]}
-      />
-      
-      <AIInsightCard
-        type="warning"
-        title="Objectifs à risque"
-        description="Deux de vos objectifs professionnels sont en retard par rapport au planning prévu. Envisagez de réajuster vos priorités cette semaine."
-        icon={<Target className="mr-2 h-5 w-5" />}
-        data={[
-          { label: "Projet Alpha", value: "65%", trend: "down", trendValue: "-10%" },
-          { label: "Apprentissage JS", value: "42%", trend: "down", trendValue: "-5%" }
-        ]}
-        actionLabel="Ajuster objectifs"
-        onAction={() => window.location.href = '/goals'}
-      />
-      
-      <AIInsightCard
-        type="info"
-        title="Suggestion d'organisation"
-        description="Vous semblez plus productif lorsque vous regroupez des tâches similaires. Essayez la technique du 'time blocking' pour optimiser votre flux de travail."
-        icon={<Clock className="mr-2 h-5 w-5" />}
-        actionLabel="Appliquer à mon planning"
-        onAction={() => window.location.href = '/planning'}
-      />
-      
-      <AIInsightCard
-        type="improvement"
-        title="Évènements importants à venir"
-        description="L'IA a identifié ces évènements comme prioritaires dans votre calendrier pour les 7 prochains jours."
-        icon={<Calendar className="mr-2 h-5 w-5" />}
-        data={[
-          { label: "Réunion d'équipe", value: "Demain, 14h00" },
-          { label: "Échéance rapport", value: "Vendredi, 18h00" }
-        ]}
-        actionLabel="Voir mon calendrier"
-        onAction={() => window.location.href = '/planning'}
-      />
-    </div>
+      </CardContent>
+      <CardFooter>
+        <Button variant="outline" size="sm" className="w-full">
+          <span>Analyse complète</span>
+          <ArrowRight className="h-4 w-4 ml-2" />
+        </Button>
+      </CardFooter>
+    </Card>
   );
 };

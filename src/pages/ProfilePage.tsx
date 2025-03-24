@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,15 +11,28 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { updateProfile, updateEmail, updatePassword, User } from 'firebase/auth';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { Bell, Camera, CheckCircle, Key, User as UserIcon, Mail, Shield } from 'lucide-react';
+import { UpdateData, User, updateEmail, updatePassword } from 'firebase/auth';
+import { db, uploadProfileImage, updateUserProfile } from '@/services/firebase';
+import { Bell, Camera, CheckCircle, Key, User as UserIcon, Mail, Shield, Loader2, AlertCircle } from 'lucide-react';
+import { doc, getDoc } from 'firebase/firestore';
+
+interface UserProfile {
+  displayName: string;
+  email: string;
+  photoURL?: string;
+  bio: string;
+  createdAt: string;
+  lastActive: string;
+}
 
 const ProfilePage = () => {
   const { currentUser } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
-  const [photoURL, setPhotoURL] = useState(currentUser?.photoURL || '');
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const [photoURL, setPhotoURL] = useState<string | null>(currentUser?.photoURL || '');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [fileUploading, setFileUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   const [profileData, setProfileData] = useState({
     displayName: currentUser?.displayName || '',
@@ -29,6 +42,43 @@ const ProfilePage = () => {
     newPassword: '',
     confirmPassword: '',
   });
+
+  // Load user profile data
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      if (!currentUser) return;
+      
+      try {
+        setIsLoadingProfile(true);
+        setError(null);
+        
+        const userProfileRef = doc(db, "userProfiles", currentUser.uid);
+        const userProfileDoc = await getDoc(userProfileRef);
+        
+        if (userProfileDoc.exists()) {
+          const profileData = userProfileDoc.data() as UserProfile;
+          setProfileData(prev => ({
+            ...prev,
+            displayName: profileData.displayName || currentUser.displayName || '',
+            email: profileData.email || currentUser.email || '',
+            bio: profileData.bio || '',
+          }));
+          
+          if (profileData.photoURL) {
+            setPhotoURL(profileData.photoURL);
+          }
+        }
+      } catch (err) {
+        console.error("Error loading profile:", err);
+        setError("Erreur lors du chargement du profil");
+        toast.error("Erreur lors du chargement du profil");
+      } finally {
+        setIsLoadingProfile(false);
+      }
+    };
+    
+    loadUserProfile();
+  }, [currentUser]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -40,15 +90,18 @@ const ProfilePage = () => {
     if (!currentUser) return;
     
     setIsLoading(true);
+    setError(null);
+    
     try {
-      await updateProfile(currentUser, {
+      await updateUserProfile(currentUser, {
         displayName: profileData.displayName,
-        photoURL: photoURL
+        bio: profileData.bio
       });
       
       toast.success("Profil mis à jour avec succès");
     } catch (error) {
       console.error("Error updating profile:", error);
+      setError("Erreur lors de la mise à jour du profil");
       toast.error("Erreur lors de la mise à jour du profil");
     } finally {
       setIsLoading(false);
@@ -60,12 +113,31 @@ const ProfilePage = () => {
     if (!currentUser) return;
     
     setIsLoading(true);
+    setError(null);
+    
     try {
       await updateEmail(currentUser, profileData.email);
+      
+      // Also update in Firestore
+      await updateUserProfile(currentUser, {
+        email: profileData.email
+      });
+      
       toast.success("Email mis à jour avec succès");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating email:", error);
-      toast.error("Erreur lors de la mise à jour de l'email");
+      let errorMessage = "Erreur lors de la mise à jour de l'email";
+      
+      if (error.code === 'auth/requires-recent-login') {
+        errorMessage = "Pour des raisons de sécurité, veuillez vous reconnecter avant de modifier votre email";
+      } else if (error.code === 'auth/email-already-in-use') {
+        errorMessage = "Cet email est déjà utilisé par un autre compte";
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = "L'email fourni n'est pas valide";
+      }
+      
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -77,10 +149,19 @@ const ProfilePage = () => {
     
     if (profileData.newPassword !== profileData.confirmPassword) {
       toast.error("Les mots de passe ne correspondent pas");
+      setError("Les mots de passe ne correspondent pas");
+      return;
+    }
+    
+    if (profileData.newPassword.length < 6) {
+      toast.error("Le mot de passe doit contenir au moins 6 caractères");
+      setError("Le mot de passe doit contenir au moins 6 caractères");
       return;
     }
     
     setIsLoading(true);
+    setError(null);
+    
     try {
       await updatePassword(currentUser, profileData.newPassword);
       setProfileData(prev => ({
@@ -90,9 +171,16 @@ const ProfilePage = () => {
         confirmPassword: '',
       }));
       toast.success("Mot de passe mis à jour avec succès");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating password:", error);
-      toast.error("Erreur lors de la mise à jour du mot de passe");
+      let errorMessage = "Erreur lors de la mise à jour du mot de passe";
+      
+      if (error.code === 'auth/requires-recent-login') {
+        errorMessage = "Pour des raisons de sécurité, veuillez vous reconnecter avant de modifier votre mot de passe";
+      }
+      
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -106,25 +194,22 @@ const ProfilePage = () => {
     const file = e.target.files?.[0];
     if (!file || !currentUser) return;
 
-    setIsLoading(true);
+    setFileUploading(true);
+    setError(null);
+    
     try {
-      const storage = getStorage();
-      const storageRef = ref(storage, `profile_photos/${currentUser.uid}`);
+      // Use the improved upload function from firebase.ts
+      const downloadURL = await uploadProfileImage(currentUser, file);
       
-      await uploadBytes(storageRef, file);
-      const downloadURL = await getDownloadURL(storageRef);
-      
+      // Update state with new photo URL
       setPhotoURL(downloadURL);
-      await updateProfile(currentUser, {
-        photoURL: downloadURL
-      });
-      
       toast.success("Photo de profil mise à jour avec succès");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error uploading profile photo:", error);
-      toast.error("Erreur lors de l'upload de la photo de profil");
+      setError(error.message || "Erreur lors de l'upload de la photo de profil");
+      toast.error(error.message || "Erreur lors de l'upload de la photo de profil");
     } finally {
-      setIsLoading(false);
+      setFileUploading(false);
     }
   };
 
@@ -137,6 +222,17 @@ const ProfilePage = () => {
       .toUpperCase();
   };
 
+  if (isLoadingProfile) {
+    return (
+      <MainLayout>
+        <div className="min-h-[60vh] flex flex-col items-center justify-center">
+          <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+          <p className="text-gray-500 dark:text-gray-400">Chargement du profil...</p>
+        </div>
+      </MainLayout>
+    );
+  }
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -147,15 +243,43 @@ const ProfilePage = () => {
           </p>
         </div>
 
+        {error && (
+          <Card className="border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-900">
+            <CardContent className="pt-6">
+              <div className="flex items-start">
+                <AlertCircle className="h-5 w-5 text-red-500 mr-3 mt-0.5" />
+                <div>
+                  <h3 className="font-medium text-red-800 dark:text-red-300">Une erreur est survenue</h3>
+                  <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <Card className="md:col-span-1">
             <CardContent className="pt-6 flex flex-col items-center">
               <div className="relative mb-4">
                 <Avatar className="w-24 h-24 cursor-pointer" onClick={handleAvatarClick}>
-                  <AvatarImage src={photoURL || undefined} alt={currentUser?.displayName || 'Utilisateur'} />
-                  <AvatarFallback className="text-lg">{getInitials(currentUser?.displayName)}</AvatarFallback>
+                  {fileUploading ? (
+                    <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-700">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    </div>
+                  ) : (
+                    <>
+                      <AvatarImage src={photoURL || undefined} alt={currentUser?.displayName || 'Utilisateur'} />
+                      <AvatarFallback className="text-lg">{getInitials(currentUser?.displayName)}</AvatarFallback>
+                    </>
+                  )}
                 </Avatar>
-                <Button size="icon" variant="secondary" className="absolute bottom-0 right-0 rounded-full w-8 h-8" onClick={handleAvatarClick}>
+                <Button 
+                  size="icon" 
+                  variant="secondary" 
+                  className="absolute bottom-0 right-0 rounded-full w-8 h-8" 
+                  onClick={handleAvatarClick}
+                  disabled={fileUploading}
+                >
                   <Camera className="h-4 w-4" />
                 </Button>
                 <input 
@@ -164,6 +288,7 @@ const ProfilePage = () => {
                   className="hidden" 
                   accept="image/*" 
                   onChange={handleFileChange}
+                  disabled={fileUploading}
                 />
               </div>
               
@@ -251,9 +376,16 @@ const ProfilePage = () => {
                       </div>
                     </CardContent>
                     <CardFooter className="flex justify-between">
-                      <Button variant="outline">Annuler</Button>
+                      <Button type="button" variant="outline">Annuler</Button>
                       <Button type="submit" disabled={isLoading}>
-                        {isLoading ? 'Enregistrement...' : 'Enregistrer les modifications'}
+                        {isLoading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Enregistrement...
+                          </>
+                        ) : (
+                          'Enregistrer les modifications'
+                        )}
                       </Button>
                     </CardFooter>
                   </form>
@@ -289,9 +421,16 @@ const ProfilePage = () => {
                       </div>
                     </CardContent>
                     <CardFooter className="flex justify-between">
-                      <Button variant="outline">Annuler</Button>
+                      <Button type="button" variant="outline">Annuler</Button>
                       <Button type="submit" disabled={isLoading}>
-                        {isLoading ? 'Mise à jour...' : 'Mettre à jour l\'email'}
+                        {isLoading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Mise à jour...
+                          </>
+                        ) : (
+                          'Mettre à jour l\'email'
+                        )}
                       </Button>
                     </CardFooter>
                   </form>
@@ -352,9 +491,16 @@ const ProfilePage = () => {
                       </div>
                     </CardContent>
                     <CardFooter className="flex justify-between">
-                      <Button variant="outline">Annuler</Button>
+                      <Button type="button" variant="outline">Annuler</Button>
                       <Button type="submit" disabled={isLoading}>
-                        {isLoading ? 'Mise à jour...' : 'Mettre à jour le mot de passe'}
+                        {isLoading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Mise à jour...
+                          </>
+                        ) : (
+                          'Mettre à jour le mot de passe'
+                        )}
                       </Button>
                     </CardFooter>
                   </form>

@@ -13,11 +13,15 @@ import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '@/services/firebase';
 import { toast } from 'sonner';
 import { 
+  AlertCircle,
   BellRing,
   Clock,
+  Download,
   Languages,
+  Loader2,
   Moon,
   Palette,
+  RefreshCw,
   Save,
   ShieldCheck,
   Sun,
@@ -57,6 +61,8 @@ const SettingsPage = () => {
   const { currentUser } = useAuth();
   const [settings, setSettings] = useState<UserSettings>(defaultSettings);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [saveChanges, setSaveChanges] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState('appearance');
 
@@ -67,6 +73,7 @@ const SettingsPage = () => {
       
       try {
         setLoading(true);
+        setError(null);
         const userSettingsRef = doc(db, "userSettings", currentUser.uid);
         const userSettingsDoc = await getDoc(userSettingsRef);
         
@@ -78,6 +85,7 @@ const SettingsPage = () => {
         }
       } catch (error) {
         console.error("Error fetching settings:", error);
+        setError("Erreur lors du chargement des paramètres");
         toast.error("Erreur lors du chargement des paramètres");
       } finally {
         setLoading(false);
@@ -91,12 +99,13 @@ const SettingsPage = () => {
     setSettings({...settings, theme: value});
     setSaveChanges(true);
     
+    // Apply theme change immediately
     if (value === 'light') {
       document.documentElement.classList.remove('dark');
     } else if (value === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
-      // Système - détecter automatiquement
+      // System - auto-detect
       if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
         document.documentElement.classList.add('dark');
       } else {
@@ -145,20 +154,49 @@ const SettingsPage = () => {
     if (!currentUser) return;
     
     try {
+      setSaving(true);
+      setError(null);
       const userSettingsRef = doc(db, "userSettings", currentUser.uid);
       await setDoc(userSettingsRef, settings);
       toast.success("Paramètres enregistrés avec succès");
       setSaveChanges(false);
     } catch (error) {
       console.error("Error saving settings:", error);
+      setError("Erreur lors de l'enregistrement des paramètres");
       toast.error("Erreur lors de l'enregistrement des paramètres");
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleResetSettings = () => {
-    setSettings(defaultSettings);
-    toast.success("Paramètres réinitialisés");
-    setSaveChanges(true);
+  const handleResetSettings = async () => {
+    if (!currentUser) return;
+    
+    try {
+      setSaving(true);
+      setError(null);
+      setSettings(defaultSettings);
+      
+      // Also save the default settings to the database
+      const userSettingsRef = doc(db, "userSettings", currentUser.uid);
+      await setDoc(userSettingsRef, defaultSettings);
+      
+      toast.success("Paramètres réinitialisés");
+      setSaveChanges(false);
+      
+      // Apply default theme
+      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    } catch (error) {
+      console.error("Error resetting settings:", error);
+      setError("Erreur lors de la réinitialisation des paramètres");
+      toast.error("Erreur lors de la réinitialisation des paramètres");
+    } finally {
+      setSaving(false);
+    }
   };
   
   const handleTabChange = (value: string) => {
@@ -168,8 +206,25 @@ const SettingsPage = () => {
   if (loading) {
     return (
       <MainLayout>
-        <div className="min-h-[60vh] flex items-center justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+        <div className="min-h-[60vh] flex flex-col items-center justify-center">
+          <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+          <p className="text-gray-500 dark:text-gray-400">Chargement de vos paramètres...</p>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (error && !currentUser) {
+    return (
+      <MainLayout>
+        <div className="min-h-[60vh] flex flex-col items-center justify-center">
+          <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+          <h2 className="text-xl font-semibold mb-2">Erreur de chargement</h2>
+          <p className="text-gray-500 dark:text-gray-400 mb-4">{error}</p>
+          <Button onClick={() => window.location.reload()} variant="outline">
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Réessayer
+          </Button>
         </div>
       </MainLayout>
     );
@@ -184,6 +239,20 @@ const SettingsPage = () => {
             Personnalisez votre expérience DeepFlow
           </p>
         </div>
+
+        {error && (
+          <Card className="border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-900">
+            <CardContent className="pt-6">
+              <div className="flex items-start">
+                <AlertCircle className="h-5 w-5 text-red-500 mr-3 mt-0.5" />
+                <div>
+                  <h3 className="font-medium text-red-800 dark:text-red-300">Une erreur est survenue</h3>
+                  <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <Card className="md:col-span-1">
@@ -533,11 +602,26 @@ const SettingsPage = () => {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="flex flex-col sm:flex-row gap-4">
-                      <Button variant="outline" onClick={() => toast.success("Données exportées")}>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => toast.success("Données exportées")}
+                        className="flex items-center"
+                      >
+                        <Download className="mr-2 h-4 w-4" />
                         Exporter les données
                       </Button>
                       
-                      <Button variant="outline" onClick={handleResetSettings}>
+                      <Button 
+                        variant="outline" 
+                        onClick={handleResetSettings}
+                        disabled={saving}
+                        className="flex items-center"
+                      >
+                        {saving ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <RefreshCw className="mr-2 h-4 w-4" />
+                        )}
                         Réinitialiser les paramètres
                       </Button>
                     </div>
@@ -548,8 +632,16 @@ const SettingsPage = () => {
             
             {saveChanges && (
               <div className="mt-6 flex justify-end">
-                <Button onClick={handleSaveSettings}>
-                  <Save className="mr-2 h-4 w-4" />
+                <Button 
+                  onClick={handleSaveSettings} 
+                  disabled={saving}
+                  className="flex items-center"
+                >
+                  {saving ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="mr-2 h-4 w-4" />
+                  )}
                   Enregistrer les modifications
                 </Button>
               </div>

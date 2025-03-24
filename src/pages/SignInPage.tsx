@@ -7,6 +7,7 @@ import { Logo } from '@/components/common/Logo';
 const SignInPage = () => {
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
+      {/* Left side (illustration) - hidden on mobile */}
       <div className="hidden md:flex md:w-1/2 bg-gradient-to-br from-blue-600 to-purple-600 text-white p-8 flex-col items-center justify-center">
         <motion.div 
           initial={{ opacity: 0 }}
@@ -37,11 +38,33 @@ const SignInPage = () => {
         </motion.div>
       </div>
       
+      {/* Right side (form) */}
       <div className="w-full md:w-1/2 flex items-center justify-center p-4 md:p-8">
         <div className="w-full max-w-md">
+          {/* Mobile logo */}
           <div className="md:hidden flex justify-center mb-8 w-full">
             <Logo size="lg" textColor="text-primary" />
           </div>
+          
+          {/* Mobile-only testimonial */}
+          <motion.div 
+            className="md:hidden mb-8 bg-gradient-to-br from-blue-600 to-purple-600 text-white p-4 rounded-lg"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <p className="italic text-sm mb-3">
+              "DeepFlow m'a permis de mieux organiser mon temps et d'atteindre mes objectifs plus rapidement."
+            </p>
+            <div className="flex items-center">
+              <div className="w-6 h-6 rounded-full bg-white/20 mr-2"></div>
+              <div>
+                <h4 className="font-medium text-xs">Sophie Martin</h4>
+                <p className="text-xs text-white/60">Coach professionnelle</p>
+              </div>
+            </div>
+          </motion.div>
+          
           <SignInForm />
         </div>
       </div>

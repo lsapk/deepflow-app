@@ -28,6 +28,39 @@ export const Logo: React.FC<LogoProps> = ({
     lg: 'text-2xl'
   };
 
+  const brainVariants = {
+    hover: { scale: 1.05, rotate: 3 },
+    tap: { scale: 0.95 }
+  };
+
+  const waveVariants = {
+    initial: { opacity: 0.5, pathLength: 0 },
+    animate: { 
+      opacity: 1, 
+      pathLength: 1, 
+      transition: { 
+        duration: 1.5, 
+        ease: "easeInOut", 
+        repeat: Infinity, 
+        repeatType: "reverse",
+        repeatDelay: 0.5
+      } 
+    }
+  };
+
+  const circleVariants = {
+    initial: { scale: 0.8, opacity: 0.5 },
+    animate: { 
+      scale: 1.2, 
+      opacity: 1, 
+      transition: { 
+        duration: 1.2, 
+        repeat: Infinity, 
+        repeatType: "reverse" 
+      }
+    }
+  };
+
   return (
     <Link to="/">
       <motion.div 
@@ -35,10 +68,14 @@ export const Logo: React.FC<LogoProps> = ({
         whileHover={{ scale: 1.05 }}
         transition={{ type: 'spring', stiffness: 400, damping: 10 }}
       >
-        <div className={`relative ${logoSizes[size]}`}>
+        <motion.div 
+          className={`relative ${logoSizes[size]}`}
+          whileHover="hover"
+          whileTap="tap"
+        >
           <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-            {/* Brain shape */}
-            <path 
+            {/* Brain shape - with improved shape */}
+            <motion.path 
               d="M50,15 C35,15 20,25 20,45 C20,65 35,80 50,80 C65,80 80,65 80,45 C80,25 65,15 50,15"
               stroke="currentColor" 
               strokeWidth="6" 
@@ -46,52 +83,105 @@ export const Logo: React.FC<LogoProps> = ({
               strokeLinecap="round"
               strokeLinejoin="round"
               className="text-primary"
+              variants={brainVariants}
             />
             
-            {/* Inner Lines */}
-            <path 
+            {/* Inner Lines - more detailed */}
+            <motion.path 
               d="M50,15 C40,25 40,45 40,60" 
               stroke="currentColor" 
               strokeWidth="3" 
               fill="none" 
               strokeLinecap="round"
               className="text-primary"
+              variants={brainVariants}
             />
-            <path 
+            <motion.path 
               d="M50,15 C60,25 60,45 60,60" 
               stroke="currentColor" 
               strokeWidth="3" 
               fill="none" 
               strokeLinecap="round"
               className="text-primary"
+              variants={brainVariants}
+            />
+            <motion.path 
+              d="M35,50 C45,50 55,50 65,50" 
+              stroke="currentColor" 
+              strokeWidth="2" 
+              fill="none" 
+              strokeLinecap="round"
+              className="text-primary"
+              variants={brainVariants}
             />
             
-            {/* Waves */}
-            <path 
+            {/* Waves - animated */}
+            <motion.path 
               d="M30,85 C40,80 60,80 70,85" 
               stroke="#68D9FF" 
               strokeWidth="4" 
               fill="none" 
               strokeLinecap="round"
+              variants={waveVariants}
+              initial="initial"
+              animate="animate"
             />
-            <path 
+            <motion.path 
               d="M25,92 C40,87 60,87 75,92" 
               stroke="#3B99D9" 
               strokeWidth="4" 
               fill="none" 
               strokeLinecap="round"
+              variants={waveVariants}
+              initial="initial"
+              animate="animate"
+              transition={{ delay: 0.3 }}
             />
             
-            {/* Circles */}
-            <circle cx="70" cy="30" r="3" fill="#68D9FF" />
-            <circle cx="30" cy="30" r="3" fill="#68D9FF" />
+            {/* Circles - pulsing */}
+            <motion.circle 
+              cx="70" 
+              cy="30" 
+              r="3" 
+              fill="#68D9FF" 
+              variants={circleVariants} 
+              initial="initial" 
+              animate="animate"
+            />
+            <motion.circle 
+              cx="30" 
+              cy="30" 
+              r="3" 
+              fill="#68D9FF" 
+              variants={circleVariants} 
+              initial="initial" 
+              animate="animate"
+              transition={{ delay: 0.3 }}
+            />
+            
+            {/* Additional detail */}
+            <motion.circle 
+              cx="50" 
+              cy="35" 
+              r="2" 
+              fill="#3B99D9" 
+              variants={circleVariants} 
+              initial="initial" 
+              animate="animate"
+              transition={{ delay: 0.6 }}
+            />
           </svg>
-        </div>
+        </motion.div>
         
         {withText && (
-          <span className={`font-bold ${textSizes[size]} ${textColor}`}>
+          <motion.span 
+            className={`font-bold ${textSizes[size]} ${textColor}`}
+            initial={{ opacity: 0, x: -5 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.2 }}
+          >
             DeepFlow
-          </span>
+          </motion.span>
         )}
       </motion.div>
     </Link>
