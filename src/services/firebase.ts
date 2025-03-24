@@ -1,4 +1,3 @@
-
 import { initializeApp } from "firebase/app";
 import { 
   getAuth, 
@@ -10,6 +9,8 @@ import {
   updateProfile,
   sendPasswordResetEmail
 } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 import { toast } from "sonner";
 
 // Configuration Firebase - With updated API key and project ID
@@ -25,6 +26,8 @@ const firebaseConfig = {
 // Initialisation de Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+const db = getFirestore(app);
+const storage = getStorage(app);
 
 // Services d'authentification
 export const registerUser = async (email: string, password: string, displayName: string) => {
@@ -114,4 +117,4 @@ export const authStateListener = (callback: (user: User | null) => void) => {
   return onAuthStateChanged(auth, callback);
 };
 
-export { auth };
+export { auth, db, storage };
