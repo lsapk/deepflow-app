@@ -221,6 +221,41 @@ const ProfilePage = () => {
       .toUpperCase();
   };
 
+  const renderAvatar = () => {
+    return (
+      <div className="relative">
+        <Avatar 
+          className="h-24 w-24 cursor-pointer" 
+          onClick={handleAvatarClick}
+        >
+          {photoURL ? (
+            <AvatarImage src={photoURL} alt="Profile" />
+          ) : (
+            <AvatarFallback className="text-xl">
+              {getInitials(currentUser?.displayName)}
+            </AvatarFallback>
+          )}
+          
+          <div className="absolute bottom-0 right-0 bg-primary text-primary-foreground rounded-full p-1 shadow-md">
+            {fileUploading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Camera className="h-4 w-4" />
+            )}
+          </div>
+        </Avatar>
+        
+        <input 
+          type="file" 
+          ref={fileInputRef} 
+          accept="image/*" 
+          className="hidden" 
+          onChange={handleFileChange}
+        />
+      </div>
+    );
+  };
+
   if (isLoadingProfile) {
     return (
       <MainLayout>
