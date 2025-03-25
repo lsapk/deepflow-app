@@ -596,5 +596,4 @@ export const authStateListener = (callback: (user: User | null) => void) => {
   return onAuthStateChanged(auth, callback);
 };
 
-export { auth, db, storage, updateUserSettings };
-
+export { auth, db, storage };

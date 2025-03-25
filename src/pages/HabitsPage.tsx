@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -14,6 +15,7 @@ import {
   RotateCcw,
   Trash2,
   TrendingUp,
+  FileText, // Added the missing FileText icon import
 } from 'lucide-react';
 import {
   Dialog,
