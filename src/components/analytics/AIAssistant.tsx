@@ -8,6 +8,46 @@ import { db } from '@/services/firebase';
 import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
 import { Loader2, Mic, MicOff, Send, MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
+
+// Add SpeechRecognition interface for TypeScript
+interface SpeechRecognitionEvent extends Event {
+  results: {
+    [index: number]: {
+      [index: number]: {
+        transcript: string;
+        confidence: number;
+      };
+    };
+  };
+}
+
+// Define the SpeechRecognition interface
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  maxAlternatives: number;
+  start(): void;
+  stop(): void;
+  abort(): void;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  onerror: ((event: Event) => void) | null;
+  onend: ((event: Event) => void) | null;
+}
+
+// Declare the SpeechRecognition constructor
+interface SpeechRecognitionConstructor {
+  new (): SpeechRecognition;
+}
+
+// Make TypeScript aware of these browser APIs
+declare global {
+  interface Window {
+    SpeechRecognition?: SpeechRecognitionConstructor;
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
+  }
+}
 
 const mockResponse = (query: string) => {
   // Simulation de réponses IA basées sur des mots-clés dans la requête
@@ -28,6 +68,7 @@ const mockResponse = (query: string) => {
 
 const AIAssistant = () => {
   const { currentUser } = useAuth();
+  const navigate = useNavigate();
   const [isListening, setIsListening] = useState(false);
   const [messages, setMessages] = useState<{ role: 'user' | 'assistant', content: string }[]>([
     { role: 'assistant', content: "Bonjour ! Je suis votre assistant IA DeepFlow. Comment puis-je vous aider aujourd'hui ?" }
@@ -110,9 +151,10 @@ const AIAssistant = () => {
 
   const toggleListening = () => {
     if (!isListening) {
-      // Vérifier si le navigateur prend en charge la reconnaissance vocale
-      if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-        const SpeechRecognition = window.webkitSpeechRecognition || window.SpeechRecognition;
+      // Properly check and access the speech recognition API
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      
+      if (SpeechRecognition) {
         const recognition = new SpeechRecognition();
         recognition.lang = 'fr-FR';
         recognition.continuous = false;
@@ -125,7 +167,7 @@ const AIAssistant = () => {
         };
 
         recognition.onerror = (event) => {
-          console.error('Speech recognition error', event.error);
+          console.error('Speech recognition error', event);
           toast.error("Erreur de reconnaissance vocale");
           setIsListening(false);
         };
@@ -140,9 +182,12 @@ const AIAssistant = () => {
         toast.error("Votre navigateur ne prend pas en charge la reconnaissance vocale");
       }
     } else {
-      // Arrêter la reconnaissance vocale
-      window.webkitSpeechRecognition?.stop();
-      setIsListening(false);
+      // Properly stop speech recognition
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        // This will be handled by the onend event
+        setIsListening(false);
+      }
     }
   };
 

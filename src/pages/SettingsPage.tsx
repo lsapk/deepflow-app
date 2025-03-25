@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,6 +13,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { db, toggleDistractionBlocker, updateBlockedSites, syncGoogleCalendar } from '@/services/firebase';
 import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
+import { useNavigate } from 'react-router-dom';
 import { 
   Bell, 
   LanguagesIcon, 
@@ -76,6 +76,7 @@ const defaultSettings: UserSettings = {
 
 const SettingsPage = () => {
   const { currentUser } = useAuth();
+  const navigate = useNavigate(); // Add this line for proper navigation
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [settings, setSettings] = useState<UserSettings>(defaultSettings);
