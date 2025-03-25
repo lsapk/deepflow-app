@@ -97,14 +97,14 @@ const Index = () => {
           <div className="grid gap-4">
             <AIInsightCard
               title="Productivité optimale"
-              description="Vos sessions de travail sont plus efficaces le matin. Essayez de planifier vos tâches importantes avant midi."
+              content="Vos sessions de travail sont plus efficaces le matin. Essayez de planifier vos tâches importantes avant midi."
               type="productivity"
             />
             
             <AIInsightCard
               title="Rappel d'habitude"
-              description="Vous n'avez pas complété votre habitude 'Méditation' depuis 3 jours. Un petit moment de méditation aujourd'hui ?"
-              type="habits"
+              content="Vous n'avez pas complété votre habitude 'Méditation' depuis 3 jours. Un petit moment de méditation aujourd'hui ?"
+              type="reminder"
             />
           </div>
         </motion.div>
