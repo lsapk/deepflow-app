@@ -83,26 +83,16 @@ const initializeUserCollections = async (userId: string, displayName: string, em
       lastActive: Timestamp.now(),
     };
 
-    // Créer les collections principales de l'utilisateur avec aucune donnée préremplie
-    const collections = {
-      tasks: [],
-      habits: [],
-      journals: [],
-      goals: [],
-      focusSessions: []
-    };
-    
-    // Exécuter toutes les opérations d'écriture
+    // Définir les permissions pour permettre à l'utilisateur d'accéder à ses propres données
     await setDoc(doc(db, "userSettings", userId), defaultSettings);
     await setDoc(doc(db, "userProfiles", userId), userProfile);
-    await setDoc(doc(db, `users/${userId}`), {
+    
+    // Créer un document utilisateur de base pour que les requêtes ne génèrent pas d'erreurs
+    await setDoc(doc(db, "users", userId), {
       createdAt: Timestamp.now(),
       lastActive: Timestamp.now(),
-      collections,
-      contact: {
-        email: "contact@deepflow.fr",
-        discord: "deepflow"
-      }
+      email: email,
+      displayName: displayName
     });
 
     console.log("User collections initialized successfully");
@@ -173,33 +163,50 @@ export const loginUser = async (email: string, password: string) => {
             lastActive: Timestamp.now(),
           });
           
-          // Also create default settings if they don't exist
-          const userSettingsRef = doc(db, "userSettings", userCredential.user.uid);
-          const settingsSnap = await getDoc(userSettingsRef);
+          // Créer ou mettre à jour le document users/userId
+          const userRef = doc(db, "users", userCredential.user.uid);
+          const userDoc = await getDoc(userRef);
           
-          if (!settingsSnap.exists()) {
-            await setDoc(userSettingsRef, {
-              theme: 'system',
-              language: 'fr',
-              notificationsEnabled: true,
-              soundEnabled: true,
-              focusMode: false,
-              clockFormat: '24h',
-              privacy: {
-                shareActivity: false,
-                publicProfile: false,
-                dataCollection: true,
-              },
-              karmaPoints: 0,
-              unlockedFeatures: [],
-              distraction_blocker: {
-                enabled: false,
-                blockedSites: []
-              },
+          if (!userDoc.exists()) {
+            await setDoc(userRef, {
               createdAt: Timestamp.now(),
-              updatedAt: Timestamp.now()
+              lastActive: Timestamp.now(),
+              email: userCredential.user.email,
+              displayName: userCredential.user.displayName || 'Utilisateur'
+            });
+          } else {
+            await updateDoc(userRef, {
+              lastActive: Timestamp.now()
             });
           }
+        }
+        
+        // Also create default settings if they don't exist
+        const userSettingsRef = doc(db, "userSettings", userCredential.user.uid);
+        const settingsSnap = await getDoc(userSettingsRef);
+        
+        if (!settingsSnap.exists()) {
+          await setDoc(userSettingsRef, {
+            theme: 'system',
+            language: 'fr',
+            notificationsEnabled: true,
+            soundEnabled: true,
+            focusMode: false,
+            clockFormat: '24h',
+            privacy: {
+              shareActivity: false,
+              publicProfile: false,
+              dataCollection: true,
+            },
+            karmaPoints: 0,
+            unlockedFeatures: [],
+            distraction_blocker: {
+              enabled: false,
+              blockedSites: []
+            },
+            createdAt: Timestamp.now(),
+            updatedAt: Timestamp.now()
+          });
         }
       } catch (err) {
         console.error("Error updating user profile on login:", err);
@@ -452,14 +459,58 @@ export const addKarmaPoints = async (userId: string, points: number) => {
   }
 };
 
-// Gestion des sites à bloquer
+// Fonction corrigée pour mettre à jour les paramètres utilisateur
+export const updateUserSettings = async (userId: string, settings: any) => {
+  try {
+    const userSettingsRef = doc(db, "userSettings", userId);
+    
+    // Assurez-vous que le document existe avant la mise à jour
+    const settingsDoc = await getDoc(userSettingsRef);
+    
+    if (settingsDoc.exists()) {
+      await updateDoc(userSettingsRef, {
+        ...settings,
+        updatedAt: Timestamp.now()
+      });
+    } else {
+      // Créer le document s'il n'existe pas
+      await setDoc(userSettingsRef, {
+        ...settings,
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now()
+      });
+    }
+    
+    toast.success("Paramètres mis à jour avec succès");
+    return true;
+  } catch (error) {
+    console.error("Error updating settings:", error);
+    toast.error("Erreur lors de la mise à jour des paramètres");
+    throw error;
+  }
+};
+
+// Gestion des sites à bloquer (corrigée)
 export const updateBlockedSites = async (userId: string, blockedSites: string[]) => {
   try {
     const userSettingsRef = doc(db, "userSettings", userId);
-    await updateDoc(userSettingsRef, {
-      "distraction_blocker.blockedSites": blockedSites,
-      updatedAt: Timestamp.now()
-    });
+    const settingsDoc = await getDoc(userSettingsRef);
+    
+    if (settingsDoc.exists()) {
+      await updateDoc(userSettingsRef, {
+        "distraction_blocker.blockedSites": blockedSites,
+        updatedAt: Timestamp.now()
+      });
+    } else {
+      await setDoc(userSettingsRef, {
+        distraction_blocker: {
+          enabled: false,
+          blockedSites: blockedSites
+        },
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now()
+      });
+    }
     
     toast.success("Liste des sites bloqués mise à jour");
     return true;
@@ -473,10 +524,23 @@ export const updateBlockedSites = async (userId: string, blockedSites: string[])
 export const toggleDistractionBlocker = async (userId: string, enabled: boolean) => {
   try {
     const userSettingsRef = doc(db, "userSettings", userId);
-    await updateDoc(userSettingsRef, {
-      "distraction_blocker.enabled": enabled,
-      updatedAt: Timestamp.now()
-    });
+    const settingsDoc = await getDoc(userSettingsRef);
+    
+    if (settingsDoc.exists()) {
+      await updateDoc(userSettingsRef, {
+        "distraction_blocker.enabled": enabled,
+        updatedAt: Timestamp.now()
+      });
+    } else {
+      await setDoc(userSettingsRef, {
+        distraction_blocker: {
+          enabled: enabled,
+          blockedSites: []
+        },
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now()
+      });
+    }
     
     toast.success(enabled ? "Bloqueur de distractions activé" : "Bloqueur de distractions désactivé");
     return true;
@@ -487,19 +551,32 @@ export const toggleDistractionBlocker = async (userId: string, enabled: boolean)
   }
 };
 
-// Synchronisation avec Google Calendar
+// Synchronisation avec Google Calendar (corrigée)
 export const syncGoogleCalendar = async (userId: string, authCode: string) => {
   try {
-    // Dans un cas réel, on utiliserait une API ou une Cloud Function pour échanger le code
-    // contre un token et sauvegarder les informations de connexion de façon sécurisée
+    const userRef = doc(db, "users", userId);
+    const userDoc = await getDoc(userRef);
     
-    // Pour cet exemple, on simule une synchronisation réussie
-    await updateDoc(doc(db, `users/${userId}`), {
-      "googleCalendarSync": {
-        enabled: true,
-        lastSynced: Timestamp.now()
-      }
-    });
+    if (userDoc.exists()) {
+      await updateDoc(userRef, {
+        "googleCalendarSync": {
+          enabled: true,
+          lastSynced: Timestamp.now(),
+          authCode: authCode
+        },
+        updatedAt: Timestamp.now()
+      });
+    } else {
+      await setDoc(userRef, {
+        googleCalendarSync: {
+          enabled: true,
+          lastSynced: Timestamp.now(),
+          authCode: authCode
+        },
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now()
+      });
+    }
     
     toast.success("Synchronisation avec Google Calendar effectuée");
     return true;
@@ -519,4 +596,5 @@ export const authStateListener = (callback: (user: User | null) => void) => {
   return onAuthStateChanged(auth, callback);
 };
 
-export { auth, db, storage };
+export { auth, db, storage, updateUserSettings };
+

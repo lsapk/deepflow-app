@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/sonner';
 import { FeaturePanel } from './FeaturePanel';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/services/firebase';
 
 interface MainLayoutProps {
@@ -31,7 +31,17 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
             const data = userProfileSnap.data();
             setDisplayName(data.displayName || currentUser.displayName || 'Utilisateur');
           } else {
-            setDisplayName(currentUser.displayName || 'Utilisateur');
+            // Créer un profil s'il n'existe pas encore
+            const defaultName = currentUser.displayName || 'Utilisateur';
+            await setDoc(userProfileRef, {
+              displayName: defaultName,
+              email: currentUser.email,
+              bio: '',
+              photoURL: currentUser.photoURL || '',
+              createdAt: new Date(),
+              lastActive: new Date(),
+            });
+            setDisplayName(defaultName);
           }
         } catch (error) {
           console.error("Error fetching user profile:", error);

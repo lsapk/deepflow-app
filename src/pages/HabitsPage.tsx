@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -34,6 +33,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useAuth } from '@/contexts/AuthContext';
+import { db } from '@/services/firebase';
+import { collection, addDoc, getDocs, query, where, doc, deleteDoc, updateDoc, Timestamp } from 'firebase/firestore';
 
 interface Habit {
   id: string;
@@ -45,76 +47,17 @@ interface Habit {
   progress: number;
   streak: number;
   color: string;
-  createdAt: string;
+  createdAt: Date;
+  userId: string;
 }
-
-const demoHabits: Habit[] = [
-  {
-    id: '1',
-    name: 'Méditation matinale',
-    description: '10 minutes de méditation chaque matin',
-    frequency: 'daily',
-    category: 'Bien-être',
-    target: 7,
-    progress: 5,
-    streak: 5,
-    color: 'purple',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: '2',
-    name: 'Lecture',
-    description: 'Lire pendant 30 minutes',
-    frequency: 'daily',
-    category: 'Personnel',
-    target: 7,
-    progress: 3,
-    streak: 2,
-    color: 'blue',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: '3',
-    name: 'Exercice physique',
-    description: '30 minutes d\'activité physique',
-    frequency: 'daily',
-    category: 'Santé',
-    target: 5,
-    progress: 2,
-    streak: 0,
-    color: 'green',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: '4',
-    name: 'Boire 2L d\'eau',
-    frequency: 'daily',
-    category: 'Santé',
-    target: 7,
-    progress: 6,
-    streak: 6,
-    color: 'cyan',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: '5',
-    name: 'Apprendre une nouvelle compétence',
-    description: 'Passer 1 heure sur un cours en ligne',
-    frequency: 'weekly',
-    category: 'Développement',
-    target: 3,
-    progress: 1,
-    streak: 2,
-    color: 'orange',
-    createdAt: new Date().toISOString(),
-  },
-];
 
 const categories = ['Santé', 'Bien-être', 'Personnel', 'Travail', 'Développement', 'Autre'];
 const colors = ['blue', 'green', 'purple', 'orange', 'cyan', 'red', 'yellow', 'indigo', 'pink'];
 
 const HabitsPage = () => {
-  const [habits, setHabits] = useState<Habit[]>(demoHabits);
+  const { currentUser } = useAuth();
+  const [habits, setHabits] = useState<Habit[]>([]);
+  const [loading, setLoading] = useState(true);
   const [newHabit, setNewHabit] = useState<Partial<Habit>>({
     name: '',
     description: '',
@@ -128,75 +71,190 @@ const HabitsPage = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [showAddHabit, setShowAddHabit] = useState(false);
 
-  const handleAddHabit = () => {
+  useEffect(() => {
+    if (currentUser) {
+      fetchHabits();
+    }
+  }, [currentUser]);
+
+  const fetchHabits = async () => {
+    if (!currentUser) return;
+    
+    try {
+      setLoading(true);
+      const habitsQuery = query(
+        collection(db, 'habits'),
+        where('userId', '==', currentUser.uid)
+      );
+      
+      const querySnapshot = await getDocs(habitsQuery);
+      
+      if (querySnapshot.empty) {
+        setHabits([]);
+        setLoading(false);
+        return;
+      }
+      
+      const fetchedHabits = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          name: data.name,
+          description: data.description || '',
+          frequency: data.frequency,
+          category: data.category,
+          target: data.target,
+          progress: data.progress || 0,
+          streak: data.streak || 0,
+          color: data.color || 'blue',
+          createdAt: data.createdAt?.toDate() || new Date(),
+          userId: data.userId
+        } as Habit;
+      });
+      
+      setHabits(fetchedHabits);
+    } catch (error) {
+      console.error("Error fetching habits:", error);
+      toast.error("Erreur lors du chargement des habitudes");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddHabit = async () => {
+    if (!currentUser) {
+      toast.error("Vous devez être connecté pour ajouter une habitude");
+      return;
+    }
+    
     if (!newHabit.name) {
-      toast.error('Le nom de l\'habitude est requis');
+      toast.error("Le nom de l'habitude est requis");
       return;
     }
 
-    const habit: Habit = {
-      id: Date.now().toString(),
-      name: newHabit.name,
-      description: newHabit.description,
-      frequency: newHabit.frequency as 'daily' | 'weekly',
-      category: newHabit.category || 'Autre',
-      target: newHabit.target || 7,
-      progress: 0,
-      streak: 0,
-      color: newHabit.color || 'blue',
-      createdAt: new Date().toISOString(),
-    };
-
-    setHabits([habit, ...habits]);
-    setNewHabit({
-      name: '',
-      description: '',
-      frequency: 'daily',
-      category: 'Santé',
-      target: 7,
-      progress: 0,
-      streak: 0,
-      color: 'blue',
-    });
-    setShowAddHabit(false);
-    toast.success('Habitude ajoutée avec succès');
+    try {
+      const habitData = {
+        name: newHabit.name,
+        description: newHabit.description || '',
+        frequency: newHabit.frequency as 'daily' | 'weekly',
+        category: newHabit.category || 'Autre',
+        target: newHabit.target || 7,
+        progress: 0,
+        streak: 0,
+        color: newHabit.color || 'blue',
+        createdAt: Timestamp.now(),
+        userId: currentUser.uid
+      };
+      
+      const docRef = await addDoc(collection(db, 'habits'), habitData);
+      
+      const newHabitWithId = {
+        id: docRef.id,
+        ...habitData,
+        createdAt: new Date()
+      } as Habit;
+      
+      setHabits(prev => [newHabitWithId, ...prev]);
+      
+      setNewHabit({
+        name: '',
+        description: '',
+        frequency: 'daily',
+        category: 'Santé',
+        target: 7,
+        progress: 0,
+        streak: 0,
+        color: 'blue',
+      });
+      
+      setShowAddHabit(false);
+      toast.success("Habitude ajoutée avec succès");
+    } catch (error) {
+      console.error("Error adding habit:", error);
+      toast.error("Erreur lors de l'ajout de l'habitude");
+    }
   };
 
-  const incrementProgress = (id: string) => {
-    setHabits(
-      habits.map((habit) =>
-        habit.id === id
-          ? {
-              ...habit,
-              progress: Math.min(habit.progress + 1, habit.target),
-              streak:
-                habit.progress + 1 >= habit.target
-                  ? habit.streak + 1
-                  : habit.streak,
-            }
-          : habit
-      )
-    );
-    
-    const habitName = habits.find(h => h.id === id)?.name;
-    toast.success(`Habitude "${habitName}" mise à jour`);
+  const incrementProgress = async (id: string) => {
+    try {
+      const habitToUpdate = habits.find(h => h.id === id);
+      if (!habitToUpdate) return;
+      
+      const newProgress = Math.min(habitToUpdate.progress + 1, habitToUpdate.target);
+      const newStreak = newProgress >= habitToUpdate.target ? habitToUpdate.streak + 1 : habitToUpdate.streak;
+      
+      // Update Firestore
+      await updateDoc(doc(db, 'habits', id), {
+        progress: newProgress,
+        streak: newStreak,
+      });
+      
+      // Update local state
+      setHabits(
+        habits.map((habit) =>
+          habit.id === id
+            ? {
+                ...habit,
+                progress: newProgress,
+                streak: newStreak,
+              }
+            : habit
+        )
+      );
+      
+      if (newProgress >= habitToUpdate.target) {
+        // Jouer un son si disponible
+        try {
+          const audio = new Audio('/sounds/task-complete.mp3');
+          audio.play();
+        } catch (e) {
+          console.log("Sound not available");
+        }
+      }
+      
+      toast.success(`Habitude "${habitToUpdate.name}" mise à jour`);
+    } catch (error) {
+      console.error("Error updating habit progress:", error);
+      toast.error("Erreur lors de la mise à jour de l'habitude");
+    }
   };
 
-  const resetProgress = (id: string) => {
-    setHabits(
-      habits.map((habit) =>
-        habit.id === id ? { ...habit, progress: 0 } : habit
-      )
-    );
-    
-    const habitName = habits.find(h => h.id === id)?.name;
-    toast.info(`Progression de "${habitName}" réinitialisée`);
+  const resetProgress = async (id: string) => {
+    try {
+      // Update Firestore
+      await updateDoc(doc(db, 'habits', id), {
+        progress: 0
+      });
+      
+      // Update local state
+      setHabits(
+        habits.map((habit) =>
+          habit.id === id ? { ...habit, progress: 0 } : habit
+        )
+      );
+      
+      const habitName = habits.find(h => h.id === id)?.name;
+      toast.info(`Progression de "${habitName}" réinitialisée`);
+    } catch (error) {
+      console.error("Error resetting habit progress:", error);
+      toast.error("Erreur lors de la réinitialisation de l'habitude");
+    }
   };
 
-  const deleteHabit = (id: string) => {
-    const habitName = habits.find(h => h.id === id)?.name;
-    setHabits(habits.filter((habit) => habit.id !== id));
-    toast.success(`Habitude "${habitName}" supprimée`);
+  const deleteHabit = async (id: string) => {
+    try {
+      // Delete from Firestore
+      await deleteDoc(doc(db, 'habits', id));
+      
+      // Update local state
+      const habitName = habits.find(h => h.id === id)?.name;
+      setHabits(habits.filter((habit) => habit.id !== id));
+      
+      toast.success(`Habitude "${habitName}" supprimée`);
+    } catch (error) {
+      console.error("Error deleting habit:", error);
+      toast.error("Erreur lors de la suppression de l'habitude");
+    }
   };
 
   const filteredHabits = habits.filter((habit) => {
@@ -464,105 +522,148 @@ const HabitsPage = () => {
             </TabsList>
 
             <TabsContent value={activeTab} className="mt-0">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredHabits.map((habit) => (
-                  <motion.div key={habit.id} variants={itemVariants}>
-                    <Card className="overflow-hidden h-full">
-                      <div
-                        className={`h-2 w-full ${getProgressBarColor(habit.color)}`}
-                      ></div>
-                      <CardHeader className="pb-2">
-                        <div className="flex justify-between items-start">
-                          <CardTitle className="text-lg">{habit.name}</CardTitle>
-                          <span
-                            className={`text-xs font-medium px-2 py-1 rounded-full ${getColorClass(
-                              habit.color
-                            )}`}
-                          >
-                            {habit.frequency === 'daily'
-                              ? 'Quotidien'
-                              : 'Hebdomadaire'}
-                          </span>
-                        </div>
-                        {habit.description && (
-                          <CardDescription>
-                            {habit.description}
-                          </CardDescription>
-                        )}
+              {loading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {[...Array(3)].map((_, i) => (
+                    <Card key={i} className="animate-pulse">
+                      <div className="h-2 w-full bg-gray-200 dark:bg-gray-700"></div>
+                      <CardHeader>
+                        <div className="h-6 w-2/3 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                        <div className="h-4 w-1/3 bg-gray-200 dark:bg-gray-700 rounded mt-2"></div>
                       </CardHeader>
                       <CardContent className="space-y-4">
                         <div className="space-y-2">
-                          <div className="flex justify-between text-sm">
-                            <span>Progression</span>
-                            <span>
-                              {habit.progress}/{habit.target}
-                            </span>
+                          <div className="flex justify-between">
+                            <div className="h-4 w-1/4 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                            <div className="h-4 w-1/6 bg-gray-200 dark:bg-gray-700 rounded"></div>
                           </div>
-                          <Progress
-                            value={(habit.progress / habit.target) * 100}
-                            className={`h-2 ${getProgressBarColor(habit.color)}`}
-                          />
+                          <div className="h-2 w-full bg-gray-200 dark:bg-gray-700 rounded"></div>
                         </div>
-
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-2">
-                            <div
-                              className={`flex items-center space-x-1 text-xs font-medium px-2 py-1 rounded-full ${getColorClass(
-                                habit.color
-                              )}`}
-                            >
-                              <TrendingUp size={12} />
-                              <span>{habit.streak} séries</span>
-                            </div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center">
-                              <Calendar size={12} className="mr-1" />
-                              <span>
-                                {new Date(habit.createdAt).toLocaleDateString(
-                                  'fr-FR',
-                                  {
-                                    month: 'short',
-                                    day: 'numeric',
-                                  }
-                                )}
-                              </span>
-                            </div>
-                          </div>
+                        <div className="flex justify-between">
+                          <div className="h-6 w-1/3 bg-gray-200 dark:bg-gray-700 rounded"></div>
                           <div className="flex space-x-2">
-                            <Button
-                              size="icon"
-                              variant="outline"
-                              className="h-8 w-8 text-green-600"
-                              onClick={() => incrementProgress(habit.id)}
-                              disabled={habit.progress >= habit.target}
-                            >
-                              <Check size={16} />
-                              <span className="sr-only">Valider</span>
-                            </Button>
-                            <Button
-                              size="icon"
-                              variant="outline"
-                              className="h-8 w-8 text-amber-600"
-                              onClick={() => resetProgress(habit.id)}
-                            >
-                              <RotateCcw size={16} />
-                              <span className="sr-only">Réinitialiser</span>
-                            </Button>
-                            <Button
-                              size="icon"
-                              variant="outline"
-                              className="h-8 w-8 text-red-600"
-                              onClick={() => deleteHabit(habit.id)}
-                            >
-                              <Trash2 size={16} />
-                              <span className="sr-only">Supprimer</span>
-                            </Button>
+                            {[...Array(3)].map((_, j) => (
+                              <div key={j} className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                            ))}
                           </div>
                         </div>
                       </CardContent>
                     </Card>
-                  </motion.div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : filteredHabits.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredHabits.map((habit) => (
+                    <motion.div key={habit.id} variants={itemVariants}>
+                      <Card className="overflow-hidden h-full hover:shadow-md transition-shadow duration-300">
+                        <div
+                          className={`h-2 w-full ${getProgressBarColor(habit.color)}`}
+                        ></div>
+                        <CardHeader className="pb-2">
+                          <div className="flex justify-between items-start">
+                            <CardTitle className="text-lg">{habit.name}</CardTitle>
+                            <span
+                              className={`text-xs font-medium px-2 py-1 rounded-full ${getColorClass(
+                                habit.color
+                              )}`}
+                            >
+                              {habit.frequency === 'daily'
+                                ? 'Quotidien'
+                                : 'Hebdomadaire'}
+                            </span>
+                          </div>
+                          {habit.description && (
+                            <CardDescription>
+                              {habit.description}
+                            </CardDescription>
+                          )}
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                              <span>Progression</span>
+                              <span>
+                                {habit.progress}/{habit.target}
+                              </span>
+                            </div>
+                            <Progress
+                              value={(habit.progress / habit.target) * 100}
+                              className={`h-2 ${getProgressBarColor(habit.color)}`}
+                            />
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <div
+                                className={`flex items-center space-x-1 text-xs font-medium px-2 py-1 rounded-full ${getColorClass(
+                                  habit.color
+                                )}`}
+                              >
+                                <TrendingUp size={12} />
+                                <span>{habit.streak} séries</span>
+                              </div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center">
+                                <Calendar size={12} className="mr-1" />
+                                <span>
+                                  {new Date(habit.createdAt).toLocaleDateString(
+                                    'fr-FR',
+                                    {
+                                      month: 'short',
+                                      day: 'numeric',
+                                    }
+                                  )}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex space-x-2">
+                              <Button
+                                size="icon"
+                                variant="outline"
+                                className="h-8 w-8 text-green-600"
+                                onClick={() => incrementProgress(habit.id)}
+                                disabled={habit.progress >= habit.target}
+                              >
+                                <Check size={16} />
+                                <span className="sr-only">Valider</span>
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="outline"
+                                className="h-8 w-8 text-amber-600"
+                                onClick={() => resetProgress(habit.id)}
+                              >
+                                <RotateCcw size={16} />
+                                <span className="sr-only">Réinitialiser</span>
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="outline"
+                                className="h-8 w-8 text-red-600"
+                                onClick={() => deleteHabit(habit.id)}
+                              >
+                                <Trash2 size={16} />
+                                <span className="sr-only">Supprimer</span>
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12 bg-gray-50 dark:bg-gray-800/30 rounded-lg">
+                  <FileText className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                  <h3 className="text-lg font-medium mb-2">Aucune habitude</h3>
+                  <p className="text-gray-500 dark:text-gray-400 mb-6">
+                    Commencez à suivre vos habitudes quotidiennes
+                  </p>
+                  <Button onClick={() => setShowAddHabit(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Créer votre première habitude
+                  </Button>
+                </div>
+              )}
             </TabsContent>
           </Tabs>
         </motion.div>

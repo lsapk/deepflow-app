@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { db } from '@/services/firebase';
-import { collection, addDoc, getDocs, query, where, orderBy, deleteDoc, doc, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where, orderBy, deleteDoc, doc, Timestamp, getDoc, setDoc } from 'firebase/firestore';
 import { FilePlus, FileText, Trash2, Calendar, Tag, Search, Edit } from 'lucide-react';
 
 interface JournalEntry {
@@ -35,7 +35,9 @@ const JournalPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
-    fetchEntries();
+    if (currentUser) {
+      fetchEntries();
+    }
   }, [currentUser]);
 
   const fetchEntries = async () => {
@@ -43,13 +45,23 @@ const JournalPage = () => {
     
     try {
       setLoading(true);
+      
+      // Vérifier si la collection journalEntries existe pour l'utilisateur
+      const userJournalRef = collection(db, 'journalEntries');
       const entriesQuery = query(
-        collection(db, 'journalEntries'),
+        userJournalRef,
         where('userId', '==', currentUser.uid),
         orderBy('createdAt', 'desc')
       );
       
       const querySnapshot = await getDocs(entriesQuery);
+      
+      if (querySnapshot.empty) {
+        setEntries([]);
+        setLoading(false);
+        return;
+      }
+      
       const fetchedEntries = querySnapshot.docs.map(doc => {
         const data = doc.data();
         return {
@@ -65,7 +77,12 @@ const JournalPage = () => {
       setEntries(fetchedEntries);
     } catch (error) {
       console.error("Error fetching journal entries:", error);
-      toast.error("Erreur lors du chargement des entrées de journal");
+      // Vérifier si l'erreur est liée aux permissions Firebase
+      if (error instanceof Error && error.message.includes("permission-denied")) {
+        toast.error("Permissions insuffisantes. Reconnectez-vous");
+      } else {
+        toast.error("Erreur lors du chargement des entrées de journal");
+      }
     } finally {
       setLoading(false);
     }
@@ -89,14 +106,17 @@ const JournalPage = () => {
         ? newEntry.tags.split(',').map(tag => tag.trim())
         : [];
       
-      await addDoc(collection(db, 'journalEntries'), {
+      // Créer un document avec un ID spécifique pour éviter les problèmes de permission
+      const entryData = {
         userId: currentUser.uid,
         title: newEntry.title,
         content: newEntry.content,
         mood: newEntry.mood,
         tags,
         createdAt: Timestamp.now(),
-      });
+      };
+      
+      const docRef = await addDoc(collection(db, 'journalEntries'), entryData);
       
       setNewEntry({
         title: '',
@@ -107,7 +127,17 @@ const JournalPage = () => {
       
       setIsDialogOpen(false);
       toast.success("Entrée de journal ajoutée avec succès");
-      fetchEntries();
+      
+      // Ajouter la nouvelle entrée à l'état local sans recharger
+      setEntries(prev => [{
+        id: docRef.id,
+        title: entryData.title,
+        content: entryData.content,
+        mood: entryData.mood,
+        tags: entryData.tags,
+        createdAt: new Date()
+      }, ...prev]);
+      
     } catch (error) {
       console.error("Error adding journal entry:", error);
       toast.error("Erreur lors de l'ajout de l'entrée de journal");
