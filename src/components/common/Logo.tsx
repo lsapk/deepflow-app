@@ -223,9 +223,9 @@ export const Logo: React.FC<LogoProps> = ({
     return <div><LogoContent /></div>;
   }
 
-  // Sinon, on ajoute le lien vers la page d'accueil
+  // Sinon, on ajoute le lien vers la page d'accueil (mais sans se déconnecter, donc vers le dashboard)
   return (
-    <Link to={"/dashboard"}>
+    <Link to="/dashboard">
       <LogoContent />
     </Link>
   );

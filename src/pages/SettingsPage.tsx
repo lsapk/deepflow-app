@@ -7,9 +7,12 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { db } from '@/services/firebase';
+import { db, toggleDistractionBlocker, updateBlockedSites, syncGoogleCalendar } from '@/services/firebase';
 import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { 
   Bell, 
@@ -21,9 +24,15 @@ import {
   Sun, 
   Monitor, 
   Clock, 
-  AlertCircle 
+  AlertCircle,
+  Calendar,
+  Mail,
+  Sparkles,
+  ShieldAlert,
+  MessageSquare
 } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 interface UserSettings {
   theme: 'light' | 'dark' | 'system';
@@ -36,6 +45,12 @@ interface UserSettings {
     shareActivity: boolean;
     publicProfile: boolean;
     dataCollection: boolean;
+  };
+  karmaPoints: number;
+  unlockedFeatures: string[];
+  distraction_blocker: {
+    enabled: boolean;
+    blockedSites: string[];
   };
 }
 
@@ -50,6 +65,12 @@ const defaultSettings: UserSettings = {
     shareActivity: false,
     publicProfile: false,
     dataCollection: true,
+  },
+  karmaPoints: 0,
+  unlockedFeatures: [],
+  distraction_blocker: {
+    enabled: false,
+    blockedSites: []
   }
 };
 
@@ -59,6 +80,9 @@ const SettingsPage = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [settings, setSettings] = useState<UserSettings>(defaultSettings);
   const [error, setError] = useState<string | null>(null);
+  const [newBlockedSite, setNewBlockedSite] = useState('');
+  const [googleAuthCode, setGoogleAuthCode] = useState('');
+  const [isSyncingCalendar, setIsSyncingCalendar] = useState(false);
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -74,7 +98,16 @@ const SettingsPage = () => {
         
         if (settingsDoc.exists()) {
           const userSettings = settingsDoc.data() as UserSettings;
-          setSettings(userSettings);
+          
+          // Assurez-vous que toutes les propriétés existent
+          setSettings({
+            ...defaultSettings,
+            ...userSettings,
+            distraction_blocker: {
+              enabled: userSettings.distraction_blocker?.enabled || false,
+              blockedSites: userSettings.distraction_blocker?.blockedSites || []
+            }
+          });
         } else {
           // Create default settings if they don't exist
           await setDoc(settingsRef, defaultSettings);
@@ -138,6 +171,96 @@ const SettingsPage = () => {
     }));
   };
 
+  const handleToggleDistractionBlocker = async () => {
+    if (!currentUser) return;
+    
+    try {
+      setIsSaving(true);
+      const newValue = !settings.distraction_blocker.enabled;
+      
+      await toggleDistractionBlocker(currentUser.uid, newValue);
+      
+      setSettings(prev => ({
+        ...prev,
+        distraction_blocker: {
+          ...prev.distraction_blocker,
+          enabled: newValue
+        }
+      }));
+    } catch (err) {
+      console.error("Error toggling distraction blocker:", err);
+      toast.error("Erreur lors de la modification du bloqueur de distractions");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleAddBlockedSite = async () => {
+    if (!currentUser || !newBlockedSite) return;
+    
+    try {
+      setIsSaving(true);
+      const blockedSites = [...settings.distraction_blocker.blockedSites, newBlockedSite];
+      
+      await updateBlockedSites(currentUser.uid, blockedSites);
+      
+      setSettings(prev => ({
+        ...prev,
+        distraction_blocker: {
+          ...prev.distraction_blocker,
+          blockedSites
+        }
+      }));
+      
+      setNewBlockedSite('');
+    } catch (err) {
+      console.error("Error adding blocked site:", err);
+      toast.error("Erreur lors de l'ajout du site bloqué");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleRemoveBlockedSite = async (site: string) => {
+    if (!currentUser) return;
+    
+    try {
+      setIsSaving(true);
+      const blockedSites = settings.distraction_blocker.blockedSites.filter(s => s !== site);
+      
+      await updateBlockedSites(currentUser.uid, blockedSites);
+      
+      setSettings(prev => ({
+        ...prev,
+        distraction_blocker: {
+          ...prev.distraction_blocker,
+          blockedSites
+        }
+      }));
+    } catch (err) {
+      console.error("Error removing blocked site:", err);
+      toast.error("Erreur lors de la suppression du site bloqué");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSyncGoogleCalendar = async () => {
+    if (!currentUser || !googleAuthCode) return;
+    
+    try {
+      setIsSyncingCalendar(true);
+      await syncGoogleCalendar(currentUser.uid, googleAuthCode);
+      toast.success("Synchronisation avec Google Calendar réussie");
+      setGoogleAuthCode('');
+    } catch (err) {
+      console.error("Error syncing Google Calendar:", err);
+      toast.error("Erreur lors de la synchronisation avec Google Calendar");
+    } finally {
+      setIsSyncingCalendar(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <MainLayout>
@@ -174,7 +297,7 @@ const SettingsPage = () => {
         )}
 
         <Tabs defaultValue="interface">
-          <TabsList className={`grid ${isMobile ? "grid-cols-2" : "w-full grid-cols-4"}`}>
+          <TabsList className={`grid ${isMobile ? "grid-cols-2 mb-4" : "w-full grid-cols-5"}`}>
             <TabsTrigger value="interface" className="flex items-center justify-center">
               <Palette className="mr-2 h-4 w-4" />
               Interface
@@ -190,6 +313,10 @@ const SettingsPage = () => {
             <TabsTrigger value="privacy" className="flex items-center justify-center">
               <Shield className="mr-2 h-4 w-4" />
               Confidentialité
+            </TabsTrigger>
+            <TabsTrigger value="integrations" className="flex items-center justify-center">
+              <Calendar className="mr-2 h-4 w-4" />
+              Intégrations
             </TabsTrigger>
           </TabsList>
           
@@ -321,6 +448,20 @@ const SettingsPage = () => {
                     onCheckedChange={(checked) => handleSwitchChange('soundEnabled', checked)}
                   />
                 </div>
+
+                <div className="flex items-center justify-between space-x-2">
+                  <Label htmlFor="productivity-asmr" className="flex flex-col space-y-1">
+                    <span>Productivity ASMR</span>
+                    <span className="font-normal text-xs text-gray-500 dark:text-gray-400">
+                      Sons satisfaisants quand vous cochez des tâches
+                    </span>
+                  </Label>
+                  <Switch
+                    id="productivity-asmr"
+                    checked={settings.soundEnabled}
+                    onCheckedChange={(checked) => handleSwitchChange('soundEnabled', checked)}
+                  />
+                </div>
               </CardContent>
               <CardFooter className="flex justify-end">
                 <Button onClick={handleSaveSettings} disabled={isSaving}>
@@ -427,6 +568,71 @@ const SettingsPage = () => {
                     onCheckedChange={(checked) => handlePrivacyChange('dataCollection', checked)}
                   />
                 </div>
+
+                <div className="p-4 border rounded-md space-y-4">
+                  <div className="flex items-start">
+                    <div className="mr-3">
+                      <ShieldAlert className="h-5 w-5 text-orange-500" />
+                    </div>
+                    <div>
+                      <h3 className="font-medium">Bloqueur de distractions</h3>
+                      <p className="text-sm text-gray-500 mb-2">Bloquez les sites web qui vous distraient</p>
+                      
+                      <div className="flex items-center mb-4">
+                        <Switch
+                          id="distraction-blocker"
+                          checked={settings.distraction_blocker.enabled}
+                          onCheckedChange={handleToggleDistractionBlocker}
+                          className="mr-2"
+                        />
+                        <Label htmlFor="distraction-blocker">
+                          {settings.distraction_blocker.enabled ? 'Activé' : 'Désactivé'}
+                        </Label>
+                      </div>
+                      
+                      {settings.distraction_blocker.enabled && (
+                        <div className="space-y-3">
+                          <div className="flex gap-2">
+                            <Input
+                              placeholder="Ajouter un site (ex: instagram.com)"
+                              value={newBlockedSite}
+                              onChange={(e) => setNewBlockedSite(e.target.value)}
+                            />
+                            <Button 
+                              onClick={handleAddBlockedSite} 
+                              disabled={!newBlockedSite || isSaving}
+                            >
+                              Ajouter
+                            </Button>
+                          </div>
+                          
+                          <div className="flex flex-wrap gap-2">
+                            {settings.distraction_blocker.blockedSites.map((site) => (
+                              <Badge 
+                                key={site} 
+                                variant="secondary"
+                                className="flex items-center gap-1 py-1.5"
+                              >
+                                {site}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-4 w-4 p-0 ml-1 hover:bg-transparent"
+                                  onClick={() => handleRemoveBlockedSite(site)}
+                                >
+                                  ×
+                                </Button>
+                              </Badge>
+                            ))}
+                            {settings.distraction_blocker.blockedSites.length === 0 && (
+                              <p className="text-sm text-gray-500">Aucun site bloqué</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </CardContent>
               <CardFooter className="flex justify-end">
                 <Button onClick={handleSaveSettings} disabled={isSaving}>
@@ -440,6 +646,139 @@ const SettingsPage = () => {
                   )}
                 </Button>
               </CardFooter>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="integrations" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Intégrations</CardTitle>
+                <CardDescription>
+                  Connectez-vous avec d'autres services
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="p-4 border rounded-md space-y-3">
+                  <div className="flex items-start">
+                    <div className="mr-3">
+                      <Calendar className="h-5 w-5 text-blue-500" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-medium">Google Calendar</h3>
+                      <p className="text-sm text-gray-500 mb-3">Synchronisez vos tâches et plannings avec Google Calendar</p>
+                      
+                      <div className="flex flex-col space-y-3">
+                        <Input
+                          placeholder="Code d'autorisation Google"
+                          value={googleAuthCode}
+                          onChange={(e) => setGoogleAuthCode(e.target.value)}
+                        />
+                        <Button 
+                          onClick={handleSyncGoogleCalendar} 
+                          disabled={!googleAuthCode || isSyncingCalendar}
+                        >
+                          {isSyncingCalendar ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Synchronisation...
+                            </>
+                          ) : (
+                            'Synchroniser avec Google Calendar'
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 border rounded-md space-y-3">
+                  <div className="flex items-start">
+                    <div className="mr-3">
+                      <Sparkles className="h-5 w-5 text-yellow-500" />
+                    </div>
+                    <div>
+                      <h3 className="font-medium">Karma Productif</h3>
+                      <p className="text-sm text-gray-500 mb-2">Plus vous êtes productif, plus vous débloquez des fonctionnalités</p>
+                      
+                      <div className="flex items-center gap-3 mb-2">
+                        <span className="font-bold">{settings.karmaPoints || 0}</span>
+                        <span className="text-sm">points Karma</span>
+                      </div>
+                      
+                      <div className="space-y-1 mb-4">
+                        <p className="text-sm font-medium">Fonctionnalités débloquées :</p>
+                        <div className="flex flex-wrap gap-2">
+                          {settings.unlockedFeatures && settings.unlockedFeatures.length > 0 ? 
+                            settings.unlockedFeatures.map((feature) => (
+                              <Badge key={feature} variant="outline">{feature}</Badge>
+                            )) : 
+                            <p className="text-sm text-gray-500">Aucune fonctionnalité débloquée pour l'instant</p>
+                          }
+                        </div>
+                      </div>
+                      
+                      <p className="text-sm text-gray-500">
+                        Continuez à utiliser DeepFlow régulièrement pour débloquer plus de fonctionnalités !
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 border rounded-md space-y-3">
+                  <div className="flex items-start">
+                    <div className="mr-3">
+                      <MessageSquare className="h-5 w-5 text-green-500" />
+                    </div>
+                    <div>
+                      <h3 className="font-medium">Assistant IA</h3>
+                      <p className="text-sm text-gray-500 mb-2">L'assistant IA utilise vos données pour vous offrir des conseils personnalisés</p>
+                      
+                      <Button onClick={() => navigate('/analytics')}>
+                        Accéder à l'assistant IA
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 border rounded-md space-y-3">
+                  <div className="flex items-start">
+                    <div className="mr-3">
+                      <Mail className="h-5 w-5 text-purple-500" />
+                    </div>
+                    <div>
+                      <h3 className="font-medium">Contactez-nous</h3>
+                      <p className="text-sm text-gray-500 mb-3">Vous avez des questions ou des suggestions ?</p>
+                      
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button>Nous contacter</Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[425px]">
+                          <DialogHeader>
+                            <DialogTitle>Contactez-nous</DialogTitle>
+                            <DialogDescription>
+                              Envoyez-nous un message et nous vous répondrons dès que possible.
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="space-y-4 py-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="message">Message</Label>
+                              <Textarea
+                                id="message"
+                                placeholder="Votre message..."
+                                rows={5}
+                              />
+                            </div>
+                          </div>
+                          <DialogFooter>
+                            <Button type="submit" onClick={() => toast.success("Message envoyé avec succès!")}>Envoyer</Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
             </Card>
           </TabsContent>
         </Tabs>

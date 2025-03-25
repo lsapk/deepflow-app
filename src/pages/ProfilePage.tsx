@@ -11,9 +11,9 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { User, updateEmail, updatePassword } from 'firebase/auth';
+import { User, updateEmail, updatePassword, sendEmailVerification } from 'firebase/auth';
 import { db, uploadProfileImage, updateUserProfile } from '@/services/firebase';
-import { Camera, CheckCircle, Key, User as UserIcon, Mail, Shield, Loader2, AlertCircle } from 'lucide-react';
+import { Camera, CheckCircle, Key, User as UserIcon, Mail, Shield, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -116,7 +116,10 @@ const ProfilePage = () => {
         email: profileData.email
       });
       
-      toast.success("Email mis à jour avec succès");
+      // Envoyer un email de vérification
+      await sendEmailVerification(currentUser);
+      
+      toast.success("Email mis à jour avec succès. Un email de vérification a été envoyé.");
     } catch (error: any) {
       console.error("Error updating email:", error);
       let errorMessage = "Erreur lors de la mise à jour de l'email";
@@ -195,7 +198,9 @@ const ProfilePage = () => {
       const downloadURL = await uploadProfileImage(currentUser, file);
       console.log("File uploaded successfully, URL:", downloadURL);
       
+      // Mettre à jour l'avatar dans l'interface immédiatement
       setPhotoURL(downloadURL);
+      
       toast.success("Photo de profil mise à jour avec succès");
     } catch (error: any) {
       console.error("Error uploading profile photo:", error);
@@ -203,6 +208,26 @@ const ProfilePage = () => {
       toast.error(error.message || "Erreur lors de l'upload de la photo de profil");
     } finally {
       setFileUploading(false);
+      
+      // Réinitialiser l'input file pour permettre de sélectionner à nouveau le même fichier
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleEmailVerification = async () => {
+    if (!currentUser) return;
+    
+    try {
+      setIsLoading(true);
+      await sendEmailVerification(currentUser);
+      toast.success("Un email de vérification a été envoyé à votre adresse email");
+    } catch (error) {
+      console.error("Error sending verification email:", error);
+      toast.error("Erreur lors de l'envoi de l'email de vérification");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -225,8 +250,8 @@ const ProfilePage = () => {
           {photoURL ? (
             <AvatarImage src={photoURL} alt="Profile" />
           ) : (
-            <AvatarFallback className="text-xl">
-              {getInitials(currentUser?.displayName)}
+            <AvatarFallback className="text-xl bg-primary text-primary-foreground">
+              {getInitials(profileData.displayName)}
             </AvatarFallback>
           )}
           
@@ -291,7 +316,24 @@ const ProfilePage = () => {
               {renderAvatar()}
               
               <h2 className="text-xl font-semibold mb-1">{profileData.displayName || 'Utilisateur'}</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{profileData.email}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">{profileData.email}</p>
+              
+              {currentUser?.emailVerified ? (
+                <div className="flex items-center text-green-600 text-sm mb-4">
+                  <CheckCircle className="h-4 w-4 mr-1" />
+                  Email vérifié
+                </div>
+              ) : (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="mb-4 mt-2 text-xs" 
+                  onClick={handleEmailVerification}
+                >
+                  <RefreshCw className="h-3 w-3 mr-1" />
+                  Vérifier email
+                </Button>
+              )}
               
               <Separator className="mb-6" />
               

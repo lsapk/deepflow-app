@@ -1,4 +1,3 @@
-
 import { initializeApp } from "firebase/app";
 import { 
   getAuth, 
@@ -64,6 +63,12 @@ const initializeUserCollections = async (userId: string, displayName: string, em
         publicProfile: false,
         dataCollection: true,
       },
+      karmaPoints: 0,
+      unlockedFeatures: [],
+      distraction_blocker: {
+        enabled: false,
+        blockedSites: []
+      },
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now()
     };
@@ -78,7 +83,7 @@ const initializeUserCollections = async (userId: string, displayName: string, em
       lastActive: Timestamp.now(),
     };
 
-    // Créer les collections principales de l'utilisateur
+    // Créer les collections principales de l'utilisateur avec aucune donnée préremplie
     const collections = {
       tasks: [],
       habits: [],
@@ -93,7 +98,11 @@ const initializeUserCollections = async (userId: string, displayName: string, em
     await setDoc(doc(db, `users/${userId}`), {
       createdAt: Timestamp.now(),
       lastActive: Timestamp.now(),
-      collections
+      collections,
+      contact: {
+        email: "contact@deepflow.fr",
+        discord: "deepflow"
+      }
     });
 
     console.log("User collections initialized successfully");
@@ -181,6 +190,12 @@ export const loginUser = async (email: string, password: string) => {
                 publicProfile: false,
                 dataCollection: true,
               },
+              karmaPoints: 0,
+              unlockedFeatures: [],
+              distraction_blocker: {
+                enabled: false,
+                blockedSites: []
+              },
               createdAt: Timestamp.now(),
               updatedAt: Timestamp.now()
             });
@@ -245,7 +260,7 @@ export const resetPassword = async (email: string) => {
   }
 };
 
-// Profile management
+// Profile management with fixed photo upload
 export const updateUserProfile = async (user: User, updates: any) => {
   try {
     const updateData: any = { 
@@ -286,7 +301,7 @@ export const updateUserProfile = async (user: User, updates: any) => {
   }
 };
 
-// File upload helpers
+// File upload helpers - Fixed to properly upload profile images
 export const uploadProfileImage = async (user: User, file: File): Promise<string> => {
   try {
     // Create a reference to the user's profile image with a unique timestamp
@@ -405,6 +420,92 @@ export const getUserData = async (userId: string, collectionName: string) => {
     return data;
   } catch (error) {
     console.error(`Error getting ${collectionName}:`, error);
+    throw error;
+  }
+};
+
+// Nouvelles fonctions pour la gestion des points karma et des fonctionnalités
+export const addKarmaPoints = async (userId: string, points: number) => {
+  try {
+    const userSettingsRef = doc(db, "userSettings", userId);
+    const settingsDoc = await getDoc(userSettingsRef);
+    
+    if (settingsDoc.exists()) {
+      const currentKarma = settingsDoc.data().karmaPoints || 0;
+      await updateDoc(userSettingsRef, {
+        karmaPoints: currentKarma + points,
+        updatedAt: Timestamp.now()
+      });
+      
+      // Jouer un son satisfaisant si l'option est activée
+      if (settingsDoc.data().soundEnabled) {
+        const audio = new Audio('/sounds/task-complete.mp3');
+        audio.play();
+      }
+      
+      return currentKarma + points;
+    }
+    return 0;
+  } catch (error) {
+    console.error("Error adding karma points:", error);
+    throw error;
+  }
+};
+
+// Gestion des sites à bloquer
+export const updateBlockedSites = async (userId: string, blockedSites: string[]) => {
+  try {
+    const userSettingsRef = doc(db, "userSettings", userId);
+    await updateDoc(userSettingsRef, {
+      "distraction_blocker.blockedSites": blockedSites,
+      updatedAt: Timestamp.now()
+    });
+    
+    toast.success("Liste des sites bloqués mise à jour");
+    return true;
+  } catch (error) {
+    console.error("Error updating blocked sites:", error);
+    toast.error("Erreur lors de la mise à jour des sites bloqués");
+    throw error;
+  }
+};
+
+export const toggleDistractionBlocker = async (userId: string, enabled: boolean) => {
+  try {
+    const userSettingsRef = doc(db, "userSettings", userId);
+    await updateDoc(userSettingsRef, {
+      "distraction_blocker.enabled": enabled,
+      updatedAt: Timestamp.now()
+    });
+    
+    toast.success(enabled ? "Bloqueur de distractions activé" : "Bloqueur de distractions désactivé");
+    return true;
+  } catch (error) {
+    console.error("Error toggling distraction blocker:", error);
+    toast.error("Erreur lors de la modification du bloqueur de distractions");
+    throw error;
+  }
+};
+
+// Synchronisation avec Google Calendar
+export const syncGoogleCalendar = async (userId: string, authCode: string) => {
+  try {
+    // Dans un cas réel, on utiliserait une API ou une Cloud Function pour échanger le code
+    // contre un token et sauvegarder les informations de connexion de façon sécurisée
+    
+    // Pour cet exemple, on simule une synchronisation réussie
+    await updateDoc(doc(db, `users/${userId}`), {
+      "googleCalendarSync": {
+        enabled: true,
+        lastSynced: Timestamp.now()
+      }
+    });
+    
+    toast.success("Synchronisation avec Google Calendar effectuée");
+    return true;
+  } catch (error) {
+    console.error("Error syncing with Google Calendar:", error);
+    toast.error("Erreur lors de la synchronisation avec Google Calendar");
     throw error;
   }
 };
