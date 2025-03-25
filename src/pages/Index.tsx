@@ -8,6 +8,7 @@ import { CalendarClock, CheckSquare, Clock, ListTodo, Plus, Target, Sparkles } f
 import { motion } from 'framer-motion';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { AIInsightCard } from '@/components/analytics/AIInsightCard';
+import { toast } from 'sonner';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -32,6 +33,11 @@ const Index = () => {
     },
   };
 
+  const handleNavigation = (path: string) => {
+    navigate(path);
+    toast.success(`Navigation vers ${path.slice(1)}`);
+  };
+
   return (
     <MainLayout>
       <motion.div
@@ -54,7 +60,7 @@ const Index = () => {
                 <Button
                   variant="outline"
                   className="flex-col h-auto p-4 space-y-2"
-                  onClick={() => navigate('/tasks')}
+                  onClick={() => handleNavigation('/tasks')}
                 >
                   <Plus className="h-5 w-5" />
                   <span>Nouvelle tâche</span>
@@ -62,7 +68,7 @@ const Index = () => {
                 <Button
                   variant="outline"
                   className="flex-col h-auto p-4 space-y-2"
-                  onClick={() => navigate('/habits')}
+                  onClick={() => handleNavigation('/habits')}
                 >
                   <Plus className="h-5 w-5" />
                   <span>Ajouter une habitude</span>
@@ -70,7 +76,7 @@ const Index = () => {
                 <Button
                   variant="outline"
                   className="flex-col h-auto p-4 space-y-2"
-                  onClick={() => navigate('/journal')}
+                  onClick={() => handleNavigation('/journal')}
                 >
                   <Plus className="h-5 w-5" />
                   <span>Note rapide</span>
@@ -78,7 +84,7 @@ const Index = () => {
                 <Button
                   variant="outline"
                   className="flex-col h-auto p-4 space-y-2"
-                  onClick={() => navigate('/focus')}
+                  onClick={() => handleNavigation('/focus')}
                 >
                   <Clock className="h-5 w-5" />
                   <span>Démarrer focus</span>
@@ -125,13 +131,13 @@ const Index = () => {
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground mb-4">Pas encore de tâches</p>
-                <Button onClick={() => navigate('/tasks')} variant="outline" className="w-full">
+                <Button onClick={() => handleNavigation('/tasks')} variant="outline" className="w-full">
                   <Plus className="mr-2 h-4 w-4" />
                   Ajouter une tâche
                 </Button>
               </CardContent>
               <CardFooter>
-                <Button variant="ghost" className="w-full" onClick={() => navigate('/tasks')}>
+                <Button variant="ghost" className="w-full" onClick={() => handleNavigation('/tasks')}>
                   Voir toutes les tâches
                 </Button>
               </CardFooter>
@@ -152,13 +158,13 @@ const Index = () => {
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground mb-4">Pas encore d'habitudes</p>
-                <Button onClick={() => navigate('/habits')} variant="outline" className="w-full">
+                <Button onClick={() => handleNavigation('/habits')} variant="outline" className="w-full">
                   <Plus className="mr-2 h-4 w-4" />
                   Créer une habitude
                 </Button>
               </CardContent>
               <CardFooter>
-                <Button variant="ghost" className="w-full" onClick={() => navigate('/habits')}>
+                <Button variant="ghost" className="w-full" onClick={() => handleNavigation('/habits')}>
                   Gérer les habitudes
                 </Button>
               </CardFooter>
@@ -179,13 +185,13 @@ const Index = () => {
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground mb-4">Pas encore d'objectifs</p>
-                <Button onClick={() => navigate('/goals')} variant="outline" className="w-full">
+                <Button onClick={() => handleNavigation('/goals')} variant="outline" className="w-full">
                   <Plus className="mr-2 h-4 w-4" />
                   Créer un objectif
                 </Button>
               </CardContent>
               <CardFooter>
-                <Button variant="ghost" className="w-full" onClick={() => navigate('/goals')}>
+                <Button variant="ghost" className="w-full" onClick={() => handleNavigation('/goals')}>
                   Voir tous les objectifs
                 </Button>
               </CardFooter>

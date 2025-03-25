@@ -66,7 +66,6 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ userName = '' }) =
     try {
       await logout();
       navigate('/signin');
-      toast.success("Vous avez été déconnecté avec succès");
     } catch (error) {
       console.error('Erreur de déconnexion', error);
       toast.error("Erreur lors de la déconnexion");
@@ -100,8 +99,9 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ userName = '' }) =
   };
 
   const toggleTheme = () => {
-    setTheme(theme === 'dark' ? 'light' : 'dark');
-    toast.success(`Thème ${theme === 'dark' ? 'clair' : 'sombre'} activé`);
+    const newTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(newTheme);
+    toast.success(`Thème ${newTheme === 'light' ? 'clair' : 'sombre'} activé`);
   };
 
   return (
@@ -148,13 +148,13 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ userName = '' }) =
             size="icon"
             onClick={toggleTheme}
             className="rounded-full w-9 h-9"
+            aria-label="Toggle theme"
           >
             {theme === 'dark' ? (
               <Sun className="h-5 w-5" />
             ) : (
               <Moon className="h-5 w-5" />
             )}
-            <span className="sr-only">Changer de thème</span>
           </Button>
           
           {/* Notifications */}
@@ -163,12 +163,12 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ userName = '' }) =
             size="icon" 
             className="rounded-full w-9 h-9 relative"
             onClick={() => toast.success("Fonctionnalité de notifications à venir")}
+            aria-label="Notifications"
           >
             <Bell className="h-5 w-5" />
             {notifications > 0 && (
               <span className="absolute top-0 right-0 block h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white dark:ring-slate-900" />
             )}
-            <span className="sr-only">Notifications</span>
           </Button>
 
           {currentUser && (

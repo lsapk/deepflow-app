@@ -135,7 +135,7 @@ export const registerUser = async (email: string, password: string, displayName:
     }
     
     toast.error(message);
-    throw new Error(message);
+    throw error;
   }
 };
 
@@ -228,7 +228,7 @@ export const loginUser = async (email: string, password: string) => {
     }
     
     toast.error(message);
-    throw new Error(message);
+    throw error;
   }
 };
 
@@ -434,34 +434,6 @@ export const getUserData = async (userId: string, collectionName: string) => {
   }
 };
 
-// Nouvelles fonctions pour la gestion des points karma et des fonctionnalités
-export const addKarmaPoints = async (userId: string, points: number) => {
-  try {
-    const userSettingsRef = doc(db, "userSettings", userId);
-    const settingsDoc = await getDoc(userSettingsRef);
-    
-    if (settingsDoc.exists()) {
-      const currentKarma = settingsDoc.data().karmaPoints || 0;
-      await updateDoc(userSettingsRef, {
-        karmaPoints: currentKarma + points,
-        updatedAt: Timestamp.now()
-      });
-      
-      // Jouer un son satisfaisant si l'option est activée
-      if (settingsDoc.data().soundEnabled) {
-        const audio = new Audio('/sounds/task-complete.mp3');
-        audio.play();
-      }
-      
-      return currentKarma + points;
-    }
-    return 0;
-  } catch (error) {
-    console.error("Error adding karma points:", error);
-    throw error;
-  }
-};
-
 // Fonction pour mettre à jour les paramètres utilisateur
 export const updateUserSettings = async (userId: string, settings: any) => {
   try {
@@ -586,6 +558,34 @@ export const syncGoogleCalendar = async (userId: string, authCode: string) => {
   } catch (error) {
     console.error("Error syncing with Google Calendar:", error);
     toast.error("Erreur lors de la synchronisation avec Google Calendar");
+    throw error;
+  }
+};
+
+// Helper for adding karma points
+export const addKarmaPoints = async (userId: string, points: number) => {
+  try {
+    const userSettingsRef = doc(db, "userSettings", userId);
+    const settingsDoc = await getDoc(userSettingsRef);
+    
+    if (settingsDoc.exists()) {
+      const currentKarma = settingsDoc.data().karmaPoints || 0;
+      await updateDoc(userSettingsRef, {
+        karmaPoints: currentKarma + points,
+        updatedAt: Timestamp.now()
+      });
+      
+      // Jouer un son satisfaisant si l'option est activée
+      if (settingsDoc.data().soundEnabled) {
+        const audio = new Audio('/sounds/task-complete.mp3');
+        audio.play();
+      }
+      
+      return currentKarma + points;
+    }
+    return 0;
+  } catch (error) {
+    console.error("Error adding karma points:", error);
     throw error;
   }
 };

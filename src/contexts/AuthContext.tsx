@@ -47,8 +47,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const logout = async () => {
     try {
       await logoutUser();
-      navigate('/signin');
       toast.success("Déconnexion réussie");
+      navigate('/signin');
     } catch (error) {
       console.error("Logout error:", error);
       toast.error("Erreur lors de la déconnexion");
@@ -58,6 +58,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const signIn = async (email: string, password: string) => {
     try {
       const user = await signInUser(email, password);
+      toast.success("Connexion réussie");
       return user;
     } catch (error) {
       console.error("Sign in error:", error);
@@ -70,6 +71,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const auth = getAuth();
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
+      toast.success("Connexion avec Google réussie");
       return result.user;
     } catch (error) {
       console.error("Google sign in error:", error);
@@ -80,6 +82,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const signUp = async (email: string, password: string, displayName: string) => {
     try {
       const user = await registerUser(email, password, displayName);
+      toast.success("Inscription réussie");
       return user;
     } catch (error) {
       console.error("Sign up error:", error);
