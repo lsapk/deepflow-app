@@ -77,16 +77,25 @@ const initializeUserCollections = async (userId: string, displayName: string, em
       createdAt: Timestamp.now(),
       lastActive: Timestamp.now(),
     };
+
+    // Créer les collections principales de l'utilisateur
+    const collections = {
+      tasks: [],
+      habits: [],
+      journals: [],
+      goals: [],
+      focusSessions: []
+    };
     
-    // Create batch writes for initial user data
+    // Exécuter toutes les opérations d'écriture
     await setDoc(doc(db, "userSettings", userId), defaultSettings);
     await setDoc(doc(db, "userProfiles", userId), userProfile);
-    
-    // Créer les collections vides pour l'utilisateur
     await setDoc(doc(db, `users/${userId}`), {
-      createdAt: Timestamp.now()
+      createdAt: Timestamp.now(),
+      lastActive: Timestamp.now(),
+      collections
     });
-    
+
     console.log("User collections initialized successfully");
     toast.success("Compte initialisé avec succès");
   } catch (error) {
@@ -135,9 +144,51 @@ export const loginUser = async (email: string, password: string) => {
     // Update last active timestamp
     if (userCredential.user) {
       const userProfileRef = doc(db, "userProfiles", userCredential.user.uid);
-      await updateDoc(userProfileRef, { 
-        lastActive: Timestamp.now() 
-      });
+      
+      try {
+        const profileSnap = await getDoc(userProfileRef);
+        if (profileSnap.exists()) {
+          // Update existing profile
+          await updateDoc(userProfileRef, { 
+            lastActive: Timestamp.now() 
+          });
+        } else {
+          // If profile doesn't exist, create it with basic info
+          const displayName = userCredential.user.displayName || 'Utilisateur';
+          await setDoc(userProfileRef, {
+            displayName: displayName,
+            email: userCredential.user.email,
+            bio: '',
+            photoURL: userCredential.user.photoURL || '',
+            createdAt: Timestamp.now(),
+            lastActive: Timestamp.now(),
+          });
+          
+          // Also create default settings if they don't exist
+          const userSettingsRef = doc(db, "userSettings", userCredential.user.uid);
+          const settingsSnap = await getDoc(userSettingsRef);
+          
+          if (!settingsSnap.exists()) {
+            await setDoc(userSettingsRef, {
+              theme: 'system',
+              language: 'fr',
+              notificationsEnabled: true,
+              soundEnabled: true,
+              focusMode: false,
+              clockFormat: '24h',
+              privacy: {
+                shareActivity: false,
+                publicProfile: false,
+                dataCollection: true,
+              },
+              createdAt: Timestamp.now(),
+              updatedAt: Timestamp.now()
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Error updating user profile on login:", err);
+      }
     }
     
     toast.success("Connexion réussie!");

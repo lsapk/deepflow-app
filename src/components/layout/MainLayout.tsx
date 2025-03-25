@@ -1,10 +1,12 @@
 
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useEffect, useState } from 'react';
 import { NavigationBar } from './NavigationBar';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/sonner';
 import { FeaturePanel } from './FeaturePanel';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/services/firebase';
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -16,6 +18,32 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   requireAuth = true,
 }) => {
   const { currentUser, loading } = useAuth();
+  const [displayName, setDisplayName] = useState<string>('');
+
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (currentUser?.uid) {
+        try {
+          const userProfileRef = doc(db, "userProfiles", currentUser.uid);
+          const userProfileSnap = await getDoc(userProfileRef);
+          
+          if (userProfileSnap.exists()) {
+            const data = userProfileSnap.data();
+            setDisplayName(data.displayName || currentUser.displayName || 'Utilisateur');
+          } else {
+            setDisplayName(currentUser.displayName || 'Utilisateur');
+          }
+        } catch (error) {
+          console.error("Error fetching user profile:", error);
+          setDisplayName(currentUser.displayName || 'Utilisateur');
+        }
+      }
+    };
+
+    if (currentUser) {
+      fetchUserProfile();
+    }
+  }, [currentUser]);
 
   if (loading) {
     return (
@@ -31,10 +59,15 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
-      <NavigationBar />
+      <NavigationBar userName={displayName} />
       <FeaturePanel />
       
       <main className="flex-1 py-6 pt-20 px-4 md:px-6 lg:px-8 max-w-7xl mx-auto w-full">
+        {!loading && currentUser && (
+          <div className="mb-6">
+            <h2 className="text-2xl font-bold">Bonjour, {displayName}</h2>
+          </div>
+        )}
         {children}
       </main>
       

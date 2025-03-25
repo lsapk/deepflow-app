@@ -11,19 +11,11 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { User, updateEmail, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
+import { User, updateEmail, updatePassword } from 'firebase/auth';
 import { db, uploadProfileImage, updateUserProfile } from '@/services/firebase';
 import { Camera, CheckCircle, Key, User as UserIcon, Mail, Shield, Loader2, AlertCircle } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
-
-interface UserProfile {
-  displayName: string;
-  email: string;
-  photoURL?: string;
-  bio: string;
-  createdAt: any;
-  lastActive: any;
-}
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const ProfilePage = () => {
   const { currentUser } = useAuth();
@@ -33,8 +25,7 @@ const ProfilePage = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [fileUploading, setFileUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showReauthDialog, setShowReauthDialog] = useState(false);
-  const [reauthPassword, setReauthPassword] = useState('');
+  const isMobile = useIsMobile();
   
   const [profileData, setProfileData] = useState({
     displayName: currentUser?.displayName || '',
@@ -132,7 +123,6 @@ const ProfilePage = () => {
       
       if (error.code === 'auth/requires-recent-login') {
         errorMessage = "Pour des raisons de sécurité, veuillez vous reconnecter avant de modifier votre email";
-        // Ici on pourrait demander à l'utilisateur de se réauthentifier
       } else if (error.code === 'auth/email-already-in-use') {
         errorMessage = "Cet email est déjà utilisé par un autre compte";
       } else if (error.code === 'auth/invalid-email') {
@@ -295,13 +285,13 @@ const ProfilePage = () => {
           </Card>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Card className="md:col-span-1">
+        <div className={`grid grid-cols-1 ${isMobile ? "" : "md:grid-cols-4"} gap-6`}>
+          <Card className={`${isMobile ? "" : "md:col-span-1"}`}>
             <CardContent className="pt-6 flex flex-col items-center">
               {renderAvatar()}
               
-              <h2 className="text-xl font-semibold mb-1">{currentUser?.displayName || 'Utilisateur'}</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{currentUser?.email}</p>
+              <h2 className="text-xl font-semibold mb-1">{profileData.displayName || 'Utilisateur'}</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{profileData.email}</p>
               
               <Separator className="mb-6" />
               
@@ -329,7 +319,7 @@ const ProfilePage = () => {
             </CardContent>
           </Card>
           
-          <div className="md:col-span-3">
+          <div className={`${isMobile ? "" : "md:col-span-3"}`}>
             <Tabs defaultValue="profile">
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="profile" className="flex items-center justify-center">

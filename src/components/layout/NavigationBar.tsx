@@ -1,286 +1,203 @@
 
-import React, { useState, useEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Logo } from '@/components/common/Logo';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger, 
+  DropdownMenuSeparator 
 } from '@/components/ui/dropdown-menu';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-  SheetClose,
-} from '@/components/ui/sheet';
-import {
-  Menu,
-  LogOut,
-  User,
-  Settings,
-  Home,
-  CheckSquare,
-  BookOpen,
-  Target,
-  Clock,
-  Calendar,
-  BarChart2,
-} from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { LogOut, Settings, User, ChevronDown, Menu, Home, CheckSquare, BookOpen, LineChart, Flame, 
+  ShieldCheck } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Logo } from '@/components/common/Logo';
 import { useIsMobile } from '@/hooks/use-mobile';
 
-interface NavItem {
-  name: string;
-  path: string;
-  icon: React.ReactNode;
-  badge?: string | number;
+interface NavigationBarProps {
+  userName?: string;
 }
 
-export const NavigationBar = () => {
+export const NavigationBar: React.FC<NavigationBarProps> = ({ userName = '' }) => {
   const { currentUser, logout } = useAuth();
-  const location = useLocation();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isMobile = useIsMobile();
-  const [isScrolled, setIsScrolled] = useState(false);
-
-  const navItems: NavItem[] = [
-    { name: 'Tableau de bord', path: '/dashboard', icon: <Home className="h-5 w-5" /> },
-    { name: 'Tâches', path: '/tasks', icon: <CheckSquare className="h-5 w-5" />, badge: 3 },
-    { name: 'Habitudes', path: '/habits', icon: <CheckSquare className="h-5 w-5" /> },
-    { name: 'Focus', path: '/focus', icon: <Clock className="h-5 w-5" /> },
-    { name: 'Journal', path: '/journal', icon: <BookOpen className="h-5 w-5" /> },
-    { name: 'Objectifs', path: '/goals', icon: <Target className="h-5 w-5" /> },
-    { name: 'Planning', path: '/planning', icon: <Calendar className="h-5 w-5" /> },
-    { name: 'Analyses', path: '/analytics', icon: <BarChart2 className="h-5 w-5" /> },
-  ];
-
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 10);
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
 
   const handleLogout = async () => {
     try {
       await logout();
       navigate('/signin');
     } catch (error) {
-      console.error('Error during logout:', error);
+      console.error('Erreur de déconnexion', error);
     }
   };
 
-  const getInitials = (name: string | null | undefined) => {
+  const getInitials = (name: string | null) => {
     if (!name) return 'U';
     return name
       .split(' ')
-      .map((part) => part.charAt(0))
+      .map(n => n[0])
       .join('')
       .toUpperCase();
   };
 
-  const MobileNav = () => (
-    <Sheet>
-      <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="md:hidden">
-          <Menu className="h-6 w-6" />
-        </Button>
-      </SheetTrigger>
-      <SheetContent side="left" className="overflow-y-auto">
-        <SheetHeader className="mb-4">
-          <SheetTitle className="text-left">
-            <Logo size="md" textColor="text-primary" noRedirect={true} />
-          </SheetTitle>
-        </SheetHeader>
-        
-        {currentUser && (
-          <div className="flex items-center gap-3 mb-6 px-2">
-            <Avatar className="h-10 w-10">
-              <AvatarImage src={currentUser.photoURL || undefined} alt={currentUser.displayName || 'Utilisateur'} />
-              <AvatarFallback>{getInitials(currentUser.displayName)}</AvatarFallback>
-            </Avatar>
-            <div className="flex flex-col">
-              <span className="font-medium text-sm">{currentUser.displayName || 'Utilisateur'}</span>
-              <span className="text-xs text-gray-500 truncate max-w-[180px]">{currentUser.email}</span>
-            </div>
-          </div>
-        )}
-        
-        <nav className="space-y-1 mb-6">
-          {navItems.map((item) => (
-            <SheetClose asChild key={item.path}>
-              <Link
-                to={item.path}
-                className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm ${
-                  location.pathname === item.path
-                    ? 'bg-primary/10 text-primary font-medium'
-                    : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'
-                }`}
-              >
-                {item.icon}
-                {item.name}
-                {item.badge && (
-                  <Badge variant="secondary" className="ml-auto">
-                    {item.badge}
-                  </Badge>
-                )}
-              </Link>
-            </SheetClose>
-          ))}
-        </nav>
-        
-        <div className="space-y-1">
-          <SheetClose asChild>
-            <Link
-              to="/profile"
-              className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm ${
-                location.pathname === '/profile'
-                  ? 'bg-primary/10 text-primary font-medium'
-                  : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'
-              }`}
-            >
-              <User className="h-5 w-5" />
-              Profil
-            </Link>
-          </SheetClose>
-          
-          <SheetClose asChild>
-            <Link
-              to="/settings"
-              className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm ${
-                location.pathname === '/settings'
-                  ? 'bg-primary/10 text-primary font-medium'
-                  : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'
-              }`}
-            >
-              <Settings className="h-5 w-5" />
-              Paramètres
-            </Link>
-          </SheetClose>
-          
-          <button
-            onClick={handleLogout}
-            className="flex w-full items-center gap-3 px-3 py-2 rounded-md text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
-          >
-            <LogOut className="h-5 w-5" />
-            Déconnexion
-          </button>
-        </div>
-      </SheetContent>
-    </Sheet>
-  );
+  const navigationItems = [
+    { name: 'Accueil', path: '/dashboard', icon: <Home className="h-4 w-4" /> },
+    { name: 'Tâches', path: '/tasks', icon: <CheckSquare className="h-4 w-4" /> },
+    { name: 'Journal', path: '/journal', icon: <BookOpen className="h-4 w-4" /> },
+    { name: 'Focus', path: '/focus', icon: <Flame className="h-4 w-4" /> },
+    { name: 'Analytique', path: '/analytics', icon: <LineChart className="h-4 w-4" /> },
+  ];
 
-  const DesktopNav = () => (
-    <div className="hidden md:flex items-center gap-1">
-      {navItems.map((item) => (
-        <Link
-          key={item.path}
-          to={item.path}
-          className={`flex items-center px-3 py-2 rounded-md text-sm ${
-            location.pathname === item.path
-              ? 'bg-primary/10 text-primary font-medium'
-              : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'
-          }`}
-        >
-          {item.icon}
-          <span className="ml-2">{item.name}</span>
-          {item.badge && (
-            <Badge variant="secondary" className="ml-2">
-              {item.badge}
-            </Badge>
-          )}
-        </Link>
-      ))}
-    </div>
-  );
-
-  if (!currentUser) {
-    return (
-      <header className={`fixed top-0 left-0 right-0 z-40 py-3 px-4 transition-all ${isScrolled ? 'bg-white/90 dark:bg-gray-900/90 backdrop-blur-md shadow-sm' : 'bg-transparent'}`}>
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <Logo size="sm" textColor="text-primary" noRedirect={true} />
-          
-          <div className="flex items-center gap-2">
-            <Link to="/signin">
-              <Button variant="ghost" size="sm">
-                Connexion
-              </Button>
-            </Link>
-            <Link to="/signup">
-              <Button size="sm">
-                Inscription
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </header>
-    );
-  }
+  const isActive = (path: string) => {
+    if (path === '/dashboard' && location.pathname === '/') {
+      return true;
+    }
+    return location.pathname === path;
+  };
 
   return (
-    <header className={`fixed top-0 left-0 right-0 z-40 py-2 px-4 transition-all ${isScrolled ? 'bg-white/90 dark:bg-gray-900/90 backdrop-blur-md shadow-sm' : 'bg-white dark:bg-gray-900'}`}>
-      <div className="max-w-7xl mx-auto flex items-center justify-between h-14">
-        <div className="flex items-center gap-4">
-          <MobileNav />
-          <Logo size="sm" textColor="text-primary" noRedirect={true} />
-          {!isMobile && <DesktopNav />}
+    <div className="border-b fixed w-full bg-background/95 backdrop-blur-sm z-20">
+      <div className="flex items-center justify-between h-16 px-4 md:px-6 max-w-7xl mx-auto">
+        {/* Logo and brand */}
+        <div className="flex items-center">
+          <Link to="/dashboard" className="flex items-center gap-2 font-bold text-xl">
+            <Logo className="h-8 w-8" />
+            <span className="hidden md:inline">DeepFlow</span>
+          </Link>
         </div>
-        
-        <div className="flex items-center gap-4">
-          {currentUser && (
-            <div className="hidden md:block mr-2">
-              <span className="font-medium">Bonjour, {currentUser.displayName?.split(' ')[0] || 'Utilisateur'}</span>
-            </div>
-          )}
-          
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="rounded-full">
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={currentUser.photoURL || undefined} alt={currentUser.displayName || 'Utilisateur'} />
-                  <AvatarFallback className="text-xs">{getInitials(currentUser.displayName)}</AvatarFallback>
-                </Avatar>
+
+        {/* Desktop navigation */}
+        {!isMobile && (
+          <nav className="hidden md:flex items-center space-x-1">
+            {navigationItems.map((item) => (
+              <Button
+                key={item.name}
+                variant={isActive(item.path) ? 'default' : 'ghost'}
+                className="text-sm"
+                onClick={() => navigate(item.path)}
+              >
+                {item.icon}
+                <span className="ml-2">{item.name}</span>
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>
-                <div className="flex flex-col">
-                  <span>{currentUser.displayName || 'Utilisateur'}</span>
-                  <span className="text-xs text-gray-500 truncate max-w-[180px]">{currentUser.email}</span>
+            ))}
+          </nav>
+        )}
+
+        {/* User profile and mobile menu */}
+        <div className="flex items-center gap-2">
+          {currentUser && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+                  <Avatar className="h-9 w-9">
+                    <AvatarImage src={currentUser.photoURL || undefined} alt="Profile" />
+                    <AvatarFallback>{getInitials(userName || currentUser.displayName)}</AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <div className="flex items-center justify-start gap-2 p-2">
+                  <div className="flex flex-col space-y-0.5">
+                    <p className="text-sm font-medium">{userName || currentUser.displayName}</p>
+                    <p className="text-xs text-muted-foreground">{currentUser.email}</p>
+                  </div>
                 </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link to="/profile" className="cursor-pointer">
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate('/profile')}>
                   <User className="h-4 w-4 mr-2" />
                   Profil
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link to="/settings" className="cursor-pointer">
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/settings')}>
                   <Settings className="h-4 w-4 mr-2" />
                   Paramètres
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleLogout} className="text-red-600 dark:text-red-400">
-                <LogOut className="h-4 w-4 mr-2" />
-                Déconnexion
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout} className="text-red-600 dark:text-red-400">
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Déconnexion
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+
+          {isMobile && (
+            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="md:hidden">
+                  <Menu className="h-5 w-5" />
+                  <span className="sr-only">Menu</span>
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-[250px] sm:w-[300px]">
+                <SheetHeader className="text-left mb-4">
+                  <SheetTitle>
+                    <div className="flex items-center gap-2">
+                      <Logo className="h-6 w-6" />
+                      DeepFlow
+                    </div>
+                  </SheetTitle>
+                </SheetHeader>
+                <div className="py-4">
+                  <div className="space-y-1">
+                    {navigationItems.map((item) => (
+                      <Button
+                        key={item.name}
+                        variant={isActive(item.path) ? 'default' : 'ghost'}
+                        className="w-full justify-start mb-1"
+                        onClick={() => {
+                          navigate(item.path);
+                          setMobileMenuOpen(false);
+                        }}
+                      >
+                        {item.icon}
+                        <span className="ml-2">{item.name}</span>
+                      </Button>
+                    ))}
+                    <div className="pt-4">
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start text-muted-foreground"
+                        onClick={() => {
+                          navigate('/settings');
+                          setMobileMenuOpen(false);
+                        }}
+                      >
+                        <Settings className="h-4 w-4 mr-2" />
+                        Paramètres
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start text-muted-foreground"
+                        onClick={() => {
+                          navigate('/profile');
+                          setMobileMenuOpen(false);
+                        }}
+                      >
+                        <User className="h-4 w-4 mr-2" />
+                        Profil
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start text-red-600 dark:text-red-400"
+                        onClick={handleLogout}
+                      >
+                        <LogOut className="h-4 w-4 mr-2" />
+                        Déconnexion
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </SheetContent>
+            </Sheet>
+          )}
         </div>
       </div>
-    </header>
+    </div>
   );
 };

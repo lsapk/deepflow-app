@@ -3,11 +3,13 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { X, Info, Star, Zap, Lightbulb, Clock, Calendar, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetClose } from '@/components/ui/sheet';
 import { Card, CardContent } from '@/components/ui/card';
 
 export const FeaturePanel = () => {
+  const navigate = useNavigate();
+  
   const features = [
     {
       title: "Tableau de bord",
@@ -46,6 +48,10 @@ export const FeaturePanel = () => {
     }
   ];
 
+  const handleNavigate = (path: string) => {
+    navigate(path);
+  };
+
   return (
     <div className="fixed right-4 top-20 z-10">
       <Sheet>
@@ -64,27 +70,29 @@ export const FeaturePanel = () => {
           
           <div className="space-y-4">
             {features.map((feature, index) => (
-              <SheetClose asChild key={feature.title}>
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1, duration: 0.3 }}
+              <motion.div
+                key={feature.title}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1, duration: 0.3 }}
+              >
+                <div 
+                  onClick={() => handleNavigate(feature.path)}
+                  className="cursor-pointer"
                 >
-                  <Link to={feature.path}>
-                    <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
-                      <CardContent className="p-4 flex items-start gap-4">
-                        <div className={`p-2 rounded-lg ${feature.color}`}>
-                          <feature.icon className="h-5 w-5" />
-                        </div>
-                        <div>
-                          <h3 className="font-medium">{feature.title}</h3>
-                          <p className="text-sm text-muted-foreground mt-1">{feature.description}</p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </Link>
-                </motion.div>
-              </SheetClose>
+                  <Card className="hover:bg-muted/50 transition-colors">
+                    <CardContent className="p-4 flex items-start gap-4">
+                      <div className={`p-2 rounded-lg ${feature.color}`}>
+                        <feature.icon className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <h3 className="font-medium">{feature.title}</h3>
+                        <p className="text-sm text-muted-foreground mt-1">{feature.description}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </motion.div>
             ))}
           </div>
           
