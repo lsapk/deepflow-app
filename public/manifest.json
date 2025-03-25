@@ -18,5 +18,9 @@
   "display": "standalone",
   "theme_color": "#3B82F6",
   "background_color": "#ffffff",
-  "description": "La plateforme tout-en-un pour votre productivité"
+  "description": "La plateforme tout-en-un pour votre productivité",
+  "orientation": "portrait",
+  "scope": "/",
+  "prefer_related_applications": false,
+  "categories": ["productivity", "lifestyle", "utilities"]
 }

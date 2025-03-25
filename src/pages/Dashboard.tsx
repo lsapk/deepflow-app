@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +11,7 @@ import { db } from '@/services/firebase';
 import { 
   BarChart3, CheckSquare, BrainCircuit, Calendar, CheckCheck, ListTodo, Target, Clock, Plus, Edit3, FileText 
 } from 'lucide-react';
+import { HabitsWidget } from '@/components/habits/HabitsWidget';
 
 interface Task {
   id: string;
@@ -304,50 +304,7 @@ const Dashboard = () => {
               </div>
             </CardHeader>
             <CardContent>
-              {loading ? (
-                <div className="animate-pulse space-y-3">
-                  {[...Array(3)].map((_, i) => (
-                    <div key={i} className="h-12 bg-gray-200 dark:bg-gray-800 rounded"></div>
-                  ))}
-                </div>
-              ) : habits.length > 0 ? (
-                <ul className="space-y-3">
-                  {habits.map(habit => (
-                    <li key={habit.id} className="p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800">
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium">{habit.title}</span>
-                        <span className="text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 px-2 py-1 rounded-full">
-                          {habit.streak} jours
-                        </span>
-                      </div>
-                      <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
-                        <div 
-                          className="bg-green-600 h-2.5 rounded-full" 
-                          style={{ width: `${Math.min(100, (habit.streak / habit.target) * 100)}%` }}
-                        ></div>
-                      </div>
-                      <div className="mt-1 text-xs text-gray-500 dark:text-gray-400 flex justify-between">
-                        <span>Objectif: {habit.target} jours</span>
-                        <span>{Math.min(100, Math.round((habit.streak / habit.target) * 100))}%</span>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <div className="text-center py-6 text-gray-500 dark:text-gray-400">
-                  <CheckCheck className="h-12 w-12 mx-auto mb-3 text-gray-400" />
-                  <p>Aucune habitude suivie</p>
-                  <Button 
-                    onClick={handleNewHabit} 
-                    size="sm" 
-                    variant="outline" 
-                    className="mt-2"
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Ajouter une habitude
-                  </Button>
-                </div>
-              )}
+              <HabitsWidget />
             </CardContent>
           </Card>
 
