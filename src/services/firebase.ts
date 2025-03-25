@@ -1,3 +1,4 @@
+
 import { initializeApp } from "firebase/app";
 import { 
   getAuth, 
@@ -7,7 +8,9 @@ import {
   onAuthStateChanged, 
   User, 
   updateProfile,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  GoogleAuthProvider,
+  signInWithPopup
 } from "firebase/auth";
 import { 
   getFirestore, 
@@ -459,7 +462,7 @@ export const addKarmaPoints = async (userId: string, points: number) => {
   }
 };
 
-// Fonction corrigée pour mettre à jour les paramètres utilisateur
+// Fonction pour mettre à jour les paramètres utilisateur
 export const updateUserSettings = async (userId: string, settings: any) => {
   try {
     const userSettingsRef = doc(db, "userSettings", userId);
@@ -490,7 +493,7 @@ export const updateUserSettings = async (userId: string, settings: any) => {
   }
 };
 
-// Gestion des sites à bloquer (corrigée)
+// Gestion des sites à bloquer
 export const updateBlockedSites = async (userId: string, blockedSites: string[]) => {
   try {
     const userSettingsRef = doc(db, "userSettings", userId);
@@ -551,7 +554,7 @@ export const toggleDistractionBlocker = async (userId: string, enabled: boolean)
   }
 };
 
-// Synchronisation avec Google Calendar (corrigée)
+// Synchronisation avec Google Calendar
 export const syncGoogleCalendar = async (userId: string, authCode: string) => {
   try {
     const userRef = doc(db, "users", userId);

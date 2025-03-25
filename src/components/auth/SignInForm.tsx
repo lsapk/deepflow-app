@@ -32,7 +32,7 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-const SignInForm = () => {
+export const SignInForm = () => {
   const { signIn, signInWithGoogle } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -270,5 +270,3 @@ const SignInForm = () => {
     </div>
   );
 };
-
-export default SignInForm;
