@@ -1,273 +1,116 @@
+
 import React, { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
-import { toast } from 'sonner';
-import { db, toggleDistractionBlocker, updateBlockedSites, syncGoogleCalendar } from '@/services/firebase';
-import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
-import { useNavigate } from 'react-router-dom';
-import { 
-  Bell, 
-  LanguagesIcon, 
-  Palette, 
-  Shield, 
-  Loader2, 
-  Moon, 
-  Sun, 
-  Monitor, 
-  Clock, 
-  AlertCircle,
-  Calendar,
-  Mail,
-  Sparkles,
-  ShieldAlert,
-  MessageSquare
-} from 'lucide-react';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-
-interface UserSettings {
-  theme: 'light' | 'dark' | 'system';
-  language: 'fr' | 'en';
-  notificationsEnabled: boolean;
-  soundEnabled: boolean;
-  focusMode: boolean;
-  clockFormat: '12h' | '24h';
-  privacy: {
-    shareActivity: boolean;
-    publicProfile: boolean;
-    dataCollection: boolean;
-  };
-  karmaPoints: number;
-  unlockedFeatures: string[];
-  distraction_blocker: {
-    enabled: boolean;
-    blockedSites: string[];
-  };
-}
-
-const defaultSettings: UserSettings = {
-  theme: 'system',
-  language: 'fr',
-  notificationsEnabled: true,
-  soundEnabled: true,
-  focusMode: false,
-  clockFormat: '24h',
-  privacy: {
-    shareActivity: false,
-    publicProfile: false,
-    dataCollection: true,
-  },
-  karmaPoints: 0,
-  unlockedFeatures: [],
-  distraction_blocker: {
-    enabled: false,
-    blockedSites: []
-  }
-};
+import { getUserSettings, updateUserSettings } from '@/services/supabase';
+import { Settings, Bell, Moon, Languages, Clock } from 'lucide-react';
 
 const SettingsPage = () => {
   const { currentUser } = useAuth();
-  const navigate = useNavigate(); // Add this line for proper navigation
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [settings, setSettings] = useState({
+    theme: 'system',
+    language: 'fr',
+    notificationsEnabled: true,
+    soundEnabled: true,
+    focusMode: false,
+    clockFormat: '24h'
+  });
   const [isSaving, setIsSaving] = useState(false);
-  const [settings, setSettings] = useState<UserSettings>(defaultSettings);
-  const [error, setError] = useState<string | null>(null);
-  const [newBlockedSite, setNewBlockedSite] = useState('');
-  const [googleAuthCode, setGoogleAuthCode] = useState('');
-  const [isSyncingCalendar, setIsSyncingCalendar] = useState(false);
-  const isMobile = useIsMobile();
 
   useEffect(() => {
-    const fetchSettings = async () => {
-      if (!currentUser) return;
-      
-      try {
-        setIsLoading(true);
-        setError(null);
-        
-        const settingsRef = doc(db, "userSettings", currentUser.uid);
-        const settingsDoc = await getDoc(settingsRef);
-        
-        if (settingsDoc.exists()) {
-          const userSettings = settingsDoc.data() as UserSettings;
-          
-          // Assurez-vous que toutes les propriétés existent
-          setSettings({
-            ...defaultSettings,
-            ...userSettings,
-            distraction_blocker: {
-              enabled: userSettings.distraction_blocker?.enabled || false,
-              blockedSites: userSettings.distraction_blocker?.blockedSites || []
-            }
-          });
-        } else {
-          // Create default settings if they don't exist
-          await setDoc(settingsRef, defaultSettings);
-        }
-      } catch (err) {
-        console.error("Error loading settings:", err);
-        setError("Erreur lors du chargement des paramètres");
-        toast.error("Erreur lors du chargement des paramètres");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    fetchSettings();
+    if (currentUser) {
+      fetchUserSettings();
+    }
   }, [currentUser]);
 
-  const handleSaveSettings = async () => {
+  const fetchUserSettings = async () => {
+    if (!currentUser) return;
+    
+    try {
+      setLoading(true);
+      const userSettings = await getUserSettings(currentUser.uid);
+      
+      if (userSettings) {
+        setSettings({
+          theme: userSettings.theme || 'system',
+          language: userSettings.language || 'fr',
+          notificationsEnabled: userSettings.notifications_enabled !== false,
+          soundEnabled: userSettings.sound_enabled !== false,
+          focusMode: userSettings.focus_mode || false,
+          clockFormat: userSettings.clock_format || '24h'
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching user settings:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveSettings = async () => {
     if (!currentUser) return;
     
     try {
       setIsSaving(true);
-      setError(null);
       
-      const settingsRef = doc(db, "userSettings", currentUser.uid);
-      await updateDoc(settingsRef, {
-        ...settings,
-        updatedAt: new Date()
+      await updateUserSettings(currentUser.uid, {
+        theme: settings.theme,
+        language: settings.language,
+        notifications_enabled: settings.notificationsEnabled,
+        sound_enabled: settings.soundEnabled,
+        focus_mode: settings.focusMode,
+        clock_format: settings.clockFormat
       });
       
-      toast.success("Paramètres mis à jour avec succès");
-    } catch (err) {
-      console.error("Error saving settings:", err);
-      setError("Erreur lors de la sauvegarde des paramètres");
-      toast.error("Erreur lors de la sauvegarde des paramètres");
+      console.log("Settings updated successfully");
+    } catch (error) {
+      console.error("Error updating settings:", error);
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleSwitchChange = (field: keyof UserSettings, value: boolean) => {
-    setSettings(prev => ({
-      ...prev,
-      [field]: value
-    }));
+  const handleSwitchChange = (field: string) => (checked: boolean) => {
+    setSettings(prev => ({ ...prev, [field]: checked }));
   };
 
-  const handlePrivacyChange = (field: keyof typeof settings.privacy, value: boolean) => {
-    setSettings(prev => ({
-      ...prev,
-      privacy: {
-        ...prev.privacy,
-        [field]: value
-      }
-    }));
+  const handleSelectChange = (field: string) => (value: string) => {
+    setSettings(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSelectChange = (field: keyof UserSettings, value: any) => {
-    setSettings(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  const handleToggleDistractionBlocker = async () => {
-    if (!currentUser) return;
-    
-    try {
-      setIsSaving(true);
-      const newValue = !settings.distraction_blocker.enabled;
-      
-      await toggleDistractionBlocker(currentUser.uid, newValue);
-      
-      setSettings(prev => ({
-        ...prev,
-        distraction_blocker: {
-          ...prev.distraction_blocker,
-          enabled: newValue
-        }
-      }));
-    } catch (err) {
-      console.error("Error toggling distraction blocker:", err);
-      toast.error("Erreur lors de la modification du bloqueur de distractions");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleAddBlockedSite = async () => {
-    if (!currentUser || !newBlockedSite) return;
-    
-    try {
-      setIsSaving(true);
-      const blockedSites = [...settings.distraction_blocker.blockedSites, newBlockedSite];
-      
-      await updateBlockedSites(currentUser.uid, blockedSites);
-      
-      setSettings(prev => ({
-        ...prev,
-        distraction_blocker: {
-          ...prev.distraction_blocker,
-          blockedSites
-        }
-      }));
-      
-      setNewBlockedSite('');
-    } catch (err) {
-      console.error("Error adding blocked site:", err);
-      toast.error("Erreur lors de l'ajout du site bloqué");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleRemoveBlockedSite = async (site: string) => {
-    if (!currentUser) return;
-    
-    try {
-      setIsSaving(true);
-      const blockedSites = settings.distraction_blocker.blockedSites.filter(s => s !== site);
-      
-      await updateBlockedSites(currentUser.uid, blockedSites);
-      
-      setSettings(prev => ({
-        ...prev,
-        distraction_blocker: {
-          ...prev.distraction_blocker,
-          blockedSites
-        }
-      }));
-    } catch (err) {
-      console.error("Error removing blocked site:", err);
-      toast.error("Erreur lors de la suppression du site bloqué");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleSyncGoogleCalendar = async () => {
-    if (!currentUser || !googleAuthCode) return;
-    
-    try {
-      setIsSyncingCalendar(true);
-      await syncGoogleCalendar(currentUser.uid, googleAuthCode);
-      toast.success("Synchronisation avec Google Calendar réussie");
-      setGoogleAuthCode('');
-    } catch (err) {
-      console.error("Error syncing Google Calendar:", err);
-      toast.error("Erreur lors de la synchronisation avec Google Calendar");
-    } finally {
-      setIsSyncingCalendar(false);
-    }
-  };
-
-  if (isLoading) {
+  if (loading) {
     return (
       <MainLayout>
-        <div className="min-h-[60vh] flex flex-col items-center justify-center">
-          <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-          <p className="text-gray-500 dark:text-gray-400">Chargement des paramètres...</p>
+        <div className="space-y-6">
+          <h1 className="text-3xl font-bold">Paramètres</h1>
+          <div className="grid gap-6">
+            <Card className="animate-pulse">
+              <CardHeader className="pb-4">
+                <div className="h-6 bg-gray-200 dark:bg-gray-800 rounded w-1/4 mb-2"></div>
+                <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-1/3"></div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {[...Array(4)].map((_, i) => (
+                    <div key={i} className="flex justify-between items-center">
+                      <div className="space-y-1">
+                        <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-24"></div>
+                        <div className="h-3 bg-gray-200 dark:bg-gray-800 rounded w-40"></div>
+                      </div>
+                      <div className="h-6 w-10 bg-gray-200 dark:bg-gray-800 rounded"></div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </MainLayout>
     );
@@ -276,513 +119,162 @@ const SettingsPage = () => {
   return (
     <MainLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold mb-2">Paramètres</h1>
-          <p className="text-gray-500 dark:text-gray-400">
-            Personnalisez votre expérience DeepFlow
-          </p>
-        </div>
-
-        {error && (
-          <Card className="border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-900">
-            <CardContent className="pt-6">
-              <div className="flex items-start">
-                <AlertCircle className="h-5 w-5 text-red-500 mr-3 mt-0.5" />
-                <div>
-                  <h3 className="font-medium text-red-800 dark:text-red-300">Une erreur est survenue</h3>
-                  <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        <Tabs defaultValue="interface">
-          <TabsList className={`grid ${isMobile ? "grid-cols-2 mb-4" : "w-full grid-cols-5"}`}>
-            <TabsTrigger value="interface" className="flex items-center justify-center">
-              <Palette className="mr-2 h-4 w-4" />
-              Interface
+        <h1 className="text-3xl font-bold">Paramètres</h1>
+        
+        <Tabs defaultValue="general">
+          <TabsList className="mb-6">
+            <TabsTrigger value="general">
+              <Settings className="mr-2 h-4 w-4" />
+              Général
             </TabsTrigger>
-            <TabsTrigger value="notifications" className="flex items-center justify-center">
+            <TabsTrigger value="notifications">
               <Bell className="mr-2 h-4 w-4" />
               Notifications
             </TabsTrigger>
-            <TabsTrigger value="language" className="flex items-center justify-center">
-              <LanguagesIcon className="mr-2 h-4 w-4" />
-              Langue
-            </TabsTrigger>
-            <TabsTrigger value="privacy" className="flex items-center justify-center">
-              <Shield className="mr-2 h-4 w-4" />
-              Confidentialité
-            </TabsTrigger>
-            <TabsTrigger value="integrations" className="flex items-center justify-center">
-              <Calendar className="mr-2 h-4 w-4" />
-              Intégrations
+            <TabsTrigger value="appearance">
+              <Moon className="mr-2 h-4 w-4" />
+              Apparence
             </TabsTrigger>
           </TabsList>
           
-          <TabsContent value="interface" className="mt-6">
+          <TabsContent value="general" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Paramètres d'interface</CardTitle>
+                <CardTitle>Paramètres Généraux</CardTitle>
                 <CardDescription>
-                  Personnalisez l'apparence et le comportement de l'application
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Thème</Label>
-                    <div className="flex flex-col sm:flex-row gap-4">
-                      <Button
-                        variant={settings.theme === 'light' ? 'default' : 'outline'}
-                        className="flex items-center justify-start"
-                        onClick={() => handleSelectChange('theme', 'light')}
-                      >
-                        <Sun className="mr-2 h-4 w-4" />
-                        Clair
-                      </Button>
-                      <Button
-                        variant={settings.theme === 'dark' ? 'default' : 'outline'}
-                        className="flex items-center justify-start"
-                        onClick={() => handleSelectChange('theme', 'dark')}
-                      >
-                        <Moon className="mr-2 h-4 w-4" />
-                        Sombre
-                      </Button>
-                      <Button
-                        variant={settings.theme === 'system' ? 'default' : 'outline'}
-                        className="flex items-center justify-start"
-                        onClick={() => handleSelectChange('theme', 'system')}
-                      >
-                        <Monitor className="mr-2 h-4 w-4" />
-                        Système
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label>Format d'horloge</Label>
-                    <div className="flex flex-col sm:flex-row gap-4">
-                      <Button
-                        variant={settings.clockFormat === '12h' ? 'default' : 'outline'}
-                        className="flex items-center justify-start"
-                        onClick={() => handleSelectChange('clockFormat', '12h')}
-                      >
-                        <Clock className="mr-2 h-4 w-4" />
-                        12h (AM/PM)
-                      </Button>
-                      <Button
-                        variant={settings.clockFormat === '24h' ? 'default' : 'outline'}
-                        className="flex items-center justify-start"
-                        onClick={() => handleSelectChange('clockFormat', '24h')}
-                      >
-                        <Clock className="mr-2 h-4 w-4" />
-                        24h
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center justify-between space-x-2">
-                    <Label htmlFor="focus-mode" className="flex flex-col space-y-1">
-                      <span>Mode focus</span>
-                      <span className="font-normal text-xs text-gray-500 dark:text-gray-400">
-                        Réduit les distractions visuelles pendant l'utilisation
-                      </span>
-                    </Label>
-                    <Switch
-                      id="focus-mode"
-                      checked={settings.focusMode}
-                      onCheckedChange={(checked) => handleSwitchChange('focusMode', checked)}
-                    />
-                  </div>
-                </div>
-              </CardContent>
-              <CardFooter className="flex justify-end">
-                <Button onClick={handleSaveSettings} disabled={isSaving}>
-                  {isSaving ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Enregistrement...
-                    </>
-                  ) : (
-                    'Enregistrer les modifications'
-                  )}
-                </Button>
-              </CardFooter>
-            </Card>
-          </TabsContent>
-          
-          <TabsContent value="notifications" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Paramètres de notifications</CardTitle>
-                <CardDescription>
-                  Configurez comment et quand vous souhaitez être notifié
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="flex items-center justify-between space-x-2">
-                  <Label htmlFor="notifications-enabled" className="flex flex-col space-y-1">
-                    <span>Notifications</span>
-                    <span className="font-normal text-xs text-gray-500 dark:text-gray-400">
-                      Activer les notifications dans l'application
-                    </span>
-                  </Label>
-                  <Switch
-                    id="notifications-enabled"
-                    checked={settings.notificationsEnabled}
-                    onCheckedChange={(checked) => handleSwitchChange('notificationsEnabled', checked)}
-                  />
-                </div>
-                
-                <div className="flex items-center justify-between space-x-2">
-                  <Label htmlFor="sound-enabled" className="flex flex-col space-y-1">
-                    <span>Sons</span>
-                    <span className="font-normal text-xs text-gray-500 dark:text-gray-400">
-                      Activer les sons pour les notifications
-                    </span>
-                  </Label>
-                  <Switch
-                    id="sound-enabled"
-                    checked={settings.soundEnabled}
-                    onCheckedChange={(checked) => handleSwitchChange('soundEnabled', checked)}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between space-x-2">
-                  <Label htmlFor="productivity-asmr" className="flex flex-col space-y-1">
-                    <span>Productivity ASMR</span>
-                    <span className="font-normal text-xs text-gray-500 dark:text-gray-400">
-                      Sons satisfaisants quand vous cochez des tâches
-                    </span>
-                  </Label>
-                  <Switch
-                    id="productivity-asmr"
-                    checked={settings.soundEnabled}
-                    onCheckedChange={(checked) => handleSwitchChange('soundEnabled', checked)}
-                  />
-                </div>
-              </CardContent>
-              <CardFooter className="flex justify-end">
-                <Button onClick={handleSaveSettings} disabled={isSaving}>
-                  {isSaving ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Enregistrement...
-                    </>
-                  ) : (
-                    'Enregistrer les modifications'
-                  )}
-                </Button>
-              </CardFooter>
-            </Card>
-          </TabsContent>
-          
-          <TabsContent value="language" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Paramètres de langue</CardTitle>
-                <CardDescription>
-                  Choisissez la langue de l'interface
+                  Configurez les paramètres généraux de l'application
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-2">
-                  <Label>Langue de l'application</Label>
-                  <Select
-                    value={settings.language}
-                    onValueChange={(value) => handleSelectChange('language', value)}
+                  <Label htmlFor="language">Langue</Label>
+                  <Select 
+                    value={settings.language} 
+                    onValueChange={handleSelectChange('language')}
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionnez une langue" />
+                    <SelectTrigger id="language" className="w-full">
+                      <Languages className="mr-2 h-4 w-4" />
+                      <SelectValue placeholder="Sélectionner une langue" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="fr">Français</SelectItem>
                       <SelectItem value="en">English</SelectItem>
+                      <SelectItem value="es">Español</SelectItem>
+                      <SelectItem value="de">Deutsch</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="clockFormat">Format d'horloge</Label>
+                  <Select 
+                    value={settings.clockFormat} 
+                    onValueChange={handleSelectChange('clockFormat')}
+                  >
+                    <SelectTrigger id="clockFormat" className="w-full">
+                      <Clock className="mr-2 h-4 w-4" />
+                      <SelectValue placeholder="Sélectionner un format d'horloge" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="12h">12 heures (AM/PM)</SelectItem>
+                      <SelectItem value="24h">24 heures</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="focusMode">Mode Focus</Label>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Minimise les distractions pendant les sessions de travail
+                    </p>
+                  </div>
+                  <Switch
+                    id="focusMode"
+                    checked={settings.focusMode}
+                    onCheckedChange={handleSwitchChange('focusMode')}
+                  />
+                </div>
               </CardContent>
-              <CardFooter className="flex justify-end">
-                <Button onClick={handleSaveSettings} disabled={isSaving}>
-                  {isSaving ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Enregistrement...
-                    </>
-                  ) : (
-                    'Enregistrer les modifications'
-                  )}
-                </Button>
-              </CardFooter>
             </Card>
           </TabsContent>
           
-          <TabsContent value="privacy" className="mt-6">
+          <TabsContent value="notifications" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Paramètres de confidentialité</CardTitle>
+                <CardTitle>Notifications</CardTitle>
                 <CardDescription>
-                  Gérez vos données et paramètres de confidentialité
+                  Gérez les paramètres de notification de l'application
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="flex items-center justify-between space-x-2">
-                  <Label htmlFor="share-activity" className="flex flex-col space-y-1">
-                    <span>Partage d'activité</span>
-                    <span className="font-normal text-xs text-gray-500 dark:text-gray-400">
-                      Permettre le partage de votre activité avec d'autres utilisateurs
-                    </span>
-                  </Label>
-                  <Switch
-                    id="share-activity"
-                    checked={settings.privacy.shareActivity}
-                    onCheckedChange={(checked) => handlePrivacyChange('shareActivity', checked)}
-                  />
-                </div>
-                
-                <div className="flex items-center justify-between space-x-2">
-                  <Label htmlFor="public-profile" className="flex flex-col space-y-1">
-                    <span>Profil public</span>
-                    <span className="font-normal text-xs text-gray-500 dark:text-gray-400">
-                      Rendre votre profil visible publiquement
-                    </span>
-                  </Label>
-                  <Switch
-                    id="public-profile"
-                    checked={settings.privacy.publicProfile}
-                    onCheckedChange={(checked) => handlePrivacyChange('publicProfile', checked)}
-                  />
-                </div>
-                
-                <div className="flex items-center justify-between space-x-2">
-                  <Label htmlFor="data-collection" className="flex flex-col space-y-1">
-                    <span>Collecte de données</span>
-                    <span className="font-normal text-xs text-gray-500 dark:text-gray-400">
-                      Permettre la collecte de données anonymes pour améliorer l'application
-                    </span>
-                  </Label>
-                  <Switch
-                    id="data-collection"
-                    checked={settings.privacy.dataCollection}
-                    onCheckedChange={(checked) => handlePrivacyChange('dataCollection', checked)}
-                  />
-                </div>
-
-                <div className="p-4 border rounded-md space-y-4">
-                  <div className="flex items-start">
-                    <div className="mr-3">
-                      <ShieldAlert className="h-5 w-5 text-orange-500" />
-                    </div>
-                    <div>
-                      <h3 className="font-medium">Bloqueur de distractions</h3>
-                      <p className="text-sm text-gray-500 mb-2">Bloquez les sites web qui vous distraient</p>
-                      
-                      <div className="flex items-center mb-4">
-                        <Switch
-                          id="distraction-blocker"
-                          checked={settings.distraction_blocker.enabled}
-                          onCheckedChange={handleToggleDistractionBlocker}
-                          className="mr-2"
-                        />
-                        <Label htmlFor="distraction-blocker">
-                          {settings.distraction_blocker.enabled ? 'Activé' : 'Désactivé'}
-                        </Label>
-                      </div>
-                      
-                      {settings.distraction_blocker.enabled && (
-                        <div className="space-y-3">
-                          <div className="flex gap-2">
-                            <Input
-                              placeholder="Ajouter un site (ex: instagram.com)"
-                              value={newBlockedSite}
-                              onChange={(e) => setNewBlockedSite(e.target.value)}
-                            />
-                            <Button 
-                              onClick={handleAddBlockedSite} 
-                              disabled={!newBlockedSite || isSaving}
-                            >
-                              Ajouter
-                            </Button>
-                          </div>
-                          
-                          <div className="flex flex-wrap gap-2">
-                            {settings.distraction_blocker.blockedSites.map((site) => (
-                              <Badge 
-                                key={site} 
-                                variant="secondary"
-                                className="flex items-center gap-1 py-1.5"
-                              >
-                                {site}
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-4 w-4 p-0 ml-1 hover:bg-transparent"
-                                  onClick={() => handleRemoveBlockedSite(site)}
-                                >
-                                  ×
-                                </Button>
-                              </Badge>
-                            ))}
-                            {settings.distraction_blocker.blockedSites.length === 0 && (
-                              <p className="text-sm text-gray-500">Aucun site bloqué</p>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="notificationsEnabled">Notifications</Label>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Activer les notifications dans l'application
+                    </p>
                   </div>
+                  <Switch
+                    id="notificationsEnabled"
+                    checked={settings.notificationsEnabled}
+                    onCheckedChange={handleSwitchChange('notificationsEnabled')}
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="soundEnabled">Sons</Label>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Activer les sons pour les notifications
+                    </p>
+                  </div>
+                  <Switch
+                    id="soundEnabled"
+                    checked={settings.soundEnabled}
+                    onCheckedChange={handleSwitchChange('soundEnabled')}
+                  />
                 </div>
               </CardContent>
-              <CardFooter className="flex justify-end">
-                <Button onClick={handleSaveSettings} disabled={isSaving}>
-                  {isSaving ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Enregistrement...
-                    </>
-                  ) : (
-                    'Enregistrer les modifications'
-                  )}
-                </Button>
-              </CardFooter>
             </Card>
           </TabsContent>
-
-          <TabsContent value="integrations" className="mt-6">
+          
+          <TabsContent value="appearance" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Intégrations</CardTitle>
+                <CardTitle>Apparence</CardTitle>
                 <CardDescription>
-                  Connectez-vous avec d'autres services
+                  Personnalisez l'apparence de l'application
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="p-4 border rounded-md space-y-3">
-                  <div className="flex items-start">
-                    <div className="mr-3">
-                      <Calendar className="h-5 w-5 text-blue-500" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-medium">Google Calendar</h3>
-                      <p className="text-sm text-gray-500 mb-3">Synchronisez vos tâches et plannings avec Google Calendar</p>
-                      
-                      <div className="flex flex-col space-y-3">
-                        <Input
-                          placeholder="Code d'autorisation Google"
-                          value={googleAuthCode}
-                          onChange={(e) => setGoogleAuthCode(e.target.value)}
-                        />
-                        <Button 
-                          onClick={handleSyncGoogleCalendar} 
-                          disabled={!googleAuthCode || isSyncingCalendar}
-                        >
-                          {isSyncingCalendar ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Synchronisation...
-                            </>
-                          ) : (
-                            'Synchroniser avec Google Calendar'
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-4 border rounded-md space-y-3">
-                  <div className="flex items-start">
-                    <div className="mr-3">
-                      <Sparkles className="h-5 w-5 text-yellow-500" />
-                    </div>
-                    <div>
-                      <h3 className="font-medium">Karma Productif</h3>
-                      <p className="text-sm text-gray-500 mb-2">Plus vous êtes productif, plus vous débloquez des fonctionnalités</p>
-                      
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className="font-bold">{settings.karmaPoints || 0}</span>
-                        <span className="text-sm">points Karma</span>
-                      </div>
-                      
-                      <div className="space-y-1 mb-4">
-                        <p className="text-sm font-medium">Fonctionnalités débloquées :</p>
-                        <div className="flex flex-wrap gap-2">
-                          {settings.unlockedFeatures && settings.unlockedFeatures.length > 0 ? 
-                            settings.unlockedFeatures.map((feature) => (
-                              <Badge key={feature} variant="outline">{feature}</Badge>
-                            )) : 
-                            <p className="text-sm text-gray-500">Aucune fonctionnalité débloquée pour l'instant</p>
-                          }
-                        </div>
-                      </div>
-                      
-                      <p className="text-sm text-gray-500">
-                        Continuez à utiliser DeepFlow régulièrement pour débloquer plus de fonctionnalités !
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-4 border rounded-md space-y-3">
-                  <div className="flex items-start">
-                    <div className="mr-3">
-                      <MessageSquare className="h-5 w-5 text-green-500" />
-                    </div>
-                    <div>
-                      <h3 className="font-medium">Assistant IA</h3>
-                      <p className="text-sm text-gray-500 mb-2">L'assistant IA utilise vos données pour vous offrir des conseils personnalisés</p>
-                      
-                      <Button onClick={() => navigate('/analytics')}>
-                        Accéder à l'assistant IA
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-4 border rounded-md space-y-3">
-                  <div className="flex items-start">
-                    <div className="mr-3">
-                      <Mail className="h-5 w-5 text-purple-500" />
-                    </div>
-                    <div>
-                      <h3 className="font-medium">Contactez-nous</h3>
-                      <p className="text-sm text-gray-500 mb-3">Vous avez des questions ou des suggestions ?</p>
-                      
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button>Nous contacter</Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-[425px]">
-                          <DialogHeader>
-                            <DialogTitle>Contactez-nous</DialogTitle>
-                            <DialogDescription>
-                              Envoyez-nous un message et nous vous répondrons dès que possible.
-                            </DialogDescription>
-                          </DialogHeader>
-                          <div className="space-y-4 py-4">
-                            <div className="space-y-2">
-                              <Label htmlFor="message">Message</Label>
-                              <Textarea
-                                id="message"
-                                placeholder="Votre message..."
-                                rows={5}
-                              />
-                            </div>
-                          </div>
-                          <DialogFooter>
-                            <Button type="submit" onClick={() => toast.success("Message envoyé avec succès!")}>Envoyer</Button>
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
-                    </div>
-                  </div>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="theme">Thème</Label>
+                  <Select 
+                    value={settings.theme} 
+                    onValueChange={handleSelectChange('theme')}
+                  >
+                    <SelectTrigger id="theme" className="w-full">
+                      <Moon className="mr-2 h-4 w-4" />
+                      <SelectValue placeholder="Sélectionner un thème" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="light">Clair</SelectItem>
+                      <SelectItem value="dark">Sombre</SelectItem>
+                      <SelectItem value="system">Système</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
+        
+        <div className="flex justify-end">
+          <Button onClick={saveSettings} disabled={isSaving}>
+            {isSaving ? 'Enregistrement...' : 'Enregistrer les paramètres'}
+          </Button>
+        </div>
       </div>
     </MainLayout>
   );

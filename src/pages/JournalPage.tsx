@@ -1,25 +1,14 @@
 
 import React, { useState, useEffect } from 'react';
-import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
-import { toast } from 'sonner';
-import { db } from '@/services/firebase';
-import { collection, addDoc, getDocs, query, where, orderBy, deleteDoc, doc, Timestamp, getDoc, setDoc } from 'firebase/firestore';
+import { MainLayout } from '@/components/layout/MainLayout';
+import { JournalEntry, createJournalEntry, getJournalEntries, deleteJournalEntry, updateJournalEntry } from '@/services/supabase';
 import { FilePlus, FileText, Trash2, Calendar, Tag, Search, Edit } from 'lucide-react';
-
-interface JournalEntry {
-  id: string;
-  title: string;
-  content: string;
-  mood?: string;
-  tags?: string[];
-  createdAt: Date;
-}
 
 const JournalPage = () => {
   const { currentUser } = useAuth();
@@ -33,6 +22,7 @@ const JournalPage = () => {
   });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [editingEntry, setEditingEntry] = useState<JournalEntry | null>(null);
 
   useEffect(() => {
     if (currentUser) {
@@ -45,44 +35,10 @@ const JournalPage = () => {
     
     try {
       setLoading(true);
-      
-      // Vérifier si la collection journalEntries existe pour l'utilisateur
-      const userJournalRef = collection(db, 'journalEntries');
-      const entriesQuery = query(
-        userJournalRef,
-        where('userId', '==', currentUser.uid),
-        orderBy('createdAt', 'desc')
-      );
-      
-      const querySnapshot = await getDocs(entriesQuery);
-      
-      if (querySnapshot.empty) {
-        setEntries([]);
-        setLoading(false);
-        return;
-      }
-      
-      const fetchedEntries = querySnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          title: data.title,
-          content: data.content,
-          mood: data.mood,
-          tags: data.tags,
-          createdAt: data.createdAt.toDate()
-        } as JournalEntry;
-      });
-      
+      const fetchedEntries = await getJournalEntries(currentUser.uid);
       setEntries(fetchedEntries);
     } catch (error) {
       console.error("Error fetching journal entries:", error);
-      // Vérifier si l'erreur est liée aux permissions Firebase
-      if (error instanceof Error && error.message.includes("permission-denied")) {
-        toast.error("Permissions insuffisantes. Reconnectez-vous");
-      } else {
-        toast.error("Erreur lors du chargement des entrées de journal");
-      }
     } finally {
       setLoading(false);
     }
@@ -93,11 +49,21 @@ const JournalPage = () => {
     setNewEntry(prev => ({ ...prev, [name]: value }));
   };
 
+  const resetForm = () => {
+    setNewEntry({
+      title: '',
+      content: '',
+      mood: 'neutral',
+      tags: ''
+    });
+    setEditingEntry(null);
+  };
+
   const handleSubmit = async () => {
     if (!currentUser) return;
     
     if (!newEntry.title.trim() || !newEntry.content.trim()) {
-      toast.error("Le titre et le contenu sont requis");
+      console.error("Le titre et le contenu sont requis");
       return;
     }
     
@@ -106,56 +72,62 @@ const JournalPage = () => {
         ? newEntry.tags.split(',').map(tag => tag.trim())
         : [];
       
-      // Créer un document avec un ID spécifique pour éviter les problèmes de permission
-      const entryData = {
-        userId: currentUser.uid,
-        title: newEntry.title,
-        content: newEntry.content,
-        mood: newEntry.mood,
-        tags,
-        createdAt: Timestamp.now(),
-      };
+      if (editingEntry) {
+        // Mettre à jour l'entrée existante
+        const updatedEntry = await updateJournalEntry(editingEntry.id, {
+          title: newEntry.title,
+          content: newEntry.content,
+          mood: newEntry.mood as any,
+          tags
+        });
+        
+        setEntries(prev => prev.map(entry => 
+          entry.id === updatedEntry.id ? updatedEntry : entry
+        ));
+      } else {
+        // Créer une nouvelle entrée
+        const entryData = {
+          title: newEntry.title,
+          content: newEntry.content,
+          mood: newEntry.mood as any,
+          tags
+        };
+        
+        const newJournalEntry = await createJournalEntry(currentUser.uid, entryData);
+        setEntries(prev => [newJournalEntry, ...prev]);
+      }
       
-      const docRef = await addDoc(collection(db, 'journalEntries'), entryData);
-      
-      setNewEntry({
-        title: '',
-        content: '',
-        mood: 'neutral',
-        tags: ''
-      });
-      
+      resetForm();
       setIsDialogOpen(false);
-      toast.success("Entrée de journal ajoutée avec succès");
-      
-      // Ajouter la nouvelle entrée à l'état local sans recharger
-      setEntries(prev => [{
-        id: docRef.id,
-        title: entryData.title,
-        content: entryData.content,
-        mood: entryData.mood,
-        tags: entryData.tags,
-        createdAt: new Date()
-      }, ...prev]);
-      
     } catch (error) {
-      console.error("Error adding journal entry:", error);
-      toast.error("Erreur lors de l'ajout de l'entrée de journal");
+      console.error("Error saving journal entry:", error);
     }
   };
 
-  const deleteEntry = async (id: string) => {
+  const handleDeleteEntry = async (id: string) => {
     try {
-      await deleteDoc(doc(db, 'journalEntries', id));
+      await deleteJournalEntry(id);
       setEntries(entries.filter(entry => entry.id !== id));
-      toast.success("Entrée supprimée avec succès");
     } catch (error) {
       console.error("Error deleting journal entry:", error);
-      toast.error("Erreur lors de la suppression de l'entrée");
     }
   };
 
-  const formatDate = (date: Date) => {
+  const handleEditEntry = (entry: JournalEntry) => {
+    setEditingEntry(entry);
+    setNewEntry({
+      title: entry.title,
+      content: entry.content,
+      mood: entry.mood || 'neutral',
+      tags: entry.tags ? entry.tags.join(', ') : ''
+    });
+    setIsDialogOpen(true);
+  };
+
+  const formatDate = (dateStr: string | undefined) => {
+    if (!dateStr) return '';
+    
+    const date = new Date(dateStr);
     return date.toLocaleDateString('fr-FR', {
       year: 'numeric',
       month: 'long',
@@ -195,9 +167,9 @@ const JournalPage = () => {
             </DialogTrigger>
             <DialogContent className="sm:max-w-[550px]">
               <DialogHeader>
-                <DialogTitle>Ajouter une nouvelle entrée</DialogTitle>
+                <DialogTitle>{editingEntry ? 'Modifier la note' : 'Ajouter une nouvelle entrée'}</DialogTitle>
                 <DialogDescription>
-                  Notez vos pensées, idées ou réflexions du jour.
+                  {editingEntry ? 'Modifiez votre note existante.' : 'Notez vos pensées, idées ou réflexions du jour.'}
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
@@ -228,10 +200,15 @@ const JournalPage = () => {
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                <Button variant="outline" onClick={() => {
+                  resetForm();
+                  setIsDialogOpen(false);
+                }}>
                   Annuler
                 </Button>
-                <Button onClick={handleSubmit}>Enregistrer</Button>
+                <Button onClick={handleSubmit}>
+                  {editingEntry ? 'Mettre à jour' : 'Enregistrer'}
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -272,18 +249,28 @@ const JournalPage = () => {
                 <CardHeader className="pb-2">
                   <div className="flex justify-between items-start">
                     <CardTitle>{entry.title}</CardTitle>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      onClick={() => deleteEntry(entry.id)}
-                      className="h-8 w-8 text-gray-500 hover:text-red-500"
-                    >
-                      <Trash2 size={16} />
-                    </Button>
+                    <div className="flex space-x-1">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => handleEditEntry(entry)}
+                        className="h-8 w-8 text-gray-500"
+                      >
+                        <Edit size={16} />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => handleDeleteEntry(entry.id)}
+                        className="h-8 w-8 text-gray-500 hover:text-red-500"
+                      >
+                        <Trash2 size={16} />
+                      </Button>
+                    </div>
                   </div>
                   <CardDescription className="flex items-center">
                     <Calendar className="mr-1 h-3 w-3" />
-                    {formatDate(entry.createdAt)}
+                    {formatDate(entry.created_at)}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>

@@ -18,7 +18,7 @@ import {
   LineChart, Flame, Bell, Calendar, CheckCheck, Moon, Sun,
   HelpCircle 
 } from 'lucide-react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetClose } from '@/components/ui/sheet';
 import { Logo } from '@/components/common/Logo';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -56,18 +56,15 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ userName = '' }) =
 
     loadUserProfile();
     
-    // Simuler des notifications pour la démo
-    setNotifications(Math.floor(Math.random() * 5));
+    // Désactiver les notifications pour la démo
+    setNotifications(0);
   }, [currentUser]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     try {
-      logout().then(() => {
-        // Force redirect to sign-in page by using window.location
-        window.location.href = '/signin';
-      }).catch(error => {
-        console.error('Erreur de déconnexion', error);
-      });
+      await logout();
+      // Redirection forcée vers la page de connexion
+      window.location.href = '/signin';
     } catch (error) {
       console.error('Erreur de déconnexion', error);
     }
@@ -152,20 +149,6 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ userName = '' }) =
             )}
           </Button>
           
-          {/* Notifications */}
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="rounded-full w-9 h-9 relative"
-            onClick={() => navigate('/settings')}
-            aria-label="Notifications"
-          >
-            <Bell className="h-5 w-5" />
-            {notifications > 0 && (
-              <span className="absolute top-0 right-0 block h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white dark:ring-slate-900" />
-            )}
-          </Button>
-
           {currentUser && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

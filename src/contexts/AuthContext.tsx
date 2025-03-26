@@ -1,8 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
-import { useNavigate } from 'react-router-dom';
-import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { 
   loginUser, 
@@ -62,7 +60,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [session, setSession] = useState<Session | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
 
   // Effet pour gérer l'état d'authentification
   useEffect(() => {
@@ -77,8 +74,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
         
         if (newSession?.user) {
           // Charger le profil de l'utilisateur
-          const profile = await getUserProfile(newSession.user.id);
-          setUserProfile(profile);
+          try {
+            const profile = await getUserProfile(newSession.user.id);
+            setUserProfile(profile);
+          } catch (error) {
+            console.error("Error loading user profile:", error);
+          }
         } else {
           setUserProfile(null);
         }
@@ -98,8 +99,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
         
         if (initialSession?.user) {
           // Charger le profil de l'utilisateur
-          const profile = await getUserProfile(initialSession.user.id);
-          setUserProfile(profile);
+          try {
+            const profile = await getUserProfile(initialSession.user.id);
+            setUserProfile(profile);
+          } catch (error) {
+            console.error("Error checking user profile:", error);
+          }
         }
       } catch (error) {
         console.error("Error checking session:", error);
@@ -119,10 +124,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const logout = async () => {
     try {
       await logoutUser();
-      // Redirection manuelle pour s'assurer que la navigation se produit
+      // Utilisons window.location.href pour une redirection plus fiable
       window.location.href = '/signin';
+      return Promise.resolve();
     } catch (error) {
       console.error("Logout error:", error);
+      return Promise.reject(error);
     }
   };
 

@@ -1,11 +1,9 @@
 
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ThemeProvider } from "next-themes"; 
+import { TooltipProvider } from "@/components/ui/tooltip";
 import LandingPage from "./pages/LandingPage";
 import SignInPage from "./pages/SignInPage";
 import SignUpPage from "./pages/SignUpPage";
@@ -21,7 +19,6 @@ import ProfilePage from "./pages/ProfilePage";
 import SettingsPage from "./pages/SettingsPage";
 import NotFound from "./pages/NotFound";
 import { useEffect } from "react";
-import { MainLayout } from "./components/layout/MainLayout";
 
 // Create a new QueryClient with better error handling
 const queryClient = new QueryClient({
@@ -67,13 +64,11 @@ const App = () => {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
+    <BrowserRouter>
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
         <TooltipProvider>
-          <BrowserRouter>
+          <QueryClientProvider client={queryClient}>
             <AuthProvider>
-              <Toaster />
-              <Sonner position="top-right" toastOptions={{ duration: 0 }} />
               <Routes>
                 <Route path="/" element={<LandingPage />} />
                 
@@ -82,65 +77,25 @@ const App = () => {
                 <Route path="/signup" element={<SignUpPage />} />
                 
                 {/* Protected routes */}
-                <Route path="/dashboard" element={
-                  <MainLayout>
-                    <Dashboard />
-                  </MainLayout>
-                } />
-                <Route path="/tasks" element={
-                  <MainLayout>
-                    <TasksPage />
-                  </MainLayout>
-                } />
-                <Route path="/habits" element={
-                  <MainLayout>
-                    <HabitsPage />
-                  </MainLayout>
-                } />
-                <Route path="/focus" element={
-                  <MainLayout>
-                    <FocusPage />
-                  </MainLayout>
-                } />
-                <Route path="/journal" element={
-                  <MainLayout>
-                    <JournalPage />
-                  </MainLayout>
-                } />
-                <Route path="/goals" element={
-                  <MainLayout>
-                    <GoalsPage />
-                  </MainLayout>
-                } />
-                <Route path="/planning" element={
-                  <MainLayout>
-                    <PlanningPage />
-                  </MainLayout>
-                } />
-                <Route path="/analytics" element={
-                  <MainLayout>
-                    <AnalyticsPage />
-                  </MainLayout>
-                } />
-                <Route path="/profile" element={
-                  <MainLayout>
-                    <ProfilePage />
-                  </MainLayout>
-                } />
-                <Route path="/settings" element={
-                  <MainLayout>
-                    <SettingsPage />
-                  </MainLayout>
-                } />
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/tasks" element={<TasksPage />} />
+                <Route path="/habits" element={<HabitsPage />} />
+                <Route path="/focus" element={<FocusPage />} />
+                <Route path="/journal" element={<JournalPage />} />
+                <Route path="/goals" element={<GoalsPage />} />
+                <Route path="/planning" element={<PlanningPage />} />
+                <Route path="/analytics" element={<AnalyticsPage />} />
+                <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/settings" element={<SettingsPage />} />
                 
                 {/* Catch-all route */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </AuthProvider>
-          </BrowserRouter>
+          </QueryClientProvider>
         </TooltipProvider>
       </ThemeProvider>
-    </QueryClientProvider>
+    </BrowserRouter>
   );
 };
 
