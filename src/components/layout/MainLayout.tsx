@@ -73,11 +73,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
       <FeaturePanel />
       
       <main className="flex-1 py-6 pt-20 px-4 md:px-6 lg:px-8 max-w-7xl mx-auto w-full">
-        {!loading && currentUser && (
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold">Bonjour, {displayName}</h2>
-          </div>
-        )}
+        {/* Supprimé le double affichage ici, car le nom est déjà affiché dans la barre de navigation */}
         {children}
       </main>
       

@@ -22,7 +22,7 @@ const NotFound = () => {
           transition={{ delay: 0.2, duration: 0.5 }}
           className="mb-8 flex justify-center"
         >
-          <Logo size="lg" textColor="text-primary dark:text-primary" />
+          <Logo size="lg" />
         </motion.div>
         
         <motion.div 
@@ -44,10 +44,10 @@ const NotFound = () => {
         
         <div className="space-y-4">
           <Button 
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/dashboard')}
             className="w-full"
           >
-            Retourner à l'accueil
+            Retourner au tableau de bord
           </Button>
           
           <Button 

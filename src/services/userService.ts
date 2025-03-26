@@ -64,7 +64,7 @@ export const getUserProfile = async (userId: string): Promise<UserProfile | null
     }
   } catch (error) {
     console.error("Erreur lors de la récupération du profil utilisateur:", error);
-    toast.error("Erreur lors du chargement du profil");
+    // Utilisation silencieuse pour éviter les notifications excessives
     return null;
   }
 };

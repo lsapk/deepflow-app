@@ -23,13 +23,23 @@ import NotFound from "./pages/NotFound";
 import { useEffect } from "react";
 import { MainLayout } from "./components/layout/MainLayout";
 
-// Create a new QueryClient
+// Create a new QueryClient with better error handling
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 1,
       refetchOnWindowFocus: false,
+      staleTime: 60000, // 1 minute
+      gcTime: 5 * 60 * 1000, // 5 minutes
+      onError: (error) => {
+        console.error("Query error:", error);
+      }
     },
+    mutations: {
+      onError: (error) => {
+        console.error("Mutation error:", error);
+      }
+    }
   },
 });
 
@@ -55,9 +65,9 @@ const App = () => {
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
         <TooltipProvider>
           <BrowserRouter>
-            <Toaster />
-            <Sonner position="top-right" />
             <AuthProvider>
+              <Toaster />
+              <Sonner position="top-right" />
               <Routes>
                 <Route path="/" element={<LandingPage />} />
                 
