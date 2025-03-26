@@ -5,8 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/sonner';
 import { FeaturePanel } from './FeaturePanel';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from '@/services/firebase';
+import { getUserProfile } from '@/services/supabase';
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -17,43 +16,20 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   children,
   requireAuth = true,
 }) => {
-  const { currentUser, loading } = useAuth();
+  const { currentUser, loading, userProfile } = useAuth();
   const [displayName, setDisplayName] = useState<string>('');
 
   useEffect(() => {
-    const fetchUserProfile = async () => {
-      if (currentUser?.uid) {
-        try {
-          const userProfileRef = doc(db, "userProfiles", currentUser.uid);
-          const userProfileSnap = await getDoc(userProfileRef);
-          
-          if (userProfileSnap.exists()) {
-            const data = userProfileSnap.data();
-            setDisplayName(data.displayName || currentUser.displayName || 'Utilisateur');
-          } else {
-            // Créer un profil s'il n'existe pas encore
-            const defaultName = currentUser.displayName || 'Utilisateur';
-            await setDoc(userProfileRef, {
-              displayName: defaultName,
-              email: currentUser.email,
-              bio: '',
-              photoURL: currentUser.photoURL || '',
-              createdAt: new Date(),
-              lastActive: new Date(),
-            });
-            setDisplayName(defaultName);
-          }
-        } catch (error) {
-          console.error("Error fetching user profile:", error);
-          setDisplayName(currentUser.displayName || 'Utilisateur');
-        }
-      }
-    };
-
     if (currentUser) {
-      fetchUserProfile();
+      // Si nous avons déjà un profil d'utilisateur dans le contexte d'authentification
+      if (userProfile) {
+        setDisplayName(userProfile.display_name || currentUser.displayName || 'Utilisateur');
+      } else {
+        // Sinon, nous utilisons le displayName de l'utilisateur
+        setDisplayName(currentUser.displayName || 'Utilisateur');
+      }
     }
-  }, [currentUser]);
+  }, [currentUser, userProfile]);
 
   if (loading) {
     return (
@@ -73,11 +49,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
       <FeaturePanel />
       
       <main className="flex-1 py-6 pt-20 px-4 md:px-6 lg:px-8 max-w-7xl mx-auto w-full">
-        {/* Supprimé le double affichage ici, car le nom est déjà affiché dans la barre de navigation */}
         {children}
       </main>
       
       <Toaster position="top-right" />
     </div>
   );
-};
+}
