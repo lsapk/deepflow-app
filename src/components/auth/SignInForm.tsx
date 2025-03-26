@@ -17,7 +17,7 @@ import {
   FormMessage 
 } from '@/components/ui/form';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Mail, Lock, UserCheck, AlertCircle } from 'lucide-react';
+import { Loader2, Mail, Lock, AlertCircle } from 'lucide-react';
 import { Logo } from '@/components/common/Logo';
 import { motion } from 'framer-motion';
 
@@ -61,9 +61,9 @@ export const SignInForm = () => {
       navigate('/dashboard');
     } catch (error: any) {
       setAuthError(
-        error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password'
+        error.message.includes('Invalid login credentials')
           ? "Email ou mot de passe incorrect."
-          : error.code === 'auth/too-many-requests'
+          : error.message.includes('too many requests')
           ? "Trop de tentatives. Veuillez réessayer plus tard."
           : "Une erreur s'est produite lors de la connexion."
       );
@@ -79,16 +79,10 @@ export const SignInForm = () => {
     
     try {
       await signInWithGoogle();
-      toast({
-        title: "Connexion réussie",
-        description: "Vous êtes maintenant connecté avec Google.",
-        variant: "default",
-      });
-      navigate('/dashboard');
+      // Le redirect est géré par Supabase OAuth
     } catch (error: any) {
       setAuthError("Une erreur s'est produite lors de la connexion avec Google.");
       console.error("Erreur de connexion Google:", error);
-    } finally {
       setIsLoading(false);
     }
   };

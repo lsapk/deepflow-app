@@ -506,6 +506,48 @@ export type Database = {
           },
         ]
       }
+      habits: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          description: string | null
+          frequency: string
+          id: string
+          last_completed_at: string | null
+          streak: number | null
+          target: number
+          title: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          frequency: string
+          id?: string
+          last_completed_at?: string | null
+          streak?: number | null
+          target: number
+          title: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          frequency?: string
+          id?: string
+          last_completed_at?: string | null
+          streak?: number | null
+          target?: number
+          title?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       installed_nodes: {
         Row: {
           latestVersion: number
@@ -574,6 +616,39 @@ export type Database = {
         Update: {
           expiresAt?: string
           token?: string
+        }
+        Relationships: []
+      }
+      journal_entries: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          mood: string | null
+          tags: Json | null
+          title: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          mood?: string | null
+          tags?: Json | null
+          title: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          mood?: string | null
+          tags?: Json | null
+          title?: string
+          updated_at?: string | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -1142,6 +1217,78 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_profiles: {
+        Row: {
+          bio: string | null
+          created_at: string | null
+          display_name: string | null
+          email: string | null
+          id: string
+          photo_url: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          bio?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          email?: string | null
+          id: string
+          photo_url?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          bio?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          photo_url?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      user_settings: {
+        Row: {
+          clock_format: string | null
+          created_at: string | null
+          focus_mode: boolean | null
+          id: string
+          karma_points: number | null
+          language: string | null
+          notifications_enabled: boolean | null
+          sound_enabled: boolean | null
+          theme: string | null
+          unlocked_features: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          clock_format?: string | null
+          created_at?: string | null
+          focus_mode?: boolean | null
+          id: string
+          karma_points?: number | null
+          language?: string | null
+          notifications_enabled?: boolean | null
+          sound_enabled?: boolean | null
+          theme?: string | null
+          unlocked_features?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          clock_format?: string | null
+          created_at?: string | null
+          focus_mode?: boolean | null
+          id?: string
+          karma_points?: number | null
+          language?: string | null
+          notifications_enabled?: boolean | null
+          sound_enabled?: boolean | null
+          theme?: string | null
+          unlocked_features?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       variables: {
         Row: {

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -15,7 +14,7 @@ import {
   RotateCcw,
   Trash2,
   TrendingUp,
-  FileText, // Added the missing FileText icon import
+  FileText,
 } from 'lucide-react';
 import {
   Dialog,
@@ -36,22 +35,13 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
-import { db } from '@/services/firebase';
-import { collection, addDoc, getDocs, query, where, doc, deleteDoc, updateDoc, Timestamp } from 'firebase/firestore';
-
-interface Habit {
-  id: string;
-  name: string;
-  description?: string;
-  frequency: 'daily' | 'weekly';
-  category: string;
-  target: number;
-  progress: number;
-  streak: number;
-  color: string;
-  createdAt: Date;
-  userId: string;
-}
+import { 
+  Habit, 
+  getHabits, 
+  createHabit, 
+  updateHabit, 
+  deleteHabit 
+} from '@/services/supabase';
 
 const categories = ['Santé', 'Bien-être', 'Personnel', 'Travail', 'Développement', 'Autre'];
 const colors = ['blue', 'green', 'purple', 'orange', 'cyan', 'red', 'yellow', 'indigo', 'pink'];
@@ -61,14 +51,11 @@ const HabitsPage = () => {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [loading, setLoading] = useState(true);
   const [newHabit, setNewHabit] = useState<Partial<Habit>>({
-    name: '',
+    title: '',
     description: '',
     frequency: 'daily',
     category: 'Santé',
     target: 7,
-    progress: 0,
-    streak: 0,
-    color: 'blue',
   });
   const [activeTab, setActiveTab] = useState('all');
   const [showAddHabit, setShowAddHabit] = useState(false);
@@ -84,37 +71,8 @@ const HabitsPage = () => {
     
     try {
       setLoading(true);
-      const habitsQuery = query(
-        collection(db, 'habits'),
-        where('userId', '==', currentUser.uid)
-      );
-      
-      const querySnapshot = await getDocs(habitsQuery);
-      
-      if (querySnapshot.empty) {
-        setHabits([]);
-        setLoading(false);
-        return;
-      }
-      
-      const fetchedHabits = querySnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          name: data.name,
-          description: data.description || '',
-          frequency: data.frequency,
-          category: data.category,
-          target: data.target,
-          progress: data.progress || 0,
-          streak: data.streak || 0,
-          color: data.color || 'blue',
-          createdAt: data.createdAt?.toDate() || new Date(),
-          userId: data.userId
-        } as Habit;
-      });
-      
-      setHabits(fetchedHabits);
+      const habitsData = await getHabits();
+      setHabits(habitsData);
     } catch (error) {
       console.error("Error fetching habits:", error);
       toast.error("Erreur lors du chargement des habitudes");
@@ -129,48 +87,32 @@ const HabitsPage = () => {
       return;
     }
     
-    if (!newHabit.name) {
+    if (!newHabit.title) {
       toast.error("Le nom de l'habitude est requis");
       return;
     }
 
     try {
       const habitData = {
-        name: newHabit.name,
+        title: newHabit.title,
         description: newHabit.description || '',
         frequency: newHabit.frequency as 'daily' | 'weekly',
         category: newHabit.category || 'Autre',
         target: newHabit.target || 7,
-        progress: 0,
-        streak: 0,
-        color: newHabit.color || 'blue',
-        createdAt: Timestamp.now(),
-        userId: currentUser.uid
       };
       
-      const docRef = await addDoc(collection(db, 'habits'), habitData);
-      
-      const newHabitWithId = {
-        id: docRef.id,
-        ...habitData,
-        createdAt: new Date()
-      } as Habit;
-      
-      setHabits(prev => [newHabitWithId, ...prev]);
+      const createdHabit = await createHabit(habitData);
+      setHabits(prev => [createdHabit, ...prev]);
       
       setNewHabit({
-        name: '',
+        title: '',
         description: '',
         frequency: 'daily',
         category: 'Santé',
         target: 7,
-        progress: 0,
-        streak: 0,
-        color: 'blue',
       });
       
       setShowAddHabit(false);
-      toast.success("Habitude ajoutée avec succès");
     } catch (error) {
       console.error("Error adding habit:", error);
       toast.error("Erreur lors de l'ajout de l'habitude");
@@ -182,25 +124,19 @@ const HabitsPage = () => {
       const habitToUpdate = habits.find(h => h.id === id);
       if (!habitToUpdate) return;
       
-      const newProgress = Math.min(habitToUpdate.progress + 1, habitToUpdate.target);
+      const newProgress = Math.min(habitToUpdate.streak + 1, habitToUpdate.target);
       const newStreak = newProgress >= habitToUpdate.target ? habitToUpdate.streak + 1 : habitToUpdate.streak;
       
-      // Update Firestore
-      await updateDoc(doc(db, 'habits', id), {
-        progress: newProgress,
+      // Update in Supabase
+      const updatedHabit = await updateHabit(id, {
         streak: newStreak,
+        last_completed_at: new Date().toISOString()
       });
       
       // Update local state
       setHabits(
         habits.map((habit) =>
-          habit.id === id
-            ? {
-                ...habit,
-                progress: newProgress,
-                streak: newStreak,
-              }
-            : habit
+          habit.id === id ? updatedHabit : habit
         )
       );
       
@@ -213,8 +149,6 @@ const HabitsPage = () => {
           console.log("Sound not available");
         }
       }
-      
-      toast.success(`Habitude "${habitToUpdate.name}" mise à jour`);
     } catch (error) {
       console.error("Error updating habit progress:", error);
       toast.error("Erreur lors de la mise à jour de l'habitude");
@@ -223,19 +157,20 @@ const HabitsPage = () => {
 
   const resetProgress = async (id: string) => {
     try {
-      // Update Firestore
-      await updateDoc(doc(db, 'habits', id), {
-        progress: 0
+      // Update in Supabase
+      const updatedHabit = await updateHabit(id, {
+        streak: 0,
+        last_completed_at: null
       });
       
       // Update local state
       setHabits(
         habits.map((habit) =>
-          habit.id === id ? { ...habit, progress: 0 } : habit
+          habit.id === id ? updatedHabit : habit
         )
       );
       
-      const habitName = habits.find(h => h.id === id)?.name;
+      const habitName = habits.find(h => h.id === id)?.title;
       toast.info(`Progression de "${habitName}" réinitialisée`);
     } catch (error) {
       console.error("Error resetting habit progress:", error);
@@ -243,13 +178,13 @@ const HabitsPage = () => {
     }
   };
 
-  const deleteHabit = async (id: string) => {
+  const handleDeleteHabit = async (id: string) => {
     try {
-      // Delete from Firestore
-      await deleteDoc(doc(db, 'habits', id));
+      // Delete from Supabase
+      await deleteHabit(id);
       
       // Update local state
-      const habitName = habits.find(h => h.id === id)?.name;
+      const habitName = habits.find(h => h.id === id)?.title;
       setHabits(habits.filter((habit) => habit.id !== id));
       
       toast.success(`Habitude "${habitName}" supprimée`);
@@ -263,7 +198,7 @@ const HabitsPage = () => {
     if (activeTab === 'all') return true;
     if (activeTab === 'daily') return habit.frequency === 'daily';
     if (activeTab === 'weekly') return habit.frequency === 'weekly';
-    if (activeTab === 'progress') return habit.progress > 0;
+    if (activeTab === 'progress') return habit.streak > 0;
     return true;
   });
 
@@ -372,14 +307,14 @@ const HabitsPage = () => {
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                   <div className="grid gap-2">
-                    <label htmlFor="name" className="text-sm font-medium">
+                    <label htmlFor="title" className="text-sm font-medium">
                       Nom
                     </label>
                     <Input
-                      id="name"
-                      value={newHabit.name}
+                      id="title"
+                      value={newHabit.title}
                       onChange={(e) =>
-                        setNewHabit({ ...newHabit, name: e.target.value })
+                        setNewHabit({ ...newHabit, title: e.target.value })
                       }
                       placeholder="Nom de l'habitude"
                     />
@@ -454,35 +389,6 @@ const HabitsPage = () => {
                           {categories.map((category) => (
                             <SelectItem key={category} value={category}>
                               {category}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="grid gap-2">
-                      <label htmlFor="color" className="text-sm font-medium">
-                        Couleur
-                      </label>
-                      <Select
-                        value={newHabit.color}
-                        onValueChange={(value) =>
-                          setNewHabit({ ...newHabit, color: value })
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Couleur" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {colors.map((color) => (
-                            <SelectItem key={color} value={color}>
-                              <div className="flex items-center">
-                                <div
-                                  className={`w-4 h-4 rounded-full mr-2 ${getColorClass(
-                                    color
-                                  )}`}
-                                ></div>
-                                {color.charAt(0).toUpperCase() + color.slice(1)}
-                              </div>
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -563,7 +469,7 @@ const HabitsPage = () => {
                         ></div>
                         <CardHeader className="pb-2">
                           <div className="flex justify-between items-start">
-                            <CardTitle className="text-lg">{habit.name}</CardTitle>
+                            <CardTitle className="text-lg">{habit.title}</CardTitle>
                             <span
                               className={`text-xs font-medium px-2 py-1 rounded-full ${getColorClass(
                                 habit.color
@@ -585,11 +491,11 @@ const HabitsPage = () => {
                             <div className="flex justify-between text-sm">
                               <span>Progression</span>
                               <span>
-                                {habit.progress}/{habit.target}
+                                {habit.streak}/{habit.target}
                               </span>
                             </div>
                             <Progress
-                              value={(habit.progress / habit.target) * 100}
+                              value={(habit.streak / habit.target) * 100}
                               className={`h-2 ${getProgressBarColor(habit.color)}`}
                             />
                           </div>
@@ -604,18 +510,20 @@ const HabitsPage = () => {
                                 <TrendingUp size={12} />
                                 <span>{habit.streak} séries</span>
                               </div>
-                              <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center">
-                                <Calendar size={12} className="mr-1" />
-                                <span>
-                                  {new Date(habit.createdAt).toLocaleDateString(
-                                    'fr-FR',
-                                    {
-                                      month: 'short',
-                                      day: 'numeric',
-                                    }
-                                  )}
-                                </span>
-                              </div>
+                              {habit.last_completed_at && (
+                                <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center">
+                                  <Calendar size={12} className="mr-1" />
+                                  <span>
+                                    {new Date(habit.last_completed_at).toLocaleDateString(
+                                      'fr-FR',
+                                      {
+                                        month: 'short',
+                                        day: 'numeric',
+                                      }
+                                    )}
+                                  </span>
+                                </div>
+                              )}
                             </div>
                             <div className="flex space-x-2">
                               <Button
@@ -623,7 +531,7 @@ const HabitsPage = () => {
                                 variant="outline"
                                 className="h-8 w-8 text-green-600"
                                 onClick={() => incrementProgress(habit.id)}
-                                disabled={habit.progress >= habit.target}
+                                disabled={habit.streak >= habit.target}
                               >
                                 <Check size={16} />
                                 <span className="sr-only">Valider</span>
@@ -641,7 +549,7 @@ const HabitsPage = () => {
                                 size="icon"
                                 variant="outline"
                                 className="h-8 w-8 text-red-600"
-                                onClick={() => deleteHabit(habit.id)}
+                                onClick={() => handleDeleteHabit(habit.id)}
                               >
                                 <Trash2 size={16} />
                                 <span className="sr-only">Supprimer</span>

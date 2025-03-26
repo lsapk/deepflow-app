@@ -1,17 +1,26 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User } from 'firebase/auth';
+import { User, Session } from '@supabase/supabase-js';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { GoogleAuthProvider, signInWithPopup, getAuth } from 'firebase/auth';
-import { authStateListener, logoutUser, loginUser, registerUser } from '../services/firebase';
+import { supabase } from '@/integrations/supabase/client';
+import { 
+  loginUser, 
+  logoutUser, 
+  registerUser, 
+  signInWithGoogle, 
+  UserProfile,
+  getUserProfile
+} from '@/services/supabase';
 
 interface AuthContextProps {
   currentUser: User | null;
+  session: Session | null;
+  userProfile: UserProfile | null;
   loading: boolean;
   logout: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<User | undefined>;
-  signInWithGoogle: () => Promise<User | undefined>;
+  signInWithGoogle: () => Promise<void>;
   signUp: (email: string, password: string, displayName: string) => Promise<User | undefined>;
 }
 
@@ -31,62 +40,86 @@ interface AuthProviderProps {
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
+  // Effet pour gérer l'état d'authentification
   useEffect(() => {
-    const unsubscribe = authStateListener((user) => {
-      console.log("Auth state changed:", user ? "User logged in" : "User logged out");
-      setCurrentUser(user);
-      setLoading(false);
-    });
+    // Configuration du listener pour les changements d'état d'authentification
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, newSession) => {
+        console.log("Auth state changed:", event, newSession?.user ? "User logged in" : "User logged out");
+        
+        setSession(newSession);
+        setCurrentUser(newSession?.user || null);
+        
+        if (newSession?.user) {
+          // Charger le profil de l'utilisateur
+          const profile = await getUserProfile(newSession.user.id);
+          setUserProfile(profile);
+        } else {
+          setUserProfile(null);
+        }
+        
+        setLoading(false);
+      }
+    );
 
-    return unsubscribe;
+    // Vérification de la session existante
+    const checkSession = async () => {
+      try {
+        const { data: { session: initialSession } } = await supabase.auth.getSession();
+        
+        setSession(initialSession);
+        setCurrentUser(initialSession?.user || null);
+        
+        if (initialSession?.user) {
+          // Charger le profil de l'utilisateur
+          const profile = await getUserProfile(initialSession.user.id);
+          setUserProfile(profile);
+        }
+      } catch (error) {
+        console.error("Error checking session:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkSession();
+    
+    // Nettoyage au démontage
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const logout = async () => {
     try {
       await logoutUser();
-      toast.success("Déconnexion réussie");
       navigate('/signin');
     } catch (error) {
       console.error("Logout error:", error);
-      toast.error("Erreur lors de la déconnexion");
     }
   };
 
   const signIn = async (email: string, password: string) => {
     try {
       const user = await loginUser(email, password);
-      toast.success("Connexion réussie");
       return user;
     } catch (error: any) {
       console.error("Sign in error:", error);
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-        toast.error("Email ou mot de passe incorrect");
-      } else if (error.code === 'auth/too-many-requests') {
-        toast.error("Trop de tentatives. Veuillez réessayer plus tard");
-      } else {
-        toast.error("Erreur de connexion. Veuillez réessayer");
-      }
       throw error;
     }
   };
 
-  const signInWithGoogle = async () => {
+  const handleGoogleSignIn = async () => {
     try {
-      const auth = getAuth();
-      const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
-      toast.success("Connexion avec Google réussie");
-      return result.user;
+      await signInWithGoogle();
+      // Pas de redirection ici car OAuth gère sa propre redirection
     } catch (error: any) {
       console.error("Google sign in error:", error);
-      if (error.code === 'auth/popup-closed-by-user') {
-        toast.error("Connexion annulée");
-      } else {
-        toast.error("Erreur lors de la connexion avec Google");
-      }
       throw error;
     }
   };
@@ -94,29 +127,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const signUp = async (email: string, password: string, displayName: string) => {
     try {
       const user = await registerUser(email, password, displayName);
-      toast.success("Inscription réussie");
       return user;
     } catch (error: any) {
       console.error("Sign up error:", error);
-      if (error.code === 'auth/email-already-in-use') {
-        toast.error("Cet email est déjà utilisé");
-      } else if (error.code === 'auth/weak-password') {
-        toast.error("Le mot de passe est trop faible");
-      } else if (error.code === 'auth/invalid-email') {
-        toast.error("L'adresse email est invalide");
-      } else {
-        toast.error("Erreur lors de l'inscription");
-      }
       throw error;
     }
   };
 
   const value = {
     currentUser,
+    session,
+    userProfile,
     loading,
     logout,
     signIn,
-    signInWithGoogle,
+    signInWithGoogle: handleGoogleSignIn,
     signUp
   };
 

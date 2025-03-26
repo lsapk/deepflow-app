@@ -10,25 +10,29 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { updateEmail, updatePassword, sendEmailVerification } from 'firebase/auth';
-import { db, uploadProfileImage, updateUserProfile } from '@/services/firebase';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { 
+  updateUserProfile, 
+  getUserProfile, 
+  UserProfile, 
+  uploadProfileImage 
+} from '@/services/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { Camera, CheckCircle, Key, User as UserIcon, Mail, Shield, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 const ProfilePage = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile: authUserProfile } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
-  const [photoURL, setPhotoURL] = useState<string | null>(currentUser?.photoURL || '');
+  const [photoURL, setPhotoURL] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [fileUploading, setFileUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isMobile = useIsMobile();
   
   const [profileData, setProfileData] = useState({
-    displayName: currentUser?.displayName || '',
-    email: currentUser?.email || '',
+    display_name: '',
+    email: '',
     bio: '',
     currentPassword: '',
     newPassword: '',
@@ -43,22 +47,37 @@ const ProfilePage = () => {
         setIsLoadingProfile(true);
         setError(null);
         
-        const userProfileRef = doc(db, "userProfiles", currentUser.uid);
-        const userProfileDoc = await getDoc(userProfileRef);
+        // Utiliser le profil du contexte d'authentification s'il existe, sinon le charger
+        let profile = authUserProfile;
         
-        if (userProfileDoc.exists()) {
-          const profileData = userProfileDoc.data() as any;
+        if (!profile) {
+          profile = await getUserProfile(currentUser.id);
+        }
+        
+        if (profile) {
           setProfileData(prev => ({
             ...prev,
-            displayName: profileData.displayName || currentUser.displayName || '',
-            email: profileData.email || currentUser.email || '',
-            bio: profileData.bio || '',
+            display_name: profile?.display_name || currentUser.user_metadata?.display_name || '',
+            email: profile?.email || currentUser.email || '',
+            bio: profile?.bio || '',
           }));
           
-          if (profileData.photoURL) {
-            setPhotoURL(profileData.photoURL);
-          } else if (currentUser.photoURL) {
-            setPhotoURL(currentUser.photoURL);
+          if (profile.photo_url) {
+            setPhotoURL(profile.photo_url);
+          } else if (currentUser.user_metadata?.avatar_url) {
+            setPhotoURL(currentUser.user_metadata.avatar_url);
+          }
+        } else {
+          // Initialiser avec les données de base de l'utilisateur
+          setProfileData(prev => ({
+            ...prev,
+            display_name: currentUser.user_metadata?.display_name || '',
+            email: currentUser.email || '',
+            bio: '',
+          }));
+          
+          if (currentUser.user_metadata?.avatar_url) {
+            setPhotoURL(currentUser.user_metadata.avatar_url);
           }
         }
       } catch (err) {
@@ -70,7 +89,7 @@ const ProfilePage = () => {
     };
     
     loadUserProfile();
-  }, [currentUser]);
+  }, [currentUser, authUserProfile]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -85,8 +104,8 @@ const ProfilePage = () => {
     setError(null);
     
     try {
-      await updateUserProfile(currentUser, {
-        displayName: profileData.displayName,
+      await updateUserProfile(currentUser.id, {
+        display_name: profileData.display_name,
         bio: profileData.bio
       });
       
@@ -107,27 +126,25 @@ const ProfilePage = () => {
     setError(null);
     
     try {
-      await updateEmail(currentUser, profileData.email);
+      const { error } = await supabase.auth.updateUser({ email: profileData.email });
       
-      // Mettre à jour le profil Firestore après avoir mis à jour l'email
-      await updateDoc(doc(db, "userProfiles", currentUser.uid), {
-        email: profileData.email,
-        lastActive: new Date()
+      if (error) throw error;
+      
+      // Mettre à jour le profil après avoir mis à jour l'email
+      await updateUserProfile(currentUser.id, {
+        email: profileData.email
       });
       
-      // Envoyer un email de vérification
-      await sendEmailVerification(currentUser);
-      
-      toast.success("Email mis à jour avec succès. Un email de vérification a été envoyé.");
+      toast.success("Un email de vérification a été envoyé à votre nouvelle adresse");
     } catch (error: any) {
       console.error("Error updating email:", error);
       let errorMessage = "Erreur lors de la mise à jour de l'email";
       
-      if (error.code === 'auth/requires-recent-login') {
+      if (error.message.includes('recent login')) {
         errorMessage = "Pour des raisons de sécurité, veuillez vous reconnecter avant de modifier votre email";
-      } else if (error.code === 'auth/email-already-in-use') {
+      } else if (error.message.includes('already in use')) {
         errorMessage = "Cet email est déjà utilisé par un autre compte";
-      } else if (error.code === 'auth/invalid-email') {
+      } else if (error.message.includes('invalid')) {
         errorMessage = "L'email fourni n'est pas valide";
       }
       
@@ -157,19 +174,25 @@ const ProfilePage = () => {
     setError(null);
     
     try {
-      await updatePassword(currentUser, profileData.newPassword);
+      const { error } = await supabase.auth.updateUser({ 
+        password: profileData.newPassword 
+      });
+      
+      if (error) throw error;
+      
       setProfileData(prev => ({
         ...prev,
         currentPassword: '',
         newPassword: '',
         confirmPassword: '',
       }));
+      
       toast.success("Mot de passe mis à jour avec succès");
     } catch (error: any) {
       console.error("Error updating password:", error);
       let errorMessage = "Erreur lors de la mise à jour du mot de passe";
       
-      if (error.code === 'auth/requires-recent-login') {
+      if (error.message.includes('recent login')) {
         errorMessage = "Pour des raisons de sécurité, veuillez vous reconnecter avant de modifier votre mot de passe";
       }
       
@@ -191,8 +214,8 @@ const ProfilePage = () => {
     setError(null);
     
     try {
-      const downloadURL = await uploadProfileImage(currentUser, file);
-      setPhotoURL(downloadURL);
+      const photoUrl = await uploadProfileImage(currentUser.id, file);
+      setPhotoURL(photoUrl);
       
       toast.success("Photo de profil mise à jour avec succès");
     } catch (error: any) {
@@ -213,7 +236,14 @@ const ProfilePage = () => {
     
     try {
       setIsLoading(true);
-      await sendEmailVerification(currentUser);
+      
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: currentUser.email || ''
+      });
+      
+      if (error) throw error;
+      
       toast.success("Un email de vérification a été envoyé à votre adresse email");
     } catch (error) {
       console.error("Error sending verification email:", error);
@@ -243,7 +273,7 @@ const ProfilePage = () => {
             <AvatarImage src={photoURL} alt="Profile" />
           ) : (
             <AvatarFallback className="text-xl bg-primary text-primary-foreground">
-              {getInitials(profileData.displayName)}
+              {getInitials(profileData.display_name)}
             </AvatarFallback>
           )}
           
@@ -304,10 +334,10 @@ const ProfilePage = () => {
           <CardContent className="pt-6 flex flex-col items-center">
             {renderAvatar()}
             
-            <h2 className="text-xl font-semibold mb-1 mt-3">{profileData.displayName || 'Utilisateur'}</h2>
+            <h2 className="text-xl font-semibold mb-1 mt-3">{profileData.display_name || 'Utilisateur'}</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">{profileData.email}</p>
             
-            {currentUser?.emailVerified ? (
+            {currentUser?.email_confirmed_at ? (
               <div className="flex items-center text-green-600 text-sm mb-4">
                 <CheckCircle className="h-4 w-4 mr-1" />
                 Email vérifié
@@ -342,8 +372,8 @@ const ProfilePage = () => {
             <div className="w-full">
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Membre depuis</p>
               <p className="text-sm">
-                {currentUser?.metadata.creationTime 
-                  ? new Date(currentUser.metadata.creationTime).toLocaleDateString('fr-FR')
+                {currentUser?.created_at 
+                  ? new Date(currentUser.created_at).toLocaleDateString('fr-FR')
                   : 'Date inconnue'}
               </p>
             </div>
@@ -378,11 +408,11 @@ const ProfilePage = () => {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="displayName">Nom complet</Label>
+                      <Label htmlFor="display_name">Nom complet</Label>
                       <Input
-                        id="displayName"
-                        name="displayName"
-                        value={profileData.displayName}
+                        id="display_name"
+                        name="display_name"
+                        value={profileData.display_name}
                         onChange={handleChange}
                         placeholder="Votre nom"
                       />
@@ -472,18 +502,6 @@ const ProfilePage = () => {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="currentPassword">Mot de passe actuel</Label>
-                      <Input
-                        id="currentPassword"
-                        name="currentPassword"
-                        type="password"
-                        value={profileData.currentPassword}
-                        onChange={handleChange}
-                        placeholder="••••••••"
-                      />
-                    </div>
-                    
                     <div className="space-y-2">
                       <Label htmlFor="newPassword">Nouveau mot de passe</Label>
                       <Input

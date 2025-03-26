@@ -7,7 +7,7 @@ import { useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { registerUser } from '@/services/firebase';
+import { useAuth } from '@/contexts/AuthContext';
 import { Loader2, UserPlus, Mail, User } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -24,6 +24,7 @@ const formSchema = z.object({
 export const SignUpForm = () => {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { signUp } = useAuth();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -38,7 +39,7 @@ export const SignUpForm = () => {
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsSubmitting(true);
     try {
-      await registerUser(values.email, values.password, values.name);
+      await signUp(values.email, values.password, values.name);
       navigate('/dashboard');
     } catch (error) {
       console.error('Registration error:', error);
