@@ -59,7 +59,7 @@ export interface Habit {
 const categories = ['Santé', 'Bien-être', 'Personnel', 'Travail', 'Développement', 'Autre'];
 const colors = ['blue', 'green', 'purple', 'orange', 'cyan', 'red', 'yellow', 'indigo', 'pink'];
 
-const HabitsPage = () => {
+export default function HabitsPage() {
   const { currentUser } = useAuth();
   const [habits, setHabits] = useState<Habit[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,61 +74,44 @@ const HabitsPage = () => {
   const [showAddHabit, setShowAddHabit] = useState(false);
 
   useEffect(() => {
-    if (currentUser) {
-      fetchHabits();
-    }
+    const fetchHabits = async () => {
+      if (currentUser?.uid) {
+        setLoading(true);
+        try {
+          const habits = await getHabits(currentUser.uid);
+          setHabits(habits);
+        } catch (error) {
+          console.error("Error fetching habits:", error);
+          toast.error("Erreur lors du chargement des habitudes");
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchHabits();
   }, [currentUser]);
 
-  const fetchHabits = async () => {
+  const handleAddHabit = async (values: NewHabitFormValues) => {
     if (!currentUser) return;
     
     try {
-      setLoading(true);
-      const habitsData = await getHabits();
-      setHabits(habitsData);
-    } catch (error) {
-      console.error("Error fetching habits:", error);
-      toast.error("Erreur lors du chargement des habitudes");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAddHabit = async () => {
-    if (!currentUser) {
-      toast.error("Vous devez être connecté pour ajouter une habitude");
-      return;
-    }
-    
-    if (!newHabit.title) {
-      toast.error("Le nom de l'habitude est requis");
-      return;
-    }
-
-    try {
-      const habitData = {
-        title: newHabit.title,
-        description: newHabit.description || '',
-        frequency: newHabit.frequency as 'daily' | 'weekly',
-        category: newHabit.category || 'Autre',
-        target: newHabit.target || 7,
-      };
-      
-      const createdHabit = await createHabit(habitData);
-      setHabits(prev => [createdHabit, ...prev]);
-      
-      setNewHabit({
-        title: '',
-        description: '',
-        frequency: 'daily',
-        category: 'Santé',
-        target: 7,
+      const habit = await createHabit(currentUser.uid, {
+        title: values.title,
+        description: values.description || "",
+        frequency: values.frequency as "daily" | "weekly",
+        target: values.target,
+        category: values.category || "Général",
+        streak: 0,
+        color: values.color || "#3b82f6" // Set a default color if not provided
       });
       
-      setShowAddHabit(false);
+      setHabits((prev) => [...prev, habit]);
+      toast.success("Habitude créée avec succès !");
+      closeDialog();
     } catch (error) {
-      console.error("Error adding habit:", error);
-      toast.error("Erreur lors de l'ajout de l'habitude");
+      console.error("Error creating habit:", error);
+      toast.error("Erreur lors de la création de l'habitude");
     }
   };
 
@@ -416,7 +399,7 @@ const HabitsPage = () => {
                   >
                     Annuler
                   </Button>
-                  <Button onClick={handleAddHabit}>Ajouter l'habitude</Button>
+                  <Button onClick={() => handleAddHabit(newHabit)}>Ajouter l'habitude</Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -594,5 +577,3 @@ const HabitsPage = () => {
     </MainLayout>
   );
 };
-
-export default HabitsPage;

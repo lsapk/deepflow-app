@@ -1,4 +1,3 @@
-
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -243,12 +242,12 @@ export const getUserSettings = async (userId: string): Promise<UserSettings | nu
 
     if (error) throw error;
     
-    // Convertir les unlocked_features de Json à string[]
+    // Convert unlocked_features from Json to string[]
     if (data) {
       return {
         ...data,
         unlocked_features: Array.isArray(data.unlocked_features) 
-          ? data.unlocked_features 
+          ? data.unlocked_features.map(item => String(item)) 
           : []
       };
     }
@@ -292,10 +291,11 @@ export const getHabits = async (userId: string): Promise<Habit[]> => {
 
     if (error) throw error;
     
-    // Assurer que frequency est bien typé
+    // Ensure correct typing
     return (data || []).map(habit => ({
       ...habit,
-      frequency: habit.frequency as 'daily' | 'weekly'
+      frequency: habit.frequency as 'daily' | 'weekly',
+      color: habit.color || '#3b82f6' // Provide a default color
     }));
   } catch (error) {
     console.error("Error fetching habits:", error);
@@ -323,7 +323,8 @@ export const createHabit = async (
     toast.success("Habitude ajoutée avec succès");
     return {
       ...data,
-      frequency: data.frequency as 'daily' | 'weekly'
+      frequency: data.frequency as 'daily' | 'weekly',
+      color: data.color || '#3b82f6' // Provide a default color
     };
   } catch (error) {
     console.error("Error adding habit:", error);
@@ -352,7 +353,8 @@ export const updateHabit = async (id: string, updates: Partial<Habit>): Promise<
     toast.success("Habitude mise à jour avec succès");
     return {
       ...data,
-      frequency: data.frequency as 'daily' | 'weekly'
+      frequency: data.frequency as 'daily' | 'weekly',
+      color: data.color || '#3b82f6' // Provide a default color
     };
   } catch (error) {
     console.error("Error updating habit:", error);
@@ -389,11 +391,13 @@ export const getJournalEntries = async (userId: string): Promise<JournalEntry[]>
 
     if (error) throw error;
     
-    // Transformer les données pour assurer la compatibilité avec notre interface
+    // Transform data to match our interface
     return (data || []).map(entry => ({
       ...entry,
-      mood: (entry.mood as 'great' | 'good' | 'neutral' | 'bad' | 'terrible' | null) || undefined,
-      tags: Array.isArray(entry.tags) ? entry.tags : []
+      mood: entry.mood as 'great' | 'good' | 'neutral' | 'bad' | 'terrible' | undefined,
+      tags: Array.isArray(entry.tags) 
+        ? entry.tags.map(tag => String(tag)) 
+        : []
     }));
   } catch (error) {
     console.error("Error fetching journal entries:", error);
@@ -421,7 +425,9 @@ export const createJournalEntry = async (
     return {
       ...data,
       mood: data.mood as 'great' | 'good' | 'neutral' | 'bad' | 'terrible' | undefined,
-      tags: Array.isArray(data.tags) ? data.tags : []
+      tags: Array.isArray(data.tags) 
+        ? data.tags.map(tag => String(tag)) 
+        : []
     };
   } catch (error) {
     console.error("Error creating journal entry:", error);
@@ -432,7 +438,7 @@ export const createJournalEntry = async (
 
 export const updateJournalEntry = async (id: string, updates: Partial<JournalEntry>): Promise<JournalEntry> => {
   try {
-    // Supprimer user_id des mises à jour si présent
+    // Remove user_id from updates if present
     const { user_id, ...updatesWithoutUserId } = updates;
     
     const { data, error } = await supabase
@@ -451,7 +457,9 @@ export const updateJournalEntry = async (id: string, updates: Partial<JournalEnt
     return {
       ...data,
       mood: data.mood as 'great' | 'good' | 'neutral' | 'bad' | 'terrible' | undefined,
-      tags: Array.isArray(data.tags) ? data.tags : []
+      tags: Array.isArray(data.tags) 
+        ? data.tags.map(tag => String(tag)) 
+        : []
     };
   } catch (error) {
     console.error("Error updating journal entry:", error);

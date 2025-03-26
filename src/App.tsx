@@ -66,7 +66,7 @@ const App = () => {
     };
   }, []);
 
-  // Important : BrowserRouter doit être placé avant AuthProvider car AuthProvider utilise useNavigate()
+  // CRITICAL: BrowserRouter must be placed before AuthProvider because AuthProvider uses useNavigate()
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
