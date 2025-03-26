@@ -12,8 +12,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { updateEmail, updatePassword, sendEmailVerification } from 'firebase/auth';
 import { db, uploadProfileImage, updateUserProfile } from '@/services/firebase';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { Camera, CheckCircle, Key, User as UserIcon, Mail, Shield, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
-import { doc, getDoc } from 'firebase/firestore';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 const ProfilePage = () => {

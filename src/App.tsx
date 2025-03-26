@@ -31,13 +31,19 @@ const queryClient = new QueryClient({
       refetchOnWindowFocus: false,
       staleTime: 60000, // 1 minute
       gcTime: 5 * 60 * 1000, // 5 minutes
-      onError: (error) => {
-        console.error("Query error:", error);
+      meta: {
+        // Put error handling in meta instead of directly on options
+        errorHandler: (error: Error) => {
+          console.error("Query error:", error);
+        }
       }
     },
     mutations: {
-      onError: (error) => {
-        console.error("Mutation error:", error);
+      meta: {
+        // Put error handling in meta instead of directly on options
+        errorHandler: (error: Error) => {
+          console.error("Mutation error:", error);
+        }
       }
     }
   },
