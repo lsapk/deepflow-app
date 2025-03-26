@@ -1,10 +1,10 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User } from 'firebase/auth';
-import { authStateListener, logoutUser, loginUser, registerUser } from '../services/firebase';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { GoogleAuthProvider, signInWithPopup, getAuth } from 'firebase/auth';
+import { authStateListener, logoutUser, loginUser, registerUser } from '../services/firebase';
 
 interface AuthContextProps {
   currentUser: User | null;
