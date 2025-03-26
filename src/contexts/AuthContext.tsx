@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User } from 'firebase/auth';
-import { authStateListener, logoutUser, loginUser as signInUser, registerUser } from '../services/firebase';
+import { authStateListener, logoutUser, loginUser, registerUser } from '../services/firebase';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { GoogleAuthProvider, signInWithPopup, getAuth } from 'firebase/auth';
@@ -57,11 +57,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const signIn = async (email: string, password: string) => {
     try {
-      const user = await signInUser(email, password);
+      const user = await loginUser(email, password);
       toast.success("Connexion réussie");
       return user;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Sign in error:", error);
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+        toast.error("Email ou mot de passe incorrect");
+      } else if (error.code === 'auth/too-many-requests') {
+        toast.error("Trop de tentatives. Veuillez réessayer plus tard");
+      } else {
+        toast.error("Erreur de connexion. Veuillez réessayer");
+      }
       throw error;
     }
   };
@@ -73,8 +80,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const result = await signInWithPopup(auth, provider);
       toast.success("Connexion avec Google réussie");
       return result.user;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Google sign in error:", error);
+      if (error.code === 'auth/popup-closed-by-user') {
+        toast.error("Connexion annulée");
+      } else {
+        toast.error("Erreur lors de la connexion avec Google");
+      }
       throw error;
     }
   };
@@ -84,8 +96,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const user = await registerUser(email, password, displayName);
       toast.success("Inscription réussie");
       return user;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Sign up error:", error);
+      if (error.code === 'auth/email-already-in-use') {
+        toast.error("Cet email est déjà utilisé");
+      } else if (error.code === 'auth/weak-password') {
+        toast.error("Le mot de passe est trop faible");
+      } else if (error.code === 'auth/invalid-email') {
+        toast.error("L'adresse email est invalide");
+      } else {
+        toast.error("Erreur lors de l'inscription");
+      }
       throw error;
     }
   };
@@ -101,7 +122,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 }

@@ -14,16 +14,15 @@ import {
   DropdownMenuGroup
 } from '@/components/ui/dropdown-menu';
 import { 
-  LogOut, Settings, User, ChevronDown, Menu, Home, CheckSquare, BookOpen, 
-  LineChart, Flame, ShieldCheck, Bell, Calendar, CheckCheck, Moon, Sun,
-  Monitor, HelpCircle 
+  LogOut, Settings, User, Menu, Home, CheckSquare, BookOpen, 
+  LineChart, Flame, Bell, Calendar, CheckCheck, Moon, Sun,
+  HelpCircle 
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Logo } from '@/components/common/Logo';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from 'next-themes';
-import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { getUserProfile } from '@/services/userService';
 
@@ -91,12 +90,7 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ userName = '' }) =
     { name: 'Analytique', path: '/analytics', icon: <LineChart className="h-4 w-4" /> },
   ];
 
-  const isActive = (path: string) => {
-    if (path === '/dashboard' && location.pathname === '/') {
-      return true;
-    }
-    return location.pathname === path;
-  };
+  const isActive = (path: string) => location.pathname === path;
 
   const toggleTheme = () => {
     const newTheme = theme === 'dark' ? 'light' : 'dark';

@@ -21,6 +21,7 @@ import ProfilePage from "./pages/ProfilePage";
 import SettingsPage from "./pages/SettingsPage";
 import NotFound from "./pages/NotFound";
 import { useEffect } from "react";
+import { MainLayout } from "./components/layout/MainLayout";
 
 // Create a new QueryClient
 const queryClient = new QueryClient({
@@ -106,52 +107,72 @@ const AppRoutes = () => {
       {/* Protected routes (require authentication) */}
       <Route path="/dashboard" element={
         <ProtectedRoute>
-          <Dashboard />
+          <MainLayout>
+            <Dashboard />
+          </MainLayout>
         </ProtectedRoute>
       } />
       <Route path="/tasks" element={
         <ProtectedRoute>
-          <TasksPage />
+          <MainLayout>
+            <TasksPage />
+          </MainLayout>
         </ProtectedRoute>
       } />
       <Route path="/habits" element={
         <ProtectedRoute>
-          <HabitsPage />
+          <MainLayout>
+            <HabitsPage />
+          </MainLayout>
         </ProtectedRoute>
       } />
       <Route path="/focus" element={
         <ProtectedRoute>
-          <FocusPage />
+          <MainLayout>
+            <FocusPage />
+          </MainLayout>
         </ProtectedRoute>
       } />
       <Route path="/journal" element={
         <ProtectedRoute>
-          <JournalPage />
+          <MainLayout>
+            <JournalPage />
+          </MainLayout>
         </ProtectedRoute>
       } />
       <Route path="/goals" element={
         <ProtectedRoute>
-          <GoalsPage />
+          <MainLayout>
+            <GoalsPage />
+          </MainLayout>
         </ProtectedRoute>
       } />
       <Route path="/planning" element={
         <ProtectedRoute>
-          <PlanningPage />
+          <MainLayout>
+            <PlanningPage />
+          </MainLayout>
         </ProtectedRoute>
       } />
       <Route path="/analytics" element={
         <ProtectedRoute>
-          <AnalyticsPage />
+          <MainLayout>
+            <AnalyticsPage />
+          </MainLayout>
         </ProtectedRoute>
       } />
       <Route path="/profile" element={
         <ProtectedRoute>
-          <ProfilePage />
+          <MainLayout>
+            <ProfilePage />
+          </MainLayout>
         </ProtectedRoute>
       } />
       <Route path="/settings" element={
         <ProtectedRoute>
-          <SettingsPage />
+          <MainLayout>
+            <SettingsPage />
+          </MainLayout>
         </ProtectedRoute>
       } />
       
@@ -211,7 +232,7 @@ const App = () => {
           <BrowserRouter>
             <AuthProvider>
               <Toaster />
-              <Sonner />
+              <Sonner position="top-right" />
               <AppRoutes />
             </AuthProvider>
           </BrowserRouter>

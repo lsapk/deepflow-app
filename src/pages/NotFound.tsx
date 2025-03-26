@@ -3,6 +3,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { Logo } from '@/components/common/Logo';
 
 const NotFound = () => {
   const navigate = useNavigate();
@@ -15,10 +16,19 @@ const NotFound = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <motion.div 
+        <motion.div
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ delay: 0.2, duration: 0.5 }}
+          className="mb-8 flex justify-center"
+        >
+          <Logo size="xl" textColor="text-primary dark:text-primary" />
+        </motion.div>
+        
+        <motion.div 
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.3, duration: 0.5 }}
           className="mb-8"
         >
           <h1 className="text-9xl font-bold text-gray-200 dark:text-gray-700">404</h1>
