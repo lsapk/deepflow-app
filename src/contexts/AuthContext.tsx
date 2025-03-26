@@ -13,15 +13,22 @@ import {
   getUserProfile
 } from '@/services/supabase';
 
+// Étendre l'interface User de Supabase pour ajouter des propriétés compatibles avec Firebase
+interface ExtendedUser extends User {
+  uid: string; // Alias pour id
+  displayName?: string; // Alias pour user_metadata.display_name
+  photoURL?: string; // Alias pour user_metadata.avatar_url
+}
+
 interface AuthContextProps {
-  currentUser: User | null;
+  currentUser: ExtendedUser | null;
   session: Session | null;
   userProfile: UserProfile | null;
   loading: boolean;
   logout: () => Promise<void>;
-  signIn: (email: string, password: string) => Promise<User | undefined>;
+  signIn: (email: string, password: string) => Promise<ExtendedUser | undefined>;
   signInWithGoogle: () => Promise<void>;
-  signUp: (email: string, password: string, displayName: string) => Promise<User | undefined>;
+  signUp: (email: string, password: string, displayName: string) => Promise<ExtendedUser | undefined>;
 }
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
@@ -38,8 +45,20 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+// Fonction utilitaire pour adapter l'utilisateur Supabase à notre format étendu
+const adaptUser = (user: User | null): ExtendedUser | null => {
+  if (!user) return null;
+  
+  return {
+    ...user,
+    uid: user.id,
+    displayName: user.user_metadata?.display_name || user.user_metadata?.name || '',
+    photoURL: user.user_metadata?.avatar_url || '',
+  };
+};
+
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUser, setCurrentUser] = useState<ExtendedUser | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -53,7 +72,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         console.log("Auth state changed:", event, newSession?.user ? "User logged in" : "User logged out");
         
         setSession(newSession);
-        setCurrentUser(newSession?.user || null);
+        const adaptedUser = adaptUser(newSession?.user || null);
+        setCurrentUser(adaptedUser);
         
         if (newSession?.user) {
           // Charger le profil de l'utilisateur
@@ -73,7 +93,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const { data: { session: initialSession } } = await supabase.auth.getSession();
         
         setSession(initialSession);
-        setCurrentUser(initialSession?.user || null);
+        const adaptedUser = adaptUser(initialSession?.user || null);
+        setCurrentUser(adaptedUser);
         
         if (initialSession?.user) {
           // Charger le profil de l'utilisateur
@@ -107,7 +128,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const signIn = async (email: string, password: string) => {
     try {
       const user = await loginUser(email, password);
-      return user;
+      return adaptUser(user);
     } catch (error: any) {
       console.error("Sign in error:", error);
       throw error;
@@ -127,7 +148,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const signUp = async (email: string, password: string, displayName: string) => {
     try {
       const user = await registerUser(email, password, displayName);
-      return user;
+      return adaptUser(user);
     } catch (error: any) {
       console.error("Sign up error:", error);
       throw error;

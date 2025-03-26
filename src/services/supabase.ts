@@ -2,6 +2,7 @@
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Json } from '@/integrations/supabase/types';
 
 // Types pour notre application
 export interface UserProfile {
@@ -24,6 +25,34 @@ export interface UserSettings {
   clock_format?: string;
   karma_points?: number;
   unlocked_features?: string[];
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface Habit {
+  id: string;
+  user_id: string;
+  title: string;
+  description?: string;
+  frequency: 'daily' | 'weekly';
+  streak: number;
+  target: number;
+  category?: string;
+  last_completed_at?: string;
+  created_at?: string;
+  updated_at?: string;
+  color?: string; // Ajout de la propriété color utilisée dans HabitsPage
+}
+
+export interface JournalEntry {
+  id: string;
+  user_id: string;
+  title: string;
+  content: string;
+  mood?: 'great' | 'good' | 'neutral' | 'bad' | 'terrible';
+  tags?: string[] | null;
+  created_at?: string;
+  updated_at?: string;
 }
 
 // Authentification
@@ -213,7 +242,18 @@ export const getUserSettings = async (userId: string): Promise<UserSettings | nu
       .single();
 
     if (error) throw error;
-    return data;
+    
+    // Convertir les unlocked_features de Json à string[]
+    if (data) {
+      return {
+        ...data,
+        unlocked_features: Array.isArray(data.unlocked_features) 
+          ? data.unlocked_features 
+          : []
+      };
+    }
+    
+    return null;
   } catch (error) {
     console.error('Erreur lors de la récupération des paramètres:', error);
     return null;
@@ -242,42 +282,38 @@ export const updateUserSettings = async (userId: string, updates: Partial<UserSe
 };
 
 // Habitudes
-export interface Habit {
-  id: string;
-  user_id: string;
-  title: string;
-  description?: string;
-  frequency: 'daily' | 'weekly';
-  streak: number;
-  target: number;
-  category?: string;
-  last_completed_at?: string;
-  created_at?: string;
-  updated_at?: string;
-}
-
-export const getHabits = async (): Promise<Habit[]> => {
+export const getHabits = async (userId: string): Promise<Habit[]> => {
   try {
     const { data, error } = await supabase
       .from('habits')
       .select('*')
+      .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    return data || [];
+    
+    // Assurer que frequency est bien typé
+    return (data || []).map(habit => ({
+      ...habit,
+      frequency: habit.frequency as 'daily' | 'weekly'
+    }));
   } catch (error) {
     console.error("Error fetching habits:", error);
     throw error;
   }
 };
 
-export const createHabit = async (habitData: Omit<Habit, 'id' | 'user_id' | 'streak' | 'created_at' | 'updated_at'>): Promise<Habit> => {
+export const createHabit = async (
+  userId: string, 
+  habitData: Omit<Habit, 'id' | 'user_id' | 'created_at' | 'updated_at'>
+): Promise<Habit> => {
   try {
     const { data, error } = await supabase
       .from('habits')
       .insert({
         ...habitData,
-        streak: 0
+        user_id: userId,
+        streak: habitData.streak || 0
       })
       .select()
       .single();
@@ -285,7 +321,10 @@ export const createHabit = async (habitData: Omit<Habit, 'id' | 'user_id' | 'str
     if (error) throw error;
     
     toast.success("Habitude ajoutée avec succès");
-    return data;
+    return {
+      ...data,
+      frequency: data.frequency as 'daily' | 'weekly'
+    };
   } catch (error) {
     console.error("Error adding habit:", error);
     toast.error("Erreur lors de l'ajout de l'habitude");
@@ -295,10 +334,13 @@ export const createHabit = async (habitData: Omit<Habit, 'id' | 'user_id' | 'str
 
 export const updateHabit = async (id: string, updates: Partial<Habit>): Promise<Habit> => {
   try {
+    // Supprimer user_id des mises à jour si présent
+    const { user_id, ...updatesWithoutUserId } = updates;
+    
     const { data, error } = await supabase
       .from('habits')
       .update({
-        ...updates,
+        ...updatesWithoutUserId,
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
@@ -308,7 +350,10 @@ export const updateHabit = async (id: string, updates: Partial<Habit>): Promise<
     if (error) throw error;
     
     toast.success("Habitude mise à jour avec succès");
-    return data;
+    return {
+      ...data,
+      frequency: data.frequency as 'daily' | 'weekly'
+    };
   } catch (error) {
     console.error("Error updating habit:", error);
     toast.error("Erreur lors de la mise à jour de l'habitude");
@@ -334,44 +379,50 @@ export const deleteHabit = async (id: string): Promise<void> => {
 };
 
 // Journal
-export interface JournalEntry {
-  id: string;
-  user_id: string;
-  title: string;
-  content: string;
-  mood?: 'great' | 'good' | 'neutral' | 'bad' | 'terrible';
-  tags?: string[];
-  created_at?: string;
-  updated_at?: string;
-}
-
-export const getJournalEntries = async (): Promise<JournalEntry[]> => {
+export const getJournalEntries = async (userId: string): Promise<JournalEntry[]> => {
   try {
     const { data, error } = await supabase
       .from('journal_entries')
       .select('*')
+      .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    return data || [];
+    
+    // Transformer les données pour assurer la compatibilité avec notre interface
+    return (data || []).map(entry => ({
+      ...entry,
+      mood: (entry.mood as 'great' | 'good' | 'neutral' | 'bad' | 'terrible' | null) || undefined,
+      tags: Array.isArray(entry.tags) ? entry.tags : []
+    }));
   } catch (error) {
     console.error("Error fetching journal entries:", error);
     throw error;
   }
 };
 
-export const createJournalEntry = async (entryData: Omit<JournalEntry, 'id' | 'user_id' | 'created_at' | 'updated_at'>): Promise<JournalEntry> => {
+export const createJournalEntry = async (
+  userId: string,
+  entryData: Omit<JournalEntry, 'id' | 'user_id' | 'created_at' | 'updated_at'>
+): Promise<JournalEntry> => {
   try {
     const { data, error } = await supabase
       .from('journal_entries')
-      .insert(entryData)
+      .insert({
+        ...entryData,
+        user_id: userId
+      })
       .select()
       .single();
 
     if (error) throw error;
     
     toast.success("Entrée de journal créée avec succès");
-    return data;
+    return {
+      ...data,
+      mood: data.mood as 'great' | 'good' | 'neutral' | 'bad' | 'terrible' | undefined,
+      tags: Array.isArray(data.tags) ? data.tags : []
+    };
   } catch (error) {
     console.error("Error creating journal entry:", error);
     toast.error("Erreur lors de la création de l'entrée de journal");
@@ -381,10 +432,13 @@ export const createJournalEntry = async (entryData: Omit<JournalEntry, 'id' | 'u
 
 export const updateJournalEntry = async (id: string, updates: Partial<JournalEntry>): Promise<JournalEntry> => {
   try {
+    // Supprimer user_id des mises à jour si présent
+    const { user_id, ...updatesWithoutUserId } = updates;
+    
     const { data, error } = await supabase
       .from('journal_entries')
       .update({
-        ...updates,
+        ...updatesWithoutUserId,
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
@@ -394,7 +448,11 @@ export const updateJournalEntry = async (id: string, updates: Partial<JournalEnt
     if (error) throw error;
     
     toast.success("Entrée de journal mise à jour avec succès");
-    return data;
+    return {
+      ...data,
+      mood: data.mood as 'great' | 'good' | 'neutral' | 'bad' | 'terrible' | undefined,
+      tags: Array.isArray(data.tags) ? data.tags : []
+    };
   } catch (error) {
     console.error("Error updating journal entry:", error);
     toast.error("Erreur lors de la mise à jour de l'entrée de journal");

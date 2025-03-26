@@ -43,6 +43,19 @@ import {
   deleteHabit 
 } from '@/services/supabase';
 
+export interface Habit {
+  id: string;
+  title: string;
+  description?: string;
+  frequency: 'daily' | 'weekly';
+  streak: number;
+  target: number;
+  lastCompletedAt?: Date;
+  category?: string;
+  color?: string;
+  userId: string;
+}
+
 const categories = ['Santé', 'Bien-être', 'Personnel', 'Travail', 'Développement', 'Autre'];
 const colors = ['blue', 'green', 'purple', 'orange', 'cyan', 'red', 'yellow', 'indigo', 'pink'];
 
