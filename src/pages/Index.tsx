@@ -1,6 +1,5 @@
 
-import React from 'react';
-import { MainLayout } from '@/components/layout/MainLayout';
+import React, { useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
@@ -8,11 +7,19 @@ import { CalendarClock, CheckSquare, Clock, ListTodo, Plus, Target, Sparkles } f
 import { motion } from 'framer-motion';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { AIInsightCard } from '@/components/analytics/AIInsightCard';
-import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Index = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const { currentUser } = useAuth();
+
+  useEffect(() => {
+    // Si l'utilisateur est connecté, le rediriger vers le tableau de bord
+    if (currentUser) {
+      navigate('/dashboard');
+    }
+  }, [currentUser, navigate]);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -35,194 +42,130 @@ const Index = () => {
 
   const handleNavigation = (path: string) => {
     navigate(path);
-    toast.success(`Navigation vers ${path.slice(1)}`);
   };
 
   return (
-    <MainLayout>
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex flex-col items-center justify-center text-center mb-12">
+        <h1 className="text-4xl font-bold mb-4">Bienvenue sur DeepFlow</h1>
+        <p className="text-xl text-gray-600 dark:text-gray-400 max-w-2xl">
+          Votre assistant personnel pour améliorer votre productivité et votre bien-être
+        </p>
+        <div className="mt-8 flex gap-4">
+          <Button 
+            size="lg" 
+            onClick={() => navigate('/signin')}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            Se connecter
+          </Button>
+          <Button 
+            size="lg" 
+            variant="outline"
+            onClick={() => navigate('/signup')}
+          >
+            S'inscrire
+          </Button>
+        </div>
+      </div>
+
       <motion.div
         variants={containerVariants}
         initial="hidden"
         animate="visible"
-        className="space-y-8"
+        className="space-y-12"
       >
-        {/* Quick Actions */}
         <motion.div variants={itemVariants}>
-          <Card>
-            <CardHeader>
-              <CardTitle>Actions rapides</CardTitle>
-              <CardDescription>
-                Accédez rapidement aux fonctionnalités essentielles
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className={`grid ${isMobile ? 'grid-cols-2' : 'grid-cols-4'} gap-4`}>
-                <Button
-                  variant="outline"
-                  className="flex-col h-auto p-4 space-y-2"
-                  onClick={() => handleNavigation('/tasks')}
-                >
-                  <Plus className="h-5 w-5" />
-                  <span>Nouvelle tâche</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  className="flex-col h-auto p-4 space-y-2"
-                  onClick={() => handleNavigation('/habits')}
-                >
-                  <Plus className="h-5 w-5" />
-                  <span>Ajouter une habitude</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  className="flex-col h-auto p-4 space-y-2"
-                  onClick={() => handleNavigation('/journal')}
-                >
-                  <Plus className="h-5 w-5" />
-                  <span>Note rapide</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  className="flex-col h-auto p-4 space-y-2"
-                  onClick={() => handleNavigation('/focus')}
-                >
-                  <Clock className="h-5 w-5" />
-                  <span>Démarrer focus</span>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <h2 className="text-3xl font-bold text-center mb-8">Fonctionnalités principales</h2>
+          <div className={`grid ${isMobile ? 'grid-cols-1' : 'md:grid-cols-3'} gap-6`}>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <CheckSquare className="mr-2 h-5 w-5 text-blue-500" />
+                  Gestion des tâches
+                </CardTitle>
+                <CardDescription>
+                  Organisez et suivez vos tâches efficacement
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600 dark:text-gray-400">
+                  Créez des listes de tâches, définissez des priorités, et suivez votre progression pour rester organisé et productif.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <ListTodo className="mr-2 h-5 w-5 text-green-500" />
+                  Suivi d'habitudes
+                </CardTitle>
+                <CardDescription>
+                  Développez de bonnes habitudes jour après jour
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600 dark:text-gray-400">
+                  Suivez vos habitudes quotidiennes et hebdomadaires, maintenez des séries et restez motivé pour atteindre vos objectifs.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Clock className="mr-2 h-5 w-5 text-red-500" />
+                  Sessions Focus
+                </CardTitle>
+                <CardDescription>
+                  Améliorez votre concentration et productivité
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600 dark:text-gray-400">
+                  Utilisez la technique Pomodoro pour des sessions de travail concentrées, avec des pauses planifiées pour maximiser votre efficacité.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
         </motion.div>
 
-        {/* IA Insights */}
         <motion.div variants={itemVariants}>
-          <h2 className="text-2xl font-bold flex items-center mb-4">
-            <Sparkles className="mr-2 h-5 w-5 text-yellow-500" />
-            Insights IA
+          <h2 className="text-3xl font-bold text-center mb-8 flex items-center justify-center">
+            <Sparkles className="mr-2 h-6 w-6 text-yellow-500" />
+            IA au service de votre productivité
           </h2>
-          <div className="grid gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
             <AIInsightCard
-              title="Productivité optimale"
-              description="Vos sessions de travail sont plus efficaces le matin. Essayez de planifier vos tâches importantes avant midi."
+              title="Analyses personnalisées"
+              description="Notre IA analyse vos habitudes de travail et vous propose des insights pour améliorer votre productivité."
               type="productivity"
             />
             
             <AIInsightCard
-              title="Rappel d'habitude"
-              description="Vous n'avez pas complété votre habitude 'Méditation' depuis 3 jours. Un petit moment de méditation aujourd'hui ?"
+              title="Suggestions intelligentes"
+              description="Recevez des recommandations adaptées à votre rythme et à vos préférences de travail."
               type="habits"
             />
           </div>
         </motion.div>
 
-        {/* Main Sections */}
-        <div className={`grid ${isMobile ? 'grid-cols-1' : 'md:grid-cols-3'} gap-6`}>
-          {/* Tasks */}
-          <motion.div variants={itemVariants}>
-            <Card className="h-full">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <CheckSquare className="mr-2 h-5 w-5 text-blue-500" />
-                  Tâches
-                </CardTitle>
-                <CardDescription>
-                  Gérez vos tâches et suivez votre progression
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground mb-4">Pas encore de tâches</p>
-                <Button onClick={() => handleNavigation('/tasks')} variant="outline" className="w-full">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Ajouter une tâche
-                </Button>
-              </CardContent>
-              <CardFooter>
-                <Button variant="ghost" className="w-full" onClick={() => handleNavigation('/tasks')}>
-                  Voir toutes les tâches
-                </Button>
-              </CardFooter>
-            </Card>
-          </motion.div>
-
-          {/* Habits */}
-          <motion.div variants={itemVariants}>
-            <Card className="h-full">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <ListTodo className="mr-2 h-5 w-5 text-green-500" />
-                  Habitudes
-                </CardTitle>
-                <CardDescription>
-                  Suivez vos habitudes quotidiennes
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground mb-4">Pas encore d'habitudes</p>
-                <Button onClick={() => handleNavigation('/habits')} variant="outline" className="w-full">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Créer une habitude
-                </Button>
-              </CardContent>
-              <CardFooter>
-                <Button variant="ghost" className="w-full" onClick={() => handleNavigation('/habits')}>
-                  Gérer les habitudes
-                </Button>
-              </CardFooter>
-            </Card>
-          </motion.div>
-
-          {/* Goals */}
-          <motion.div variants={itemVariants}>
-            <Card className="h-full">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Target className="mr-2 h-5 w-5 text-purple-500" />
-                  Objectifs
-                </CardTitle>
-                <CardDescription>
-                  Définissez et suivez vos objectifs
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground mb-4">Pas encore d'objectifs</p>
-                <Button onClick={() => handleNavigation('/goals')} variant="outline" className="w-full">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Créer un objectif
-                </Button>
-              </CardContent>
-              <CardFooter>
-                <Button variant="ghost" className="w-full" onClick={() => handleNavigation('/goals')}>
-                  Voir tous les objectifs
-                </Button>
-              </CardFooter>
-            </Card>
-          </motion.div>
-        </div>
-
-        {/* Recent Activity (only on desktop) */}
-        {!isMobile && (
-          <motion.div variants={itemVariants}>
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <CalendarClock className="mr-2 h-5 w-5 text-orange-500" />
-                  Activité récente
-                </CardTitle>
-                <CardDescription>
-                  Votre activité des derniers jours
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8 text-muted-foreground">
-                  <p>Pas d'activité récente</p>
-                  <p className="text-sm mt-2">Commencez à utiliser DeepFlow pour voir votre activité ici</p>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
+        <motion.div variants={itemVariants} className="text-center pt-8">
+          <h2 className="text-3xl font-bold mb-6">Prêt à commencer?</h2>
+          <Button 
+            size="lg" 
+            onClick={() => navigate('/signup')}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            Créer un compte gratuitement
+          </Button>
+          <p className="mt-4 text-gray-500 dark:text-gray-400">
+            Rejoignez des milliers d'utilisateurs qui améliorent leur productivité chaque jour
+          </p>
+        </motion.div>
       </motion.div>
-    </MainLayout>
+    </div>
   );
 };
 

@@ -119,7 +119,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const logout = async () => {
     try {
       await logoutUser();
-      navigate('/signin');
+      // Redirection manuelle pour s'assurer que la navigation se produit
+      window.location.href = '/signin';
     } catch (error) {
       console.error("Logout error:", error);
     }

@@ -66,7 +66,6 @@ const App = () => {
     };
   }, []);
 
-  // CRITICAL: BrowserRouter must be placed before AuthProvider because AuthProvider uses useNavigate()
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
@@ -74,7 +73,7 @@ const App = () => {
           <BrowserRouter>
             <AuthProvider>
               <Toaster />
-              <Sonner position="top-right" />
+              <Sonner position="top-right" toastOptions={{ duration: 0 }} />
               <Routes>
                 <Route path="/" element={<LandingPage />} />
                 

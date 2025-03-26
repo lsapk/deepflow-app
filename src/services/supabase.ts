@@ -1,3 +1,4 @@
+
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -40,7 +41,7 @@ export interface Habit {
   last_completed_at?: string;
   created_at?: string;
   updated_at?: string;
-  color?: string; // Ajout de la propriété color utilisée dans HabitsPage
+  color?: string;
 }
 
 export interface JournalEntry {
@@ -69,7 +70,6 @@ export const registerUser = async (email: string, password: string, displayName:
 
     if (error) throw error;
     
-    toast.success("Compte créé avec succès !");
     return data.user;
   } catch (error: any) {
     let message = "Une erreur est survenue lors de l'inscription";
@@ -80,7 +80,7 @@ export const registerUser = async (email: string, password: string, displayName:
       message = "Le mot de passe est trop faible";
     }
     
-    toast.error(message);
+    console.error(message);
     throw error;
   }
 };
@@ -94,7 +94,6 @@ export const loginUser = async (email: string, password: string) => {
 
     if (error) throw error;
     
-    toast.success("Connexion réussie !");
     return data.user;
   } catch (error: any) {
     let message = "Échec de la connexion";
@@ -105,7 +104,7 @@ export const loginUser = async (email: string, password: string) => {
       message = "Trop de tentatives échouées. Veuillez réessayer plus tard";
     }
     
-    toast.error(message);
+    console.error(message);
     throw error;
   }
 };
@@ -125,7 +124,7 @@ export const signInWithGoogle = async () => {
     // car il y a une redirection. Le succès sera géré au retour.
     return null;
   } catch (error: any) {
-    toast.error("Erreur lors de la connexion avec Google");
+    console.error("Erreur lors de la connexion avec Google");
     throw error;
   }
 };
@@ -135,10 +134,9 @@ export const logoutUser = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
     
-    toast.success("Déconnexion réussie");
     return true;
   } catch (error) {
-    toast.error("Erreur lors de la déconnexion");
+    console.error("Erreur lors de la déconnexion");
     throw error;
   }
 };
@@ -151,11 +149,10 @@ export const resetPassword = async (email: string) => {
     
     if (error) throw error;
     
-    toast.success("Email de réinitialisation envoyé !");
     return true;
   } catch (error: any) {
     let message = "Erreur lors de l'envoi de l'email de réinitialisation";
-    toast.error(message);
+    console.error(message);
     throw error;
   }
 };
@@ -189,11 +186,10 @@ export const updateUserProfile = async (userId: string, updates: Partial<UserPro
 
     if (error) throw error;
     
-    toast.success("Profil mis à jour avec succès");
+    console.log("Profil mis à jour avec succès");
     return true;
   } catch (error) {
     console.error("Error updating profile:", error);
-    toast.error("Erreur lors de la mise à jour du profil");
     throw error;
   }
 };
@@ -222,11 +218,10 @@ export const uploadProfileImage = async (userId: string, file: File): Promise<st
       photo_url: data.publicUrl 
     });
     
-    toast.success("Photo de profil mise à jour avec succès");
+    console.log("Photo de profil mise à jour avec succès");
     return data.publicUrl;
   } catch (error: any) {
     console.error("Error uploading image:", error);
-    toast.error("Erreur lors de l'upload de la photo de profil");
     throw error;
   }
 };
@@ -271,11 +266,10 @@ export const updateUserSettings = async (userId: string, updates: Partial<UserSe
 
     if (error) throw error;
     
-    toast.success("Paramètres mis à jour avec succès");
+    console.log("Paramètres mis à jour avec succès");
     return true;
   } catch (error) {
     console.error("Error updating settings:", error);
-    toast.error("Erreur lors de la mise à jour des paramètres");
     throw error;
   }
 };
@@ -313,22 +307,21 @@ export const createHabit = async (
       .insert({
         ...habitData,
         user_id: userId,
-        streak: habitData.streak || 0
+        streak: habitData.streak || 0,
+        color: habitData.color || '#3b82f6' // Add default color
       })
       .select()
       .single();
 
     if (error) throw error;
     
-    toast.success("Habitude ajoutée avec succès");
     return {
       ...data,
       frequency: data.frequency as 'daily' | 'weekly',
-      color: data.color || '#3b82f6' // Provide a default color
+      color: data.color || '#3b82f6'
     };
   } catch (error) {
     console.error("Error adding habit:", error);
-    toast.error("Erreur lors de l'ajout de l'habitude");
     throw error;
   }
 };
@@ -350,15 +343,13 @@ export const updateHabit = async (id: string, updates: Partial<Habit>): Promise<
 
     if (error) throw error;
     
-    toast.success("Habitude mise à jour avec succès");
     return {
       ...data,
       frequency: data.frequency as 'daily' | 'weekly',
-      color: data.color || '#3b82f6' // Provide a default color
+      color: data.color || '#3b82f6'
     };
   } catch (error) {
     console.error("Error updating habit:", error);
-    toast.error("Erreur lors de la mise à jour de l'habitude");
     throw error;
   }
 };
@@ -371,11 +362,8 @@ export const deleteHabit = async (id: string): Promise<void> => {
       .eq('id', id);
 
     if (error) throw error;
-    
-    toast.success("Habitude supprimée avec succès");
   } catch (error) {
     console.error("Error deleting habit:", error);
-    toast.error("Erreur lors de la suppression de l'habitude");
     throw error;
   }
 };
@@ -421,7 +409,6 @@ export const createJournalEntry = async (
 
     if (error) throw error;
     
-    toast.success("Entrée de journal créée avec succès");
     return {
       ...data,
       mood: data.mood as 'great' | 'good' | 'neutral' | 'bad' | 'terrible' | undefined,
@@ -431,7 +418,6 @@ export const createJournalEntry = async (
     };
   } catch (error) {
     console.error("Error creating journal entry:", error);
-    toast.error("Erreur lors de la création de l'entrée de journal");
     throw error;
   }
 };
@@ -453,7 +439,6 @@ export const updateJournalEntry = async (id: string, updates: Partial<JournalEnt
 
     if (error) throw error;
     
-    toast.success("Entrée de journal mise à jour avec succès");
     return {
       ...data,
       mood: data.mood as 'great' | 'good' | 'neutral' | 'bad' | 'terrible' | undefined,
@@ -463,7 +448,6 @@ export const updateJournalEntry = async (id: string, updates: Partial<JournalEnt
     };
   } catch (error) {
     console.error("Error updating journal entry:", error);
-    toast.error("Erreur lors de la mise à jour de l'entrée de journal");
     throw error;
   }
 };
@@ -476,11 +460,8 @@ export const deleteJournalEntry = async (id: string): Promise<void> => {
       .eq('id', id);
 
     if (error) throw error;
-    
-    toast.success("Entrée de journal supprimée avec succès");
   } catch (error) {
     console.error("Error deleting journal entry:", error);
-    toast.error("Erreur lors de la suppression de l'entrée de journal");
     throw error;
   }
 };

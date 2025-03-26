@@ -23,7 +23,6 @@ import { Logo } from '@/components/common/Logo';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from 'next-themes';
-import { toast } from 'sonner';
 import { getUserProfile } from '@/services/userService';
 
 interface NavigationBarProps {
@@ -61,13 +60,16 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ userName = '' }) =
     setNotifications(Math.floor(Math.random() * 5));
   }, [currentUser]);
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
     try {
-      await logout();
-      navigate('/signin');
+      logout().then(() => {
+        // Force redirect to sign-in page by using window.location
+        window.location.href = '/signin';
+      }).catch(error => {
+        console.error('Erreur de déconnexion', error);
+      });
     } catch (error) {
       console.error('Erreur de déconnexion', error);
-      toast.error("Erreur lors de la déconnexion");
     }
   };
 
@@ -95,7 +97,6 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ userName = '' }) =
   const toggleTheme = () => {
     const newTheme = theme === 'dark' ? 'light' : 'dark';
     setTheme(newTheme);
-    toast.success(`Thème ${newTheme === 'light' ? 'clair' : 'sombre'} activé`);
   };
 
   return (
@@ -156,7 +157,7 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ userName = '' }) =
             variant="ghost" 
             size="icon" 
             className="rounded-full w-9 h-9 relative"
-            onClick={() => toast.success("Fonctionnalité de notifications à venir")}
+            onClick={() => navigate('/settings')}
             aria-label="Notifications"
           >
             <Bell className="h-5 w-5" />

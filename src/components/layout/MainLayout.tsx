@@ -5,7 +5,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/sonner';
 import { FeaturePanel } from './FeaturePanel';
-import { getUserProfile } from '@/services/supabase';
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -52,7 +51,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         {children}
       </main>
       
-      <Toaster position="top-right" />
+      <Toaster position="top-right" toastOptions={{ duration: 0 }} />
     </div>
   );
 }
