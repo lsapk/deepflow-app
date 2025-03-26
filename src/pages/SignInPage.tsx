@@ -1,6 +1,6 @@
 
 import React from 'react';
-import SignInForm from '@/components/auth/SignInForm';
+import { SignInForm } from '@/components/auth/SignInForm';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Logo } from '@/components/common/Logo';

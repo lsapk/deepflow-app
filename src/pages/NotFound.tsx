@@ -22,7 +22,7 @@ const NotFound = () => {
           transition={{ delay: 0.2, duration: 0.5 }}
           className="mb-8 flex justify-center"
         >
-          <Logo size="xl" textColor="text-primary dark:text-primary" />
+          <Logo size="lg" textColor="text-primary dark:text-primary" />
         </motion.div>
         
         <motion.div 
