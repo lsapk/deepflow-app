@@ -1,4 +1,3 @@
-
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -41,7 +40,6 @@ export interface Habit {
   last_completed_at?: string;
   created_at?: string;
   updated_at?: string;
-  color?: string;
 }
 
 export interface JournalEntry {
@@ -289,7 +287,6 @@ export const getHabits = async (userId: string): Promise<Habit[]> => {
     return (data || []).map(habit => ({
       ...habit,
       frequency: habit.frequency as 'daily' | 'weekly',
-      color: habit.color || '#3b82f6' // Provide a default color
     }));
   } catch (error) {
     console.error("Error fetching habits:", error);
@@ -308,7 +305,6 @@ export const createHabit = async (
         ...habitData,
         user_id: userId,
         streak: habitData.streak || 0,
-        color: habitData.color || '#3b82f6' // Add default color
       })
       .select()
       .single();
@@ -318,7 +314,6 @@ export const createHabit = async (
     return {
       ...data,
       frequency: data.frequency as 'daily' | 'weekly',
-      color: data.color || '#3b82f6'
     };
   } catch (error) {
     console.error("Error adding habit:", error);
@@ -346,7 +341,6 @@ export const updateHabit = async (id: string, updates: Partial<Habit>): Promise<
     return {
       ...data,
       frequency: data.frequency as 'daily' | 'weekly',
-      color: data.color || '#3b82f6'
     };
   } catch (error) {
     console.error("Error updating habit:", error);
