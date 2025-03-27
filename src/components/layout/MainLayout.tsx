@@ -1,3 +1,4 @@
+
 import React, { ReactNode, useEffect, useState } from 'react';
 import { NavigationBar } from './NavigationBar';
 import { useAuth } from '@/contexts/AuthContext';
@@ -5,6 +6,7 @@ import { Navigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/sonner';
 import { FeaturePanel } from './FeaturePanel';
 import { toast } from 'sonner';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -64,21 +66,23 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
-      <NavigationBar userName={displayName} />
-      <FeaturePanel />
-      
-      <main className="flex-1 py-6 pt-20 px-4 md:px-6 lg:px-8 max-w-7xl mx-auto w-full">
-        {children}
-      </main>
-      
-      {!isOnline && (
-        <div className="fixed bottom-0 left-0 right-0 bg-orange-500 text-white p-2 text-center text-sm">
-          Mode hors ligne - Vos modifications seront synchronisées lorsque vous serez à nouveau connecté
-        </div>
-      )}
-      
-      <Toaster position="top-right" />
-    </div>
+    <TooltipProvider>
+      <div className="flex flex-col min-h-screen bg-background">
+        <NavigationBar userName={displayName} />
+        <FeaturePanel />
+        
+        <main className="flex-1 py-6 pt-20 px-4 md:px-6 lg:px-8 max-w-7xl mx-auto w-full">
+          {children}
+        </main>
+        
+        {!isOnline && (
+          <div className="fixed bottom-0 left-0 right-0 bg-orange-500 text-white p-2 text-center text-sm">
+            Mode hors ligne - Vos modifications seront synchronisées lorsque vous serez à nouveau connecté
+          </div>
+        )}
+        
+        <Toaster position="top-right" />
+      </div>
+    </TooltipProvider>
   );
 }

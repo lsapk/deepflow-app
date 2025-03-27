@@ -3,7 +3,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ThemeProvider } from "next-themes"; 
-import { TooltipProvider } from "@/components/ui/tooltip";
 import LandingPage from "./pages/LandingPage";
 import SignInPage from "./pages/SignInPage";
 import SignUpPage from "./pages/SignUpPage";
@@ -66,34 +65,32 @@ const App = () => {
   return (
     <BrowserRouter>
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-        <TooltipProvider>
-          <QueryClientProvider client={queryClient}>
-            <AuthProvider>
-              <Routes>
-                <Route path="/" element={<LandingPage />} />
-                
-                {/* Public routes */}
-                <Route path="/signin" element={<SignInPage />} />
-                <Route path="/signup" element={<SignUpPage />} />
-                
-                {/* Protected routes */}
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/tasks" element={<TasksPage />} />
-                <Route path="/habits" element={<HabitsPage />} />
-                <Route path="/focus" element={<FocusPage />} />
-                <Route path="/journal" element={<JournalPage />} />
-                <Route path="/goals" element={<GoalsPage />} />
-                <Route path="/planning" element={<PlanningPage />} />
-                <Route path="/analytics" element={<AnalyticsPage />} />
-                <Route path="/profile" element={<ProfilePage />} />
-                <Route path="/settings" element={<SettingsPage />} />
-                
-                {/* Catch-all route */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </AuthProvider>
-          </QueryClientProvider>
-        </TooltipProvider>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <Routes>
+              <Route path="/" element={<LandingPage />} />
+              
+              {/* Public routes */}
+              <Route path="/signin" element={<SignInPage />} />
+              <Route path="/signup" element={<SignUpPage />} />
+              
+              {/* Protected routes */}
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/tasks" element={<TasksPage />} />
+              <Route path="/habits" element={<HabitsPage />} />
+              <Route path="/focus" element={<FocusPage />} />
+              <Route path="/journal" element={<JournalPage />} />
+              <Route path="/goals" element={<GoalsPage />} />
+              <Route path="/planning" element={<PlanningPage />} />
+              <Route path="/analytics" element={<AnalyticsPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              
+              {/* Catch-all route */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </AuthProvider>
+        </QueryClientProvider>
       </ThemeProvider>
     </BrowserRouter>
   );
