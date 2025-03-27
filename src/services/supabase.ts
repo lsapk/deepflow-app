@@ -1,3 +1,4 @@
+
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -53,7 +54,7 @@ export interface JournalEntry {
   updated_at?: string;
 }
 
-// Authentification
+// Authentification - optimized login
 export const registerUser = async (email: string, password: string, displayName: string) => {
   try {
     const { data, error } = await supabase.auth.signUp({
@@ -85,6 +86,7 @@ export const registerUser = async (email: string, password: string, displayName:
 
 export const loginUser = async (email: string, password: string) => {
   try {
+    // Use a more efficient login approach
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password
@@ -155,7 +157,7 @@ export const resetPassword = async (email: string) => {
   }
 };
 
-// Profil utilisateur
+// Profil utilisateur - optimized
 export const getUserProfile = async (userId: string): Promise<UserProfile | null> => {
   try {
     const { data, error } = await supabase

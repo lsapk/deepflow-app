@@ -48,16 +48,14 @@ export const SignInForm = () => {
   });
 
   const onSubmit = async (data: FormValues) => {
+    if (isLoading) return; // Prevent multiple submissions
+    
     setIsLoading(true);
     setAuthError(null);
     
     try {
       await signIn(data.email, data.password);
-      toast({
-        title: "Connexion réussie",
-        description: "Vous êtes maintenant connecté à votre compte.",
-        variant: "default",
-      });
+      // No toast needed here - it slows down the process
       navigate('/dashboard');
     } catch (error: any) {
       setAuthError(
@@ -74,6 +72,8 @@ export const SignInForm = () => {
   };
 
   const handleGoogleSignIn = async () => {
+    if (isLoading) return; // Prevent multiple submissions
+    
     setIsLoading(true);
     setAuthError(null);
     
@@ -158,6 +158,7 @@ export const SignInForm = () => {
                           <Input
                             placeholder="votre@email.com"
                             className="pl-10"
+                            autoComplete="email"
                             {...field}
                             disabled={isLoading}
                           />
@@ -180,6 +181,7 @@ export const SignInForm = () => {
                             type="password"
                             placeholder="••••••••"
                             className="pl-10"
+                            autoComplete="current-password"
                             {...field}
                             disabled={isLoading}
                           />
