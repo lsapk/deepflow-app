@@ -1,5 +1,6 @@
-const CACHE_NAME = 'deepflow-cache-v2';
-const DYNAMIC_CACHE = 'deepflow-dynamic-v1';
+
+const CACHE_NAME = 'deepflow-cache-v3';
+const DYNAMIC_CACHE = 'deepflow-dynamic-v2';
 const OFFLINE_DB_NAME = 'deepflow-offline-db';
 const OFFLINE_STORE_NAME = 'offlineActions';
 
@@ -16,6 +17,8 @@ const urlsToCache = [
   '/focus',
   '/journal',
   '/planning',
+  '/settings',
+  '/profile',
   '/assets/'
 ];
 
@@ -60,7 +63,7 @@ const isApiRequest = (url) => {
 // Helper to open IndexedDB
 const openOfflineDB = () => {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(OFFLINE_DB_NAME, 2);
+    const request = indexedDB.open(OFFLINE_DB_NAME, 3);
     
     request.onupgradeneeded = event => {
       const db = event.target.result;
@@ -68,7 +71,17 @@ const openOfflineDB = () => {
         db.createObjectStore(OFFLINE_STORE_NAME, { keyPath: 'id', autoIncrement: true });
       }
       
-      const dataStores = ['journal', 'tasks', 'habits', 'analytics', 'focus'];
+      // Magasins de données pour toutes les fonctionnalités de l'application
+      const dataStores = [
+        'journal', 
+        'tasks', 
+        'habits', 
+        'analytics', 
+        'focus',
+        'events',  // Nouveau magasin pour les événements du planning
+        'settings' // Nouveau magasin pour les paramètres
+      ];
+      
       dataStores.forEach(store => {
         if (!db.objectStoreNames.contains(store)) {
           db.createObjectStore(store, { keyPath: 'id' });
@@ -90,9 +103,17 @@ const saveLocalData = async (storeName, data) => {
     
     if (Array.isArray(data)) {
       data.forEach(item => {
+        // S'assurer que chaque élément a un ID
+        if (!item.id) {
+          item.id = Date.now().toString() + Math.random().toString(36).substr(2, 9);
+        }
         store.put(item);
       });
     } else {
+      // S'assurer que l'élément a un ID
+      if (!data.id) {
+        data.id = Date.now().toString() + Math.random().toString(36).substr(2, 9);
+      }
       store.put(data);
     }
     
@@ -208,6 +229,7 @@ const cacheResponse = async (request, response, dynamicCache) => {
       try {
         const data = await responseClone.json();
         
+        // Déterminer le type de données en fonction du chemin de l'URL
         if (path.includes('/habits')) {
           await saveLocalData('habits', data);
         } else if (path.includes('/journal')) {
@@ -218,6 +240,10 @@ const cacheResponse = async (request, response, dynamicCache) => {
           await saveLocalData('analytics', data);
         } else if (path.includes('/focus')) {
           await saveLocalData('focus', data);
+        } else if (path.includes('/events') || path.includes('/planning')) {
+          await saveLocalData('events', data);
+        } else if (path.includes('/settings')) {
+          await saveLocalData('settings', data);
         }
       } catch (err) {
         console.error('Error processing response data for local storage:', err);
@@ -256,6 +282,7 @@ self.addEventListener('fetch', event => {
                   const url = new URL(event.request.url);
                   const path = url.pathname;
                   
+                  // Déterminer le magasin de données à partir du chemin
                   let storeName = null;
                   if (path.includes('/habits')) {
                     storeName = 'habits';
@@ -267,6 +294,10 @@ self.addEventListener('fetch', event => {
                     storeName = 'analytics';
                   } else if (path.includes('/focus')) {
                     storeName = 'focus';
+                  } else if (path.includes('/events') || path.includes('/planning')) {
+                    storeName = 'events';
+                  } else if (path.includes('/settings')) {
+                    storeName = 'settings';
                   }
                   
                   if (storeName) {
@@ -333,9 +364,45 @@ self.addEventListener('fetch', event => {
   }
 });
 
-// Periodically attempt to sync offline actions (every 5 minutes when the app is active)
+// Manipuler les messages provenant de l'application
 self.addEventListener('message', event => {
   if (event.data && event.data.type === 'APP_ACTIVE') {
     syncOfflineActions();
+  }
+  
+  // Nouveau: stocker des données locales depuis l'application
+  if (event.data && event.data.type === 'STORE_DATA') {
+    const { storeName, data } = event.data;
+    if (storeName && data) {
+      saveLocalData(storeName, data)
+        .then(() => {
+          console.log(`Data successfully stored in ${storeName}`);
+        })
+        .catch(error => {
+          console.error(`Error storing data in ${storeName}:`, error);
+        });
+    }
+  }
+  
+  // Nouveau: récupérer des données locales pour l'application
+  if (event.data && event.data.type === 'GET_DATA') {
+    const { storeName, id, clientId } = event.data;
+    if (storeName) {
+      getLocalData(storeName, id)
+        .then(data => {
+          // Envoyer les données récupérées à l'application
+          const client = self.clients.get(clientId);
+          if (client) {
+            client.postMessage({
+              type: 'DATA_RESPONSE',
+              storeName,
+              data
+            });
+          }
+        })
+        .catch(error => {
+          console.error(`Error getting data from ${storeName}:`, error);
+        });
+    }
   }
 });

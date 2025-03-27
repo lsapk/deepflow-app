@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar } from '@/components/ui/calendar';
@@ -14,6 +13,8 @@ import { CheckSquare, Clock, Plus, Save, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { useAuth } from '@/contexts/AuthContext';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
 interface Event {
   id: string;
@@ -26,36 +27,13 @@ interface Event {
 }
 
 const PlanningPage = () => {
+  const { currentUser } = useAuth();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [events, setEvents] = useState<Event[]>([
-    {
-      id: '1',
-      title: 'Réunion d\'équipe',
-      description: 'Revue de projet hebdomadaire avec l\'équipe',
-      date: new Date(2025, 2, 25),
-      startTime: '10:00',
-      endTime: '11:00',
-      type: 'meeting'
-    },
-    {
-      id: '2',
-      title: 'Déjeuner avec Jean',
-      description: 'Restaurant Le Bistrot',
-      date: new Date(2025, 2, 25),
-      startTime: '12:30',
-      endTime: '14:00',
-      type: 'personal'
-    },
-    {
-      id: '3',
-      title: 'Finaliser la présentation',
-      description: 'Préparer les slides pour la réunion de demain',
-      date: new Date(2025, 2, 26),
-      startTime: '15:00',
-      endTime: '17:00',
-      type: 'task'
-    }
-  ]);
+  
+  const [events, setEvents] = useLocalStorage<Event[]>(
+    `events_${currentUser?.uid || 'anonymous'}`,
+    []
+  );
 
   const [newEvent, setNewEvent] = useState<Omit<Event, 'id'>>({
     title: '',
@@ -69,7 +47,6 @@ const PlanningPage = () => {
   const [isCreatingEvent, setIsCreatingEvent] = useState(false);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
 
-  // Jours avec événements pour le calendrier
   const daysWithEvents = events.map(event => new Date(event.date));
 
   const handleDateSelect = (date: Date | undefined) => {
@@ -102,7 +79,6 @@ const PlanningPage = () => {
     }
 
     if (editingEventId) {
-      // Mettre à jour un événement existant
       setEvents(events.map(event => 
         event.id === editingEventId 
           ? { ...newEvent, id: editingEventId } 
@@ -110,7 +86,6 @@ const PlanningPage = () => {
       ));
       toast.success("Événement mis à jour");
     } else {
-      // Créer un nouvel événement
       const event: Event = {
         id: Date.now().toString(),
         ...newEvent
@@ -127,7 +102,7 @@ const PlanningPage = () => {
     setNewEvent({
       title: event.title,
       description: event.description,
-      date: event.date,
+      date: new Date(event.date),
       startTime: event.startTime,
       endTime: event.endTime,
       type: event.type
@@ -141,14 +116,16 @@ const PlanningPage = () => {
     toast.success("Événement supprimé");
   };
 
-  // Filtrer les événements pour la date sélectionnée
-  const eventsForSelectedDate = events.filter(
-    event => format(event.date, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd')
-  ).sort((a, b) => a.startTime.localeCompare(b.startTime));
+  const eventsForSelectedDate = events
+    .filter(event => {
+      const eventDate = new Date(event.date);
+      return format(eventDate, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd');
+    })
+    .sort((a, b) => a.startTime.localeCompare(b.startTime));
 
-  // Obtenir les événements pour chaque jour du mois courant
   const eventsByDay = events.reduce((acc: {[key: string]: Event[]}, event) => {
-    const dateKey = format(event.date, 'yyyy-MM-dd');
+    const eventDate = new Date(event.date);
+    const dateKey = format(eventDate, 'yyyy-MM-dd');
     if (!acc[dateKey]) {
       acc[dateKey] = [];
     }
@@ -156,7 +133,6 @@ const PlanningPage = () => {
     return acc;
   }, {});
 
-  // Fonction pour obtenir la classe CSS du type d'événement
   const getEventTypeClass = (type: string) => {
     switch (type) {
       case 'meeting': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
@@ -167,7 +143,6 @@ const PlanningPage = () => {
     }
   };
 
-  // Fonction pour obtenir le label du type d'événement
   const getEventTypeLabel = (type: string) => {
     switch (type) {
       case 'meeting': return 'Réunion';
@@ -447,7 +422,7 @@ const PlanningPage = () => {
               <Input
                 id="date"
                 type="date"
-                value={format(newEvent.date, 'yyyy-MM-dd')}
+                value={format(new Date(newEvent.date), 'yyyy-MM-dd')}
                 onChange={(e) => handleEventChange('date', new Date(e.target.value))}
               />
             </div>

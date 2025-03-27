@@ -10,11 +10,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserSettings, updateUserSettings } from '@/services/supabase';
 import { Settings, Bell, Moon, Languages, Clock } from 'lucide-react';
+import { toast } from 'sonner';
+import { useTheme } from '@/hooks/use-theme';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
 const SettingsPage = () => {
   const { currentUser } = useAuth();
+  const { theme, setTheme } = useTheme();
   const [loading, setLoading] = useState(true);
-  const [settings, setSettings] = useState({
+  const [settings, setSettings] = useLocalStorage('user-settings', {
     theme: 'system',
     language: 'fr',
     notificationsEnabled: true,
@@ -27,8 +31,15 @@ const SettingsPage = () => {
   useEffect(() => {
     if (currentUser) {
       fetchUserSettings();
+    } else {
+      setLoading(false);
     }
   }, [currentUser]);
+
+  useEffect(() => {
+    // Synchroniser le thème avec les paramètres locaux
+    setTheme(settings.theme as any);
+  }, [settings.theme, setTheme]);
 
   const fetchUserSettings = async () => {
     if (!currentUser) return;
@@ -55,23 +66,31 @@ const SettingsPage = () => {
   };
 
   const saveSettings = async () => {
-    if (!currentUser) return;
-    
     try {
       setIsSaving(true);
       
-      await updateUserSettings(currentUser.uid, {
-        theme: settings.theme,
-        language: settings.language,
-        notifications_enabled: settings.notificationsEnabled,
-        sound_enabled: settings.soundEnabled,
-        focus_mode: settings.focusMode,
-        clock_format: settings.clockFormat
-      });
+      if (currentUser) {
+        await updateUserSettings(currentUser.uid, {
+          theme: settings.theme,
+          language: settings.language,
+          notifications_enabled: settings.notificationsEnabled,
+          sound_enabled: settings.soundEnabled,
+          focus_mode: settings.focusMode,
+          clock_format: settings.clockFormat
+        });
+      }
       
-      console.log("Settings updated successfully");
+      // Appliquer les paramètres localement même sans connexion
+      setTheme(settings.theme as any);
+      
+      // Stocker les préférences dans localStorage pour les utiliser hors ligne
+      localStorage.setItem('app-language', settings.language);
+      localStorage.setItem('clock-format', settings.clockFormat);
+      
+      toast.success("Paramètres enregistrés avec succès");
     } catch (error) {
       console.error("Error updating settings:", error);
+      toast.error("Erreur lors de l'enregistrement des paramètres");
     } finally {
       setIsSaving(false);
     }
