@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,14 +12,15 @@ import { toast } from 'sonner';
 import { 
   updateUserProfile, 
   getUserProfile, 
-  UserProfile, 
   uploadProfileImage 
 } from '@/services/supabase';
 import { supabase } from '@/integrations/supabase/client';
-import { Camera, CheckCircle, Key, User as UserIcon, Mail, Shield, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
+import { Camera, CheckCircle, Key, User as UserIcon, Mail, Shield, Loader2, AlertCircle, RefreshCw, ArrowLeft, Home } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useNavigate } from 'react-router-dom';
 
 const ProfilePage = () => {
+  const navigate = useNavigate();
   const { currentUser, userProfile: authUserProfile } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
@@ -47,7 +47,6 @@ const ProfilePage = () => {
         setIsLoadingProfile(true);
         setError(null);
         
-        // Utiliser le profil du contexte d'authentification s'il existe, sinon le charger
         let profile = authUserProfile;
         
         if (!profile) {
@@ -68,7 +67,6 @@ const ProfilePage = () => {
             setPhotoURL(currentUser.user_metadata.avatar_url);
           }
         } else {
-          // Initialiser avec les données de base de l'utilisateur
           setProfileData(prev => ({
             ...prev,
             display_name: currentUser.user_metadata?.display_name || '',
@@ -130,7 +128,6 @@ const ProfilePage = () => {
       
       if (error) throw error;
       
-      // Mettre à jour le profil après avoir mis à jour l'email
       await updateUserProfile(currentUser.id, {
         email: profileData.email
       });
@@ -224,7 +221,6 @@ const ProfilePage = () => {
     } finally {
       setFileUploading(false);
       
-      // Réinitialiser l'input file pour permettre de sélectionner à nouveau le même fichier
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -251,6 +247,14 @@ const ProfilePage = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleGoBack = () => {
+    navigate(-1);
+  };
+
+  const handleGoHome = () => {
+    navigate('/dashboard');
   };
 
   const getInitials = (name: string | null | undefined) => {
@@ -308,11 +312,33 @@ const ProfilePage = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold mb-2">Profil</h1>
-        <p className="text-gray-500 dark:text-gray-400">
-          Gérez vos informations personnelles et vos paramètres
-        </p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Profil</h1>
+          <p className="text-gray-500 dark:text-gray-400">
+            Gérez vos informations personnelles et vos paramètres
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleGoBack}
+            className="flex items-center gap-1"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Retour
+          </Button>
+          <Button 
+            variant="default" 
+            size="sm" 
+            onClick={handleGoHome}
+            className="flex items-center gap-1"
+          >
+            <Home className="h-4 w-4" />
+            Accueil
+          </Button>
+        </div>
       </div>
 
       {error && (

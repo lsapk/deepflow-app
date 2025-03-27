@@ -18,12 +18,13 @@ import {
   LineChart, Flame, Bell, Calendar, CheckCheck, Moon, Sun,
   HelpCircle 
 } from 'lucide-react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetClose } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Logo } from '@/components/common/Logo';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from 'next-themes';
 import { getUserProfile } from '@/services/userService';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface NavigationBarProps {
   userName?: string;
@@ -68,6 +69,11 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ userName = '' }) =
     } catch (error) {
       console.error('Erreur de déconnexion', error);
     }
+  };
+
+  const navigateTo = (path: string) => {
+    navigate(path);
+    setMobileMenuOpen(false);
   };
 
   const getInitials = (name: string | null) => {
@@ -118,14 +124,19 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ userName = '' }) =
                   exit={{ opacity: 0, y: 5 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <Button
-                    variant={isActive(item.path) ? 'default' : 'ghost'}
-                    className={`text-sm ${isActive(item.path) ? 'bg-primary text-white' : ''}`}
-                    onClick={() => navigate(item.path)}
-                  >
-                    {item.icon}
-                    <span className="ml-2">{item.name}</span>
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant={isActive(item.path) ? 'default' : 'ghost'}
+                        className={`text-sm ${isActive(item.path) ? 'bg-primary text-white' : ''}`}
+                        onClick={() => navigateTo(item.path)}
+                      >
+                        {item.icon}
+                        <span className="ml-2">{item.name}</span>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>{item.name}</TooltipContent>
+                  </Tooltip>
                 </motion.div>
               ))}
             </AnimatePresence>
@@ -134,20 +145,41 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ userName = '' }) =
 
         {/* User profile and mobile menu */}
         <div className="flex items-center gap-3">
+          {/* Home button - always visible for quick navigation */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigateTo('/dashboard')}
+                className={`rounded-full w-9 h-9 ${isActive('/dashboard') ? 'bg-primary/10' : ''}`}
+                aria-label="Accueil"
+              >
+                <Home className="h-5 w-5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Accueil</TooltipContent>
+          </Tooltip>
+          
           {/* Theme toggle */}
-          <Button 
-            variant="ghost" 
-            size="icon"
-            onClick={toggleTheme}
-            className="rounded-full w-9 h-9"
-            aria-label="Toggle theme"
-          >
-            {theme === 'dark' ? (
-              <Sun className="h-5 w-5" />
-            ) : (
-              <Moon className="h-5 w-5" />
-            )}
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={toggleTheme}
+                className="rounded-full w-9 h-9"
+                aria-label="Toggle theme"
+              >
+                {theme === 'dark' ? (
+                  <Sun className="h-5 w-5" />
+                ) : (
+                  <Moon className="h-5 w-5" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{theme === 'dark' ? 'Mode clair' : 'Mode sombre'}</TooltipContent>
+          </Tooltip>
           
           {currentUser && (
             <DropdownMenu>
@@ -174,11 +206,15 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ userName = '' }) =
                 </div>
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
-                  <DropdownMenuItem onClick={() => navigate('/profile')}>
+                  <DropdownMenuItem onClick={() => navigateTo('/dashboard')}>
+                    <Home className="h-4 w-4 mr-2" />
+                    Accueil
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigateTo('/profile')}>
                     <User className="h-4 w-4 mr-2" />
                     Profil
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate('/settings')}>
+                  <DropdownMenuItem onClick={() => navigateTo('/settings')}>
                     <Settings className="h-4 w-4 mr-2" />
                     Paramètres
                   </DropdownMenuItem>
@@ -220,10 +256,7 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ userName = '' }) =
                         key={item.name}
                         variant={isActive(item.path) ? 'default' : 'ghost'}
                         className="w-full justify-start mb-1"
-                        onClick={() => {
-                          navigate(item.path);
-                          setMobileMenuOpen(false);
-                        }}
+                        onClick={() => navigateTo(item.path)}
                       >
                         {item.icon}
                         <span className="ml-2">{item.name}</span>
@@ -233,10 +266,7 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ userName = '' }) =
                       <Button
                         variant="ghost"
                         className="w-full justify-start text-muted-foreground"
-                        onClick={() => {
-                          navigate('/settings');
-                          setMobileMenuOpen(false);
-                        }}
+                        onClick={() => navigateTo('/settings')}
                       >
                         <Settings className="h-4 w-4 mr-2" />
                         Paramètres
@@ -244,10 +274,7 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ userName = '' }) =
                       <Button
                         variant="ghost"
                         className="w-full justify-start text-muted-foreground"
-                        onClick={() => {
-                          navigate('/profile');
-                          setMobileMenuOpen(false);
-                        }}
+                        onClick={() => navigateTo('/profile')}
                       >
                         <User className="h-4 w-4 mr-2" />
                         Profil

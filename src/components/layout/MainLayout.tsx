@@ -2,7 +2,7 @@
 import React, { ReactNode, useEffect, useState } from 'react';
 import { NavigationBar } from './NavigationBar';
 import { useAuth } from '@/contexts/AuthContext';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from '@/components/ui/sonner';
 import { FeaturePanel } from './FeaturePanel';
 import { toast } from 'sonner';
@@ -19,6 +19,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 }) => {
   const { currentUser, loading, userProfile, isOnline } = useAuth();
   const [displayName, setDisplayName] = useState<string>('');
+  const location = useLocation();
 
   useEffect(() => {
     if ('serviceWorker' in navigator) {
@@ -65,13 +66,16 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
     return <Navigate to="/signin" />;
   }
 
+  // Détermine si nous devons afficher le FeaturePanel
+  const showFeaturePanel = location.pathname === '/dashboard';
+
   return (
     <TooltipProvider>
       <div className="flex flex-col min-h-screen bg-background">
         <NavigationBar userName={displayName} />
-        <FeaturePanel />
+        {showFeaturePanel && <FeaturePanel />}
         
-        <main className="flex-1 py-6 pt-20 px-4 md:px-6 lg:px-8 max-w-7xl mx-auto w-full">
+        <main className={`flex-1 py-6 ${showFeaturePanel ? 'pt-20' : 'pt-24'} px-4 md:px-6 lg:px-8 max-w-7xl mx-auto w-full`}>
           {children}
         </main>
         
@@ -85,4 +89,4 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
       </div>
     </TooltipProvider>
   );
-}
+};
