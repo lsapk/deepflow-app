@@ -3,7 +3,7 @@ import React, { useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-import { CalendarClock, CheckSquare, Clock, ListTodo, Plus, Target, Sparkles } from 'lucide-react';
+import { CalendarClock, CheckSquare, Clock, ListTodo, Plus, Target, Sparkles, Calendar, BookOpen } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { AIInsightCard } from '@/components/analytics/AIInsightCard';
@@ -44,6 +44,45 @@ const Index = () => {
     navigate(path);
   };
 
+  const featureButtons = [
+    {
+      title: "Tableau de bord",
+      icon: Target,
+      path: "/dashboard",
+      color: "bg-blue-600 hover:bg-blue-700" 
+    },
+    {
+      title: "Tâches",
+      icon: CheckSquare,
+      path: "/tasks",
+      color: "bg-green-600 hover:bg-green-700"
+    },
+    {
+      title: "Focus",
+      icon: Clock,
+      path: "/focus",
+      color: "bg-purple-600 hover:bg-purple-700"
+    },
+    {
+      title: "Habitudes",
+      icon: ListTodo,
+      path: "/habits",
+      color: "bg-orange-600 hover:bg-orange-700"
+    },
+    {
+      title: "Journal",
+      icon: BookOpen,
+      path: "/journal",
+      color: "bg-pink-600 hover:bg-pink-700"
+    },
+    {
+      title: "Calendrier",
+      icon: Calendar,
+      path: "/planning",
+      color: "bg-indigo-600 hover:bg-indigo-700"
+    }
+  ];
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex flex-col items-center justify-center text-center mb-12">
@@ -75,6 +114,23 @@ const Index = () => {
         animate="visible"
         className="space-y-12"
       >
+        {/* Raccourcis vers les fonctionnalités */}
+        <motion.div variants={itemVariants} className="mt-8">
+          <h2 className="text-3xl font-bold text-center mb-8">Accès rapide</h2>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 max-w-4xl mx-auto">
+            {featureButtons.map((feature) => (
+              <Button
+                key={feature.title}
+                onClick={() => navigate(feature.path)}
+                className={`h-24 ${feature.color} flex flex-col items-center justify-center space-y-2 rounded-xl shadow-lg`}
+              >
+                <feature.icon className="h-8 w-8" />
+                <span className="font-medium">{feature.title}</span>
+              </Button>
+            ))}
+          </div>
+        </motion.div>
+
         <motion.div variants={itemVariants}>
           <h2 className="text-3xl font-bold text-center mb-8">Fonctionnalités principales</h2>
           <div className={`grid ${isMobile ? 'grid-cols-1' : 'md:grid-cols-3'} gap-6`}>

@@ -1,10 +1,10 @@
-
 import React, { ReactNode, useEffect, useState } from 'react';
 import { NavigationBar } from './NavigationBar';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/sonner';
 import { FeaturePanel } from './FeaturePanel';
+import { toast } from 'sonner';
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -15,16 +15,37 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   children,
   requireAuth = true,
 }) => {
-  const { currentUser, loading, userProfile } = useAuth();
+  const { currentUser, loading, userProfile, isOnline } = useAuth();
   const [displayName, setDisplayName] = useState<string>('');
 
   useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      const interval = setInterval(() => {
+        if (navigator.serviceWorker.controller) {
+          navigator.serviceWorker.controller.postMessage({
+            type: 'APP_ACTIVE'
+          });
+        }
+      }, 300000);
+
+      return () => clearInterval(interval);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isOnline) {
+      toast.info(
+        "Vous êtes en mode hors ligne. Les modifications seront synchronisées quand vous serez connecté.", 
+        { duration: 5000 }
+      );
+    }
+  }, [isOnline]);
+
+  useEffect(() => {
     if (currentUser) {
-      // Si nous avons déjà un profil d'utilisateur dans le contexte d'authentification
       if (userProfile) {
         setDisplayName(userProfile.display_name || currentUser.displayName || 'Utilisateur');
       } else {
-        // Sinon, nous utilisons le displayName de l'utilisateur
         setDisplayName(currentUser.displayName || 'Utilisateur');
       }
     }
@@ -51,7 +72,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         {children}
       </main>
       
-      <Toaster position="top-right" toastOptions={{ duration: 0 }} />
+      {!isOnline && (
+        <div className="fixed bottom-0 left-0 right-0 bg-orange-500 text-white p-2 text-center text-sm">
+          Mode hors ligne - Vos modifications seront synchronisées lorsque vous serez à nouveau connecté
+        </div>
+      )}
+      
+      <Toaster position="top-right" />
     </div>
   );
 }

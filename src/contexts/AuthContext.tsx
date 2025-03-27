@@ -10,6 +10,7 @@ import {
   UserProfile,
   getUserProfile
 } from '@/services/supabase';
+import { toast } from 'sonner';
 
 // Étendre l'interface User de Supabase pour ajouter des propriétés compatibles avec Firebase
 interface ExtendedUser extends User {
@@ -23,6 +24,7 @@ interface AuthContextProps {
   session: Session | null;
   userProfile: UserProfile | null;
   loading: boolean;
+  isOnline: boolean;
   logout: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<ExtendedUser | undefined>;
   signInWithGoogle: () => Promise<void>;
@@ -55,11 +57,63 @@ const adaptUser = (user: User | null): ExtendedUser | null => {
   };
 };
 
+// Fonction pour vérifier l'état de connexion
+const checkOnlineStatus = (): boolean => {
+  return typeof navigator !== 'undefined' ? navigator.onLine : true;
+};
+
+// Fonction pour récupérer les données du localStorage
+const getLocalData = (key: string): any => {
+  try {
+    const data = localStorage.getItem(key);
+    return data ? JSON.parse(data) : null;
+  } catch (error) {
+    console.error(`Error retrieving ${key} from localStorage:`, error);
+    return null;
+  }
+};
+
+// Fonction pour sauvegarder les données dans le localStorage
+const saveLocalData = (key: string, data: any): void => {
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (error) {
+    console.error(`Error saving ${key} to localStorage:`, error);
+  }
+};
+
 export function AuthProvider({ children }: AuthProviderProps) {
   const [currentUser, setCurrentUser] = useState<ExtendedUser | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isOnline, setIsOnline] = useState(checkOnlineStatus());
+
+  // Écouteur pour l'état de connexion
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      // Informer le service worker que nous sommes de retour en ligne
+      if (navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+          type: 'APP_ACTIVE'
+        });
+      }
+    };
+    
+    const handleOffline = () => {
+      setIsOnline(false);
+      toast.info("Vous êtes hors ligne. Les modifications seront synchronisées lorsque vous serez à nouveau connecté.");
+    };
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // Effet pour gérer l'état d'authentification
   useEffect(() => {
@@ -74,14 +128,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setCurrentUser(adaptedUser);
         
         if (newSession?.user) {
+          // Sauvegarder les données de session en local pour un accès hors ligne
+          saveLocalData('currentSession', newSession);
+          saveLocalData('currentUser', adaptedUser);
+          
           // Defer profile loading to avoid blocking the auth state change
           setTimeout(() => {
             getUserProfile(newSession.user.id)
               .then(profile => {
-                setUserProfile(profile);
+                if (profile) {
+                  setUserProfile(profile);
+                  saveLocalData('userProfile', profile);
+                }
               })
               .catch(error => {
                 console.error("Error loading user profile:", error);
+                // Essayer de charger depuis le localStorage en cas d'erreur
+                const cachedProfile = getLocalData('userProfile');
+                if (cachedProfile && cachedProfile.id === newSession.user.id) {
+                  setUserProfile(cachedProfile);
+                }
               });
           }, 0);
         } else {
@@ -95,21 +161,41 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // Optimized session check - only runs once at startup
     const checkSession = async () => {
       try {
-        const { data: { session: initialSession } } = await supabase.auth.getSession();
+        // Tenter d'abord de charger depuis le localStorage pour un accès immédiat
+        const cachedSession = getLocalData('currentSession');
+        const cachedUser = getLocalData('currentUser');
+        const cachedProfile = getLocalData('userProfile');
         
-        setSession(initialSession);
-        const adaptedUser = adaptUser(initialSession?.user || null);
-        setCurrentUser(adaptedUser);
+        if (cachedUser && cachedSession) {
+          setSession(cachedSession);
+          setCurrentUser(cachedUser);
+          setUserProfile(cachedProfile);
+        }
         
-        if (initialSession?.user) {
-          // We don't need to await this - it can load in the background
-          getUserProfile(initialSession.user.id)
-            .then(profile => {
-              setUserProfile(profile);
-            })
-            .catch(error => {
-              console.error("Error checking user profile:", error);
-            });
+        if (isOnline) {
+          const { data: { session: initialSession } } = await supabase.auth.getSession();
+          
+          if (initialSession) {
+            setSession(initialSession);
+            const adaptedUser = adaptUser(initialSession?.user || null);
+            setCurrentUser(adaptedUser);
+            saveLocalData('currentSession', initialSession);
+            saveLocalData('currentUser', adaptedUser);
+            
+            if (initialSession?.user) {
+              // We don't need to await this - it can load in the background
+              getUserProfile(initialSession.user.id)
+                .then(profile => {
+                  if (profile) {
+                    setUserProfile(profile);
+                    saveLocalData('userProfile', profile);
+                  }
+                })
+                .catch(error => {
+                  console.error("Error checking user profile:", error);
+                });
+            }
+          }
         }
       } catch (error) {
         console.error("Error checking session:", error);
@@ -124,11 +210,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [isOnline]);
 
   const logout = async () => {
     try {
       await logoutUser();
+      // Clear local cache
+      localStorage.removeItem('currentSession');
+      localStorage.removeItem('currentUser');
+      localStorage.removeItem('userProfile');
       // Using window.location.replace for a faster redirect
       window.location.replace('/signin');
       return Promise.resolve();
@@ -182,6 +272,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     session,
     userProfile,
     loading,
+    isOnline,
     logout,
     signIn,
     signInWithGoogle: handleGoogleSignIn,
