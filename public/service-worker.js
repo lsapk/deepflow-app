@@ -1,408 +1,278 @@
 
-const CACHE_NAME = 'deepflow-cache-v3';
-const DYNAMIC_CACHE = 'deepflow-dynamic-v2';
-const OFFLINE_DB_NAME = 'deepflow-offline-db';
-const OFFLINE_STORE_NAME = 'offlineActions';
+// Name our cache
+const CACHE_NAME = 'deepflow-cache-v1';
 
+// Add list of files to cache here.
 const urlsToCache = [
   '/',
   '/index.html',
-  '/favicon.svg',
   '/manifest.json',
-  '/signin',
-  '/signup',
-  '/dashboard',
-  '/tasks',
-  '/habits',
-  '/focus',
-  '/journal',
-  '/planning',
-  '/settings',
-  '/profile',
-  '/assets/'
+  '/favicon.ico',
+  '/favicon.svg'
 ];
 
-// Install event - cache assets
-self.addEventListener('install', event => {
-  console.log('Service Worker installing...');
+// OpenDB function to handle IndexedDB
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('deepflowDB', 1);
+    
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+    
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      
+      // Create stores for different data types if they don't exist
+      if (!db.objectStoreNames.contains('tasks')) {
+        db.createObjectStore('tasks', { keyPath: 'id' });
+      }
+      
+      if (!db.objectStoreNames.contains('habits')) {
+        db.createObjectStore('habits', { keyPath: 'id' });
+      }
+      
+      if (!db.objectStoreNames.contains('journal')) {
+        db.createObjectStore('journal', { keyPath: 'id' });
+      }
+      
+      if (!db.objectStoreNames.contains('planning')) {
+        db.createObjectStore('planning', { keyPath: 'id' });
+      }
+      
+      if (!db.objectStoreNames.contains('settings')) {
+        db.createObjectStore('settings', { keyPath: 'id' });
+      }
+      
+      if (!db.objectStoreNames.contains('sync_queue')) {
+        db.createObjectStore('sync_queue', { keyPath: 'id', autoIncrement: true });
+      }
+    };
+  });
+}
+
+// Save data to IndexedDB
+async function saveToIndexedDB(storeName, data) {
+  try {
+    const db = await openDB();
+    const tx = db.transaction(storeName, 'readwrite');
+    const store = tx.objectStore(storeName);
+    
+    if (Array.isArray(data)) {
+      // If it's an array, add each item
+      const promises = data.map(item => {
+        return new Promise((resolve, reject) => {
+          const request = store.put(item);
+          request.onsuccess = () => resolve();
+          request.onerror = () => reject(request.error);
+        });
+      });
+      await Promise.all(promises);
+    } else {
+      // If it's a single item
+      await new Promise((resolve, reject) => {
+        const request = store.put(data);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+      });
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error saving to IndexedDB:', error);
+    return false;
+  }
+}
+
+// Get data from IndexedDB
+async function getFromIndexedDB(storeName) {
+  try {
+    const db = await openDB();
+    const tx = db.transaction(storeName, 'readonly');
+    const store = tx.objectStore(storeName);
+    
+    return new Promise((resolve, reject) => {
+      const request = store.getAll();
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    console.error('Error getting from IndexedDB:', error);
+    return [];
+  }
+}
+
+// Queue items for syncing when online
+async function addToSyncQueue(operation) {
+  try {
+    const db = await openDB();
+    const tx = db.transaction('sync_queue', 'readwrite');
+    const store = tx.objectStore('sync_queue');
+    
+    await new Promise((resolve, reject) => {
+      const request = store.add({
+        ...operation,
+        timestamp: Date.now()
+      });
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+    
+    return true;
+  } catch (error) {
+    console.error('Error adding to sync queue:', error);
+    return false;
+  }
+}
+
+// Process the sync queue
+async function processSyncQueue() {
+  try {
+    const db = await openDB();
+    const tx = db.transaction('sync_queue', 'readwrite');
+    const store = tx.objectStore('sync_queue');
+    
+    const items = await new Promise((resolve, reject) => {
+      const request = store.getAll();
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    
+    if (items.length === 0) return;
+    
+    console.log(`Processing ${items.length} items in sync queue`);
+    
+    // Process items (in a real app, this would send to your server)
+    // For now, we'll just clear the queue
+    await new Promise((resolve, reject) => {
+      const request = store.clear();
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+    
+    return true;
+  } catch (error) {
+    console.error('Error processing sync queue:', error);
+    return false;
+  }
+}
+
+// Install event
+self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then(cache => {
-        console.log('Cache opened');
+      .then((cache) => {
+        console.log('Opened cache');
         return cache.addAll(urlsToCache);
       })
-      .then(() => self.skipWaiting())
   );
 });
 
-// Activate event - clean up old caches
-self.addEventListener('activate', event => {
-  console.log('Service Worker activating...');
-  const cacheWhitelist = [CACHE_NAME, DYNAMIC_CACHE];
+// Activate event
+self.addEventListener('activate', (event) => {
+  const cacheWhitelist = [CACHE_NAME];
   event.waitUntil(
-    caches.keys().then(cacheNames => {
+    caches.keys().then((cacheNames) => {
       return Promise.all(
-        cacheNames.map(cacheName => {
+        cacheNames.map((cacheName) => {
           if (cacheWhitelist.indexOf(cacheName) === -1) {
-            console.log('Deleting old cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
       );
-    }).then(() => self.clients.claim())
+    })
   );
 });
 
-// Helper function to determine if a request is an API call
-const isApiRequest = (url) => {
-  return url.includes('/rest/v1/') || 
-         url.includes('/auth/v1/') || 
-         url.includes('/storage/v1/');
-};
-
-// Helper to open IndexedDB
-const openOfflineDB = () => {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(OFFLINE_DB_NAME, 3);
-    
-    request.onupgradeneeded = event => {
-      const db = event.target.result;
-      if (!db.objectStoreNames.contains(OFFLINE_STORE_NAME)) {
-        db.createObjectStore(OFFLINE_STORE_NAME, { keyPath: 'id', autoIncrement: true });
-      }
-      
-      // Magasins de données pour toutes les fonctionnalités de l'application
-      const dataStores = [
-        'journal', 
-        'tasks', 
-        'habits', 
-        'analytics', 
-        'focus',
-        'events',  // Nouveau magasin pour les événements du planning
-        'settings' // Nouveau magasin pour les paramètres
-      ];
-      
-      dataStores.forEach(store => {
-        if (!db.objectStoreNames.contains(store)) {
-          db.createObjectStore(store, { keyPath: 'id' });
-        }
-      });
-    };
-    
-    request.onsuccess = event => resolve(event.target.result);
-    request.onerror = event => reject('IndexedDB error: ' + event.target.errorCode);
-  });
-};
-
-// Save data to local IndexedDB
-const saveLocalData = async (storeName, data) => {
-  try {
-    const db = await openOfflineDB();
-    const transaction = db.transaction(storeName, 'readwrite');
-    const store = transaction.objectStore(storeName);
-    
-    if (Array.isArray(data)) {
-      data.forEach(item => {
-        // S'assurer que chaque élément a un ID
-        if (!item.id) {
-          item.id = Date.now().toString() + Math.random().toString(36).substr(2, 9);
-        }
-        store.put(item);
-      });
-    } else {
-      // S'assurer que l'élément a un ID
-      if (!data.id) {
-        data.id = Date.now().toString() + Math.random().toString(36).substr(2, 9);
-      }
-      store.put(data);
-    }
-    
-    return transaction.complete;
-  } catch (err) {
-    console.error(`Error saving ${storeName} data locally:`, err);
-  }
-};
-
-// Retrieve data from local IndexedDB
-const getLocalData = async (storeName, id = null) => {
-  try {
-    const db = await openOfflineDB();
-    const transaction = db.transaction(storeName, 'readonly');
-    const store = transaction.objectStore(storeName);
-    
-    if (id) {
-      return store.get(id);
-    } else {
-      return store.getAll();
-    }
-  } catch (err) {
-    console.error(`Error retrieving ${storeName} data locally:`, err);
-    return id ? null : [];
-  }
-};
-
-// Save failed API request for later sync
-const saveOfflineAction = async (request, requestClone) => {
-  try {
-    const db = await openOfflineDB();
-    const transaction = db.transaction(OFFLINE_STORE_NAME, 'readwrite');
-    const store = transaction.objectStore(OFFLINE_STORE_NAME);
-    
-    const url = requestClone.url;
-    const method = requestClone.method;
-    let body = null;
-    
-    if (['POST', 'PUT', 'PATCH'].includes(method)) {
-      try {
-        body = await requestClone.json();
-      } catch (err) {
-        console.error('Error extracting request body:', err);
-      }
-    }
-    
-    store.add({
-      url,
-      method,
-      body,
-      timestamp: Date.now()
-    });
-    
-    return transaction.complete;
-  } catch (err) {
-    console.error('Error saving offline action:', err);
-  }
-};
-
-// Sync offline requests when back online
-const syncOfflineActions = async () => {
-  try {
-    const db = await openOfflineDB();
-    const transaction = db.transaction(OFFLINE_STORE_NAME, 'readwrite');
-    const store = transaction.objectStore(OFFLINE_STORE_NAME);
-    const actions = await store.getAll();
-    
-    console.log(`Found ${actions.length} offline actions to sync`);
-    
-    for (const action of actions) {
-      try {
-        const response = await fetch(action.url, {
-          method: action.method,
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: action.body ? JSON.stringify(action.body) : undefined
-        });
-        
-        if (response.ok) {
-          store.delete(action.id);
-          console.log(`Successfully synced offline action: ${action.id}`);
-        }
-      } catch (err) {
-        console.error(`Failed to sync offline action ${action.id}:`, err);
-      }
-    }
-    
-    return transaction.complete;
-  } catch (err) {
-    console.error('Error syncing offline actions:', err);
-  }
-};
-
-// Listen for online event to sync
-self.addEventListener('online', () => {
-  console.log('Back online, syncing offline actions...');
-  syncOfflineActions();
-});
-
-// Improved response caching function to store responses in IndexedDB
-const cacheResponse = async (request, response, dynamicCache) => {
-  try {
-    const responseClone = response.clone();
-    
-    const url = new URL(request.url);
-    const path = url.pathname;
-    
-    const cache = await caches.open(dynamicCache);
-    await cache.put(request, responseClone.clone());
-    
-    if (request.method === 'GET' && isApiRequest(request.url)) {
-      try {
-        const data = await responseClone.json();
-        
-        // Déterminer le type de données en fonction du chemin de l'URL
-        if (path.includes('/habits')) {
-          await saveLocalData('habits', data);
-        } else if (path.includes('/journal')) {
-          await saveLocalData('journal', data);
-        } else if (path.includes('/tasks')) {
-          await saveLocalData('tasks', data);
-        } else if (path.includes('/analytics')) {
-          await saveLocalData('analytics', data);
-        } else if (path.includes('/focus')) {
-          await saveLocalData('focus', data);
-        } else if (path.includes('/events') || path.includes('/planning')) {
-          await saveLocalData('events', data);
-        } else if (path.includes('/settings')) {
-          await saveLocalData('settings', data);
-        }
-      } catch (err) {
-        console.error('Error processing response data for local storage:', err);
-      }
-    }
-  } catch (err) {
-    console.error('Error caching response:', err);
-  }
-};
-
-// Intercept fetch requests with improved data persistence
-self.addEventListener('fetch', event => {
-  if (!event.request.url.startsWith(self.location.origin) && 
-      !event.request.url.includes('supabase.co')) {
-    return;
-  }
+// Fetch event 
+self.addEventListener('fetch', (event) => {
+  // Skip non-GET requests
+  if (event.request.method !== 'GET') return;
   
-  if (isApiRequest(event.request.url)) {
-    event.respondWith(
-      fetch(event.request.clone())
-        .then(response => {
-          if (response.status === 200) {
-            cacheResponse(event.request, response, DYNAMIC_CACHE);
-          }
+  // Skip Supabase API requests
+  if (event.request.url.includes('supabase.co')) return;
+  
+  event.respondWith(
+    caches.match(event.request)
+      .then((response) => {
+        // Cache hit - return response
+        if (response) {
           return response;
-        })
-        .catch(err => {
-          console.log('Fetch failed for API request:', err);
-          
-          if (event.request.method === 'GET') {
-            return caches.match(event.request)
-              .then(cachedResponse => {
-                if (cachedResponse) {
-                  return cachedResponse;
-                } else {
-                  const url = new URL(event.request.url);
-                  const path = url.pathname;
-                  
-                  // Déterminer le magasin de données à partir du chemin
-                  let storeName = null;
-                  if (path.includes('/habits')) {
-                    storeName = 'habits';
-                  } else if (path.includes('/journal')) {
-                    storeName = 'journal';
-                  } else if (path.includes('/tasks')) {
-                    storeName = 'tasks';
-                  } else if (path.includes('/analytics')) {
-                    storeName = 'analytics';
-                  } else if (path.includes('/focus')) {
-                    storeName = 'focus';
-                  } else if (path.includes('/events') || path.includes('/planning')) {
-                    storeName = 'events';
-                  } else if (path.includes('/settings')) {
-                    storeName = 'settings';
-                  }
-                  
-                  if (storeName) {
-                    return getLocalData(storeName)
-                      .then(data => {
-                        if (data && data.length > 0) {
-                          return new Response(JSON.stringify(data), {
-                            headers: { 'Content-Type': 'application/json' }
-                          });
-                        }
-                        throw new Error('No local data available');
-                      });
-                  }
-                  throw new Error('No cached response available');
-                }
-              });
-          } else if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(event.request.method)) {
-            saveOfflineAction(event.request, event.request.clone());
+        }
+        
+        return fetch(event.request).then(
+          (response) => {
+            // Check if we received a valid response
+            if (!response || response.status !== 200 || response.type !== 'basic') {
+              return response;
+            }
             
-            return new Response(JSON.stringify({ 
-              success: true, 
-              offlineQueued: true,
-              message: 'Action enregistrée et sera synchronisée quand vous serez en ligne'
-            }), {
-              headers: { 'Content-Type': 'application/json' }
-            });
-          }
-        })
-    );
-  } else {
-    event.respondWith(
-      caches.match(event.request)
-        .then(response => {
-          if (response) {
+            // Clone the response
+            const responseToCache = response.clone();
+            
+            caches.open(CACHE_NAME)
+              .then((cache) => {
+                cache.put(event.request, responseToCache);
+              });
+            
             return response;
           }
-          
-          const fetchRequest = event.request.clone();
-          
-          return fetch(fetchRequest)
-            .then(response => {
-              if (!response || response.status !== 200 || response.type !== 'basic') {
-                return response;
-              }
-              
-              const responseToCache = response.clone();
-              
-              caches.open(DYNAMIC_CACHE)
-                .then(cache => {
-                  cache.put(event.request, responseToCache);
-                });
-                
-              return response;
-            })
-            .catch(err => {
-              console.log('Fetch failed; returning offline page instead.', err);
-              
-              if (event.request.headers.get('accept').includes('text/html')) {
-                return caches.match('/');
-              }
-            });
-        })
-    );
+        );
+      })
+      .catch(() => {
+        // If both cache and network fail, return a custom offline page
+        // or fallback content
+        return new Response('You are offline. Please check your connection.');
+      })
+  );
+});
+
+// Message event - handle messages from the main thread
+self.addEventListener('message', (event) => {
+  if (event.data.type === 'APP_ACTIVE') {
+    // App is active, try to process the sync queue
+    if (navigator.onLine) {
+      processSyncQueue();
+    }
+  }
+  
+  if (event.data.type === 'SAVE_DATA') {
+    // Save data to IndexedDB
+    const { storeName, data } = event.data;
+    saveToIndexedDB(storeName, data).then(success => {
+      if (success) {
+        // Queue for sync when online
+        if (navigator.onLine) {
+          processSyncQueue();
+        } else {
+          addToSyncQueue({ 
+            type: 'SAVE', 
+            storeName, 
+            data 
+          });
+        }
+      }
+    });
+  }
+  
+  if (event.data.type === 'GET_DATA') {
+    // Retrieve data from IndexedDB
+    const { storeName, clientId } = event.data;
+    getFromIndexedDB(storeName).then(data => {
+      // Send the data back to the client
+      self.clients.get(clientId).then(client => {
+        client.postMessage({
+          type: 'DATA_RESPONSE',
+          storeName,
+          data
+        });
+      });
+    });
   }
 });
 
-// Manipuler les messages provenant de l'application
-self.addEventListener('message', event => {
-  if (event.data && event.data.type === 'APP_ACTIVE') {
-    syncOfflineActions();
-  }
-  
-  // Nouveau: stocker des données locales depuis l'application
-  if (event.data && event.data.type === 'STORE_DATA') {
-    const { storeName, data } = event.data;
-    if (storeName && data) {
-      saveLocalData(storeName, data)
-        .then(() => {
-          console.log(`Data successfully stored in ${storeName}`);
-        })
-        .catch(error => {
-          console.error(`Error storing data in ${storeName}:`, error);
-        });
-    }
-  }
-  
-  // Nouveau: récupérer des données locales pour l'application
-  if (event.data && event.data.type === 'GET_DATA') {
-    const { storeName, id, clientId } = event.data;
-    if (storeName) {
-      getLocalData(storeName, id)
-        .then(data => {
-          // Envoyer les données récupérées à l'application
-          const client = self.clients.get(clientId);
-          if (client) {
-            client.postMessage({
-              type: 'DATA_RESPONSE',
-              storeName,
-              data
-            });
-          }
-        })
-        .catch(error => {
-          console.error(`Error getting data from ${storeName}:`, error);
-        });
-    }
+// Sync event - triggered when the browser regains connectivity
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'sync-data') {
+    event.waitUntil(processSyncQueue());
   }
 });

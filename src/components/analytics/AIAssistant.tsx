@@ -4,11 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
-import { db } from '@/services/firebase';
-import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
 import { Loader2, Mic, MicOff, Send, MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
+import { useIndexedDB } from '@/hooks/use-indexed-db';
 
 // Add SpeechRecognition interface for TypeScript
 interface SpeechRecognitionEvent extends Event {
@@ -49,22 +48,8 @@ declare global {
   }
 }
 
-const mockResponse = (query: string) => {
-  // Simulation de réponses IA basées sur des mots-clés dans la requête
-  if (query.toLowerCase().includes('tâche') || query.toLowerCase().includes('tache')) {
-    return "Pour être plus productif avec vos tâches, essayez la technique Pomodoro : 25 minutes de travail, 5 minutes de pause. J'ai analysé vos habitudes et je vois que vous êtes plus efficace le matin. Essayez de planifier vos tâches importantes avant midi.";
-  } else if (query.toLowerCase().includes('habitude')) {
-    return "La clé pour maintenir une habitude est la constance. Selon vos données, vous avez tendance à abandonner après 5 jours. Essayez de vous fixer des objectifs plus petits et plus réalisables pour construire de l'élan.";
-  } else if (query.toLowerCase().includes('sommeil') || query.toLowerCase().includes('dormir')) {
-    return "Vos données montrent que vous vous couchez généralement tard. Essayez d'établir une routine de coucher constante et évitez les écrans au moins 1 heure avant de dormir pour améliorer la qualité de votre sommeil.";
-  } else if (query.toLowerCase().includes('focus') || query.toLowerCase().includes('concentration')) {
-    return "Pour améliorer votre concentration, essayez d'éliminer les distractions numériques. Le bloqueur de distractions dans les paramètres peut vous aider à rester concentré. Vos sessions de focus les plus productives durent environ 45 minutes selon vos données.";
-  } else if (query.toLowerCase().includes('conseil') || query.toLowerCase().includes('conseille')) {
-    return "En analysant vos habitudes, je vous conseille de planifier vos tâches importantes le matin, faire de l'exercice régulièrement et prendre des pauses courtes mais fréquentes pendant les longues sessions de travail.";
-  } else {
-    return "Je suis votre assistant IA DeepFlow. Je peux vous aider à améliorer votre productivité, gérer vos habitudes et atteindre vos objectifs. Que puis-je faire pour vous aujourd'hui ? Vous pouvez me demander des conseils sur votre productivité, vos habitudes ou votre planning.";
-  }
-};
+// OpenRouter API key
+const OPENROUTER_API_KEY = "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";
 
 const AIAssistant = () => {
   const { currentUser } = useAuth();
@@ -75,46 +60,33 @@ const AIAssistant = () => {
   ]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [userData, setUserData] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const fetchUserData = async () => {
-      if (!currentUser) return;
-
-      try {
-        const userDoc = await getDoc(doc(db, `users/${currentUser.uid}`));
-        if (userDoc.exists()) {
-          setUserData(userDoc.data());
-        }
-
-        // Récupérer les tâches
-        const tasksSnapshot = await getDocs(collection(db, `users/${currentUser.uid}/tasks`));
-        const tasksData = tasksSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-
-        // Récupérer les habitudes
-        const habitsSnapshot = await getDocs(collection(db, `users/${currentUser.uid}/habits`));
-        const habitsData = habitsSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-
-        setUserData(prev => ({
-          ...prev,
-          tasks: tasksData,
-          habits: habitsData
-        }));
-
-      } catch (error) {
-        console.error("Error fetching user data:", error);
-      }
-    };
-
-    fetchUserData();
-  }, [currentUser]);
+  
+  // Load data from IndexedDB
+  const { data: tasksData } = useIndexedDB<any>({ 
+    storeName: 'tasks', 
+    initialData: [] 
+  });
+  
+  const { data: habitsData } = useIndexedDB<any>({ 
+    storeName: 'habits', 
+    initialData: [] 
+  });
+  
+  const { data: journalData } = useIndexedDB<any>({ 
+    storeName: 'journal', 
+    initialData: [] 
+  });
+  
+  const { data: planningData } = useIndexedDB<any>({ 
+    storeName: 'planning', 
+    initialData: [] 
+  });
+  
+  const { data: settingsData } = useIndexedDB<any>({ 
+    storeName: 'settings', 
+    initialData: [] 
+  });
 
   useEffect(() => {
     scrollToBottom();
@@ -133,17 +105,71 @@ const AIAssistant = () => {
     setIsLoading(true);
 
     try {
-      // Simuler un délai pour donner l'impression d'une réponse IA
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Dans un cas réel, nous appellerions une API ici pour obtenir une réponse de l'IA
-      // Mais pour cette démo, nous utilisons une fonction de simulation
-      const aiResponse = mockResponse(inputMessage);
+      // Prepare user data summary for context
+      const userDataSummary = {
+        tasks: tasksData?.length || 0,
+        habits: habitsData?.length || 0,
+        journal: journalData?.length || 0,
+        planning: planningData?.length || 0,
+        tasksCompleted: tasksData?.filter((task: any) => task.completed)?.length || 0,
+        habitsStreak: habitsData?.reduce((max: number, habit: any) => Math.max(max, habit?.streak || 0), 0),
+        recentJournalMood: journalData?.length > 0 ? journalData[0]?.mood : null,
+        upcomingEvents: planningData?.filter((event: any) => {
+          const eventDate = new Date(event.date);
+          const now = new Date();
+          return eventDate > now;
+        })?.length || 0
+      };
+
+      // Call OpenRouter API
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': window.location.origin,
+          'X-Title': 'DeepFlow Assistant'
+        },
+        body: JSON.stringify({
+          model: 'anthropic/claude-3-haiku',
+          messages: [
+            {
+              role: 'system',
+              content: `You are DeepFlow's AI assistant designed to provide personalized productivity and well-being advice. You have access to the following user data:
+              
+              Tasks: ${userDataSummary.tasks} total, ${userDataSummary.tasksCompleted} completed
+              Habits: ${userDataSummary.habits} tracked, longest streak: ${userDataSummary.habitsStreak} days
+              Journal: ${userDataSummary.journal} entries, most recent mood: ${userDataSummary.recentJournalMood || 'unknown'}
+              Planning: ${userDataSummary.upcomingEvents} upcoming events
+              
+              The user's name is ${currentUser?.displayName || 'unknown'}.
+              
+              Provide helpful insights and suggestions based on this data. Be concise, friendly, and focus on actionable advice. Respond in French.`
+            },
+            ...messages.slice(-5), // Include the last 5 messages for context
+            userMessage
+          ],
+          temperature: 0.7,
+          max_tokens: 500
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const aiResponse = data.choices[0].message.content;
       
       setMessages(prev => [...prev, { role: 'assistant', content: aiResponse }]);
     } catch (error) {
       console.error("Error sending message:", error);
       toast.error("Erreur lors de l'envoi du message");
+      // Fallback response
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: "Désolé, je rencontre des difficultés à me connecter. Veuillez réessayer dans un moment." 
+      }]);
     } finally {
       setIsLoading(false);
     }
@@ -196,10 +222,10 @@ const AIAssistant = () => {
       <CardHeader>
         <CardTitle className="flex items-center">
           <MessageSquare className="mr-2 h-5 w-5 text-blue-500" />
-          Assistant IA
+          Assistant IA (via OpenRouter)
         </CardTitle>
         <CardDescription>
-          Je suis un assistant IA qui vous aide à atteindre vos objectifs de productivité
+          Je suis un assistant IA intelligent qui analyse vos données et vous aide à atteindre vos objectifs
         </CardDescription>
       </CardHeader>
       <CardContent className="flex-grow overflow-y-auto mb-4 p-4 space-y-4">

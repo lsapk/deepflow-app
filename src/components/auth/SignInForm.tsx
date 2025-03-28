@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -33,11 +32,17 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 export const SignInForm = () => {
-  const { signIn, signInWithGoogle } = useAuth();
+  const { signIn, signInWithGoogle, currentUser } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (currentUser) {
+      navigate('/dashboard');
+    }
+  }, [currentUser, navigate]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -47,6 +52,19 @@ export const SignInForm = () => {
     },
   });
 
+  useEffect(() => {
+    try {
+      const savedCredentials = localStorage.getItem('userCredentials');
+      if (savedCredentials) {
+        const { email, password } = JSON.parse(savedCredentials);
+        form.setValue('email', email);
+        form.setValue('password', password);
+      }
+    } catch (error) {
+      console.error("Error loading saved credentials:", error);
+    }
+  }, [form]);
+
   const onSubmit = async (data: FormValues) => {
     if (isLoading) return; // Prevent multiple submissions
     
@@ -55,7 +73,6 @@ export const SignInForm = () => {
     
     try {
       await signIn(data.email, data.password);
-      // No toast needed here - it slows down the process
       navigate('/dashboard');
     } catch (error: any) {
       setAuthError(
@@ -79,7 +96,6 @@ export const SignInForm = () => {
     
     try {
       await signInWithGoogle();
-      // Le redirect est géré par Supabase OAuth
     } catch (error: any) {
       setAuthError("Une erreur s'est produite lors de la connexion avec Google.");
       console.error("Erreur de connexion Google:", error);

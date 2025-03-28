@@ -88,13 +88,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(checkOnlineStatus());
+  const [autoLoginAttempted, setAutoLoginAttempted] = useState(false);
 
   // Écouteur pour l'état de connexion
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
       // Informer le service worker que nous sommes de retour en ligne
-      if (navigator.serviceWorker.controller) {
+      if (navigator.serviceWorker && navigator.serviceWorker.controller) {
         navigator.serviceWorker.controller.postMessage({
           type: 'APP_ACTIVE'
         });
@@ -166,10 +167,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const cachedUser = getLocalData('currentUser');
         const cachedProfile = getLocalData('userProfile');
         
-        if (cachedUser && cachedSession) {
+        if (cachedUser && cachedSession && !autoLoginAttempted) {
           setSession(cachedSession);
           setCurrentUser(cachedUser);
           setUserProfile(cachedProfile);
+          setAutoLoginAttempted(true);
+          
+          // Auto sign-in with stored credentials if available
+          const storedCredentials = getLocalData('userCredentials');
+          if (storedCredentials && storedCredentials.email && storedCredentials.password) {
+            try {
+              await loginUser(storedCredentials.email, storedCredentials.password);
+              // Successful silent login
+              console.log("Auto-login successful");
+            } catch (error) {
+              console.error("Auto-login failed, but proceeding with cached data:", error);
+              // Continue with cached data even if auto-login fails
+            }
+          }
         }
         
         if (isOnline) {
@@ -210,7 +225,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return () => {
       subscription.unsubscribe();
     };
-  }, [isOnline]);
+  }, [isOnline, autoLoginAttempted]);
 
   const logout = async () => {
     try {
@@ -219,6 +234,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       localStorage.removeItem('currentSession');
       localStorage.removeItem('currentUser');
       localStorage.removeItem('userProfile');
+      localStorage.removeItem('userCredentials'); // Clear stored credentials
       // Using window.location.replace for a faster redirect
       window.location.replace('/signin');
       return Promise.resolve();
@@ -232,6 +248,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       setLoading(true);
       const user = await loginUser(email, password);
+      
+      // Store credentials for auto login
+      saveLocalData('userCredentials', { email, password });
+      
       return adaptUser(user);
     } catch (error: any) {
       console.error("Sign in error:", error);
@@ -258,6 +278,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       setLoading(true);
       const user = await registerUser(email, password, displayName);
+      
+      // Store credentials for auto login after registration
+      saveLocalData('userCredentials', { email, password });
+      
       return adaptUser(user);
     } catch (error: any) {
       console.error("Sign up error:", error);
