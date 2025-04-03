@@ -78,9 +78,15 @@ export function useIndexedDB<T extends { id: string }>({
         }
       }, { once: true });
       
-      // Get our client ID for the response
-      const clientId = await self.clients?.matchAll({ type: 'window' })
-        .then(clients => clients[0]?.id);
+      // Get our client ID for the response - Fix the clients property error
+      let clientId = 'default-client';
+      try {
+        if (navigator.serviceWorker.controller) {
+          clientId = Math.random().toString(36).substring(2, 15);
+        }
+      } catch (err) {
+        console.error('Error getting client ID:', err);
+      }
       
       // Send the request
       sendToServiceWorker({
@@ -176,7 +182,7 @@ export function useIndexedDB<T extends { id: string }>({
     
     const handleOnline = () => {
       if (navigator.serviceWorker && navigator.serviceWorker.controller) {
-        navigator.serviceWorker.controller.postMessage({
+        sendToServiceWorker({
           type: 'APP_ACTIVE'
         });
       }

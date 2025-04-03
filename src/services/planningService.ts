@@ -13,6 +13,8 @@ export interface PlanningEvent {
   color?: string;
   completed?: boolean;
   user_id?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 // Hook for accessing planning events
@@ -41,4 +43,22 @@ export const formatEventTime = (date: string, time: string | undefined, clockFor
     console.error('Error formatting time:', error);
     return time;
   }
+};
+
+// Create a new planning event with current timestamps
+export const createPlanningEvent = (event: Omit<PlanningEvent, 'id' | 'created_at' | 'updated_at'>): Omit<PlanningEvent, 'id'> => {
+  const now = new Date().toISOString();
+  return {
+    ...event,
+    created_at: now,
+    updated_at: now
+  };
+};
+
+// Update a planning event with the current timestamp
+export const updatePlanningEvent = (event: Partial<PlanningEvent> & { id: string }): Partial<PlanningEvent> => {
+  return {
+    ...event,
+    updated_at: new Date().toISOString()
+  };
 };

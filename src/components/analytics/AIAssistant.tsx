@@ -6,7 +6,6 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2, Mic, MicOff, Send, MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
-import { useNavigate } from 'react-router-dom';
 import { useIndexedDB } from '@/hooks/use-indexed-db';
 
 // Add SpeechRecognition interface for TypeScript
@@ -53,7 +52,6 @@ const OPENROUTER_API_KEY = "sk-or-v1-5cae10246a276210b6cfe26ac6140ccd35df0df51d6
 
 const AIAssistant = () => {
   const { currentUser } = useAuth();
-  const navigate = useNavigate();
   const [isListening, setIsListening] = useState(false);
   const [messages, setMessages] = useState<{ role: 'user' | 'assistant', content: string }[]>([
     { role: 'assistant', content: "Bonjour ! Je suis votre assistant IA DeepFlow. Comment puis-je vous aider aujourd'hui ?" }
@@ -208,12 +206,7 @@ const AIAssistant = () => {
         toast.error("Votre navigateur ne prend pas en charge la reconnaissance vocale");
       }
     } else {
-      // Properly stop speech recognition
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (SpeechRecognition) {
-        // This will be handled by the onend event
-        setIsListening(false);
-      }
+      setIsListening(false);
     }
   };
 

@@ -11,8 +11,8 @@ export interface Task {
   due_date?: string;
   category?: string;
   completed: boolean;
-  created_at?: string;
-  updated_at?: string;
+  created_at: string;
+  updated_at: string;
   user_id?: string;
 }
 
@@ -51,4 +51,22 @@ export const formatDueDate = (date: string | undefined) => {
     month: 'short', 
     year: 'numeric' 
   });
+};
+
+// Create a new task with current timestamps
+export const createTask = (task: Omit<Task, 'id' | 'created_at' | 'updated_at'>): Omit<Task, 'id'> => {
+  const now = new Date().toISOString();
+  return {
+    ...task,
+    created_at: now,
+    updated_at: now
+  };
+};
+
+// Update a task with the current timestamp
+export const updateTask = (task: Partial<Task> & { id: string }): Partial<Task> => {
+  return {
+    ...task,
+    updated_at: new Date().toISOString()
+  };
 };
