@@ -38,7 +38,6 @@ export function useIndexedDB<T extends { id: string }>({
       const storedData = localStorage.getItem(userStoreKey);
       if (storedData) {
         const parsedData = JSON.parse(storedData);
-        setData(parsedData);
         return parsedData;
       }
       return null;
@@ -88,7 +87,7 @@ export function useIndexedDB<T extends { id: string }>({
       const messageChannel = new MessageChannel();
       
       // Listen for response from service worker
-      navigator.serviceWorker.addEventListener('message', (event) => {
+      const messageHandler = (event: MessageEvent) => {
         if (event.data.type === 'DATA_RESPONSE' && event.data.storeName === userStoreKey) {
           const swData = event.data.data;
           // Only update if we got actual data and it's different from what we have
@@ -98,8 +97,11 @@ export function useIndexedDB<T extends { id: string }>({
             saveToLocalStorage(swData);
           }
           setLoading(false);
+          navigator.serviceWorker.removeEventListener('message', messageHandler);
         }
-      }, { once: true });
+      };
+      
+      navigator.serviceWorker.addEventListener('message', messageHandler);
       
       // Request data from service worker
       const clientId = Math.random().toString(36).substring(2, 15);
@@ -113,6 +115,7 @@ export function useIndexedDB<T extends { id: string }>({
       // we'll consider localStorage data as authoritative
       setTimeout(() => {
         setLoading(false);
+        navigator.serviceWorker.removeEventListener('message', messageHandler);
       }, 2000);
       
     } catch (err) {
@@ -183,7 +186,8 @@ export function useIndexedDB<T extends { id: string }>({
   // Initial load
   useEffect(() => {
     loadData();
-  }, [loadData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Auto sync when coming back online
   useEffect(() => {

@@ -82,7 +82,7 @@ const saveLocalData = (key: string, data: any): void => {
   }
 };
 
-export function AuthProvider({ children }: AuthProviderProps) {
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<ExtendedUser | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -225,7 +225,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return () => {
       subscription.unsubscribe();
     };
-  }, [isOnline, autoLoginAttempted]);
+  }, [isOnline, autoLoginAttempted, session]);
 
   const logout = async () => {
     try {
@@ -308,4 +308,4 @@ export function AuthProvider({ children }: AuthProviderProps) {
       {children}
     </AuthContext.Provider>
   );
-}
+};
