@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
@@ -108,7 +107,8 @@ const HabitsPage = () => {
           title: formValues.title,
           description: formValues.description,
           frequency: formValues.frequency,
-          target: formValues.target,
+          // Convert the target number to an array of days (1-7)
+          target_days: Array.from({ length: formValues.target }, (_, i) => i + 1),
           category: formValues.category
         });
         
@@ -121,7 +121,7 @@ const HabitsPage = () => {
           title: formValues.title,
           description: formValues.description,
           frequency: formValues.frequency,
-          target_days: [1, 2, 3, 4, 5, 6, 7], // Default to all days
+          target_days: Array.from({ length: formValues.target }, (_, i) => i + 1), // Default to all days
           streak: 0,
           longest_streak: 0,
           category: formValues.category,
