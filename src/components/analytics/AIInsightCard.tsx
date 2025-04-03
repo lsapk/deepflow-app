@@ -32,7 +32,7 @@ export const AIInsightCard: React.FC<AIInsightProps> = ({
   description = "Voici quelques analyses basées sur vos données récentes",
   type = 'general',
   data 
-}: AIInsightProps) => {
+}) => {
   const { currentUser } = useAuth();
   const [showAll, setShowAll] = useState(false);
   const [insights, setInsights] = useState<InsightItem[]>([]);
