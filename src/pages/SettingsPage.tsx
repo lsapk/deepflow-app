@@ -1,241 +1,333 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Separator } from '@/components/ui/separator';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useTheme } from '@/hooks/use-theme';
-import { toast } from 'sonner';
-import { Moon, Sun, Globe, Bell, Volume2, Clock } from 'lucide-react';
-import { useIndexedDB } from '@/hooks/use-indexed-db';
 import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { useTheme } from '@/hooks/use-theme';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import { getUserSettings, updateUserSettings } from '@/services/supabase';
+import { ArrowLeft, ArrowRight, Bell, Clock, Globe, Moon, Palette, Sun, User, Volume2 } from 'lucide-react';
+
+interface UserSettings {
+  theme?: 'dark' | 'light' | 'system';
+  language?: string;
+  notifications_enabled?: boolean;
+  sound_enabled?: boolean;
+  focus_mode?: boolean;
+  clock_format?: string;
+}
 
 const SettingsPage = () => {
-  const { theme, setTheme } = useTheme();
   const { currentUser } = useAuth();
-  const { data: settingsData, loading, updateItem, addItem } = useIndexedDB<{
-    id: string;
-    language: string;
-    clockFormat: string;
-    notificationsEnabled: boolean;
-    soundEnabled: boolean;
-  }>({
-    storeName: 'settings',
-    initialData: []
-  });
-  
-  const [settings, setSettings] = useState({
+  const { setTheme, theme } = useTheme();
+  const [settings, setSettings] = useState<UserSettings>({
+    theme: 'system',
     language: 'fr',
-    clockFormat: '24h',
-    notificationsEnabled: true,
-    soundEnabled: true
+    notifications_enabled: true,
+    sound_enabled: true,
+    focus_mode: false,
+    clock_format: '24h'
   });
   
+  const [loading, setLoading] = useState(false);
+
+  // Local storage fallback for offline functionality
+  const [localSettings, setLocalSettings] = useLocalStorage<UserSettings>('user_settings', {
+    theme: 'system',
+    language: 'fr',
+    notifications_enabled: true,
+    sound_enabled: true,
+    focus_mode: false,
+    clock_format: '24h'
+  });
+
+  // Load settings from database or fallback to local storage
   useEffect(() => {
-    if (!loading && settingsData.length > 0) {
-      // Use the first settings object
-      const userSettings = settingsData[0];
-      setSettings({
-        language: userSettings.language || 'fr',
-        clockFormat: userSettings.clockFormat || '24h',
-        notificationsEnabled: userSettings.notificationsEnabled !== false,
-        soundEnabled: userSettings.soundEnabled !== false
-      });
-    }
-  }, [settingsData, loading]);
-  
-  const handleSettingsChange = (key: keyof typeof settings, value: any) => {
-    setSettings(prev => ({ ...prev, [key]: value }));
+    const loadSettings = async () => {
+      setLoading(true);
+      try {
+        if (currentUser) {
+          const userSettings = await getUserSettings(currentUser.uid);
+          if (userSettings) {
+            const loadedSettings = {
+              theme: userSettings.theme as 'dark' | 'light' | 'system',
+              language: userSettings.language,
+              notifications_enabled: userSettings.notifications_enabled,
+              sound_enabled: userSettings.sound_enabled,
+              focus_mode: userSettings.focus_mode,
+              clock_format: userSettings.clock_format
+            };
+            setSettings(loadedSettings);
+            setLocalSettings(loadedSettings);
+            
+            // Apply theme immediately
+            if (loadedSettings.theme) {
+              setTheme(loadedSettings.theme);
+            }
+          } else {
+            // No settings found in DB, use local storage
+            setSettings(localSettings);
+          }
+        }
+      } catch (error) {
+        console.error("Error loading settings:", error);
+        // Fall back to local storage on error
+        setSettings(localSettings);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadSettings();
+  }, [currentUser, setTheme, localSettings, setLocalSettings]);
+
+  // Save settings to both database and local storage
+  const saveSettings = async (newSettings: Partial<UserSettings>) => {
+    const updatedSettings = { ...settings, ...newSettings };
+    setSettings(updatedSettings);
+    setLocalSettings(updatedSettings);
     
-    // Save to IndexedDB
-    if (settingsData.length > 0) {
-      // Update existing settings
-      updateItem(settingsData[0].id, { [key]: value });
-    } else {
-      // Create new settings
-      addItem({
-        language: settings.language,
-        clockFormat: settings.clockFormat,
-        notificationsEnabled: settings.notificationsEnabled,
-        soundEnabled: settings.soundEnabled,
-        [key]: value
-      });
+    // Apply theme change immediately
+    if (newSettings.theme) {
+      setTheme(newSettings.theme);
     }
     
-    // Show toast notification
-    toast.success("Paramètres mis à jour");
+    // Save to database if online
+    if (currentUser) {
+      try {
+        await updateUserSettings(currentUser.uid, updatedSettings);
+        toast.success("Paramètres mis à jour");
+      } catch (error) {
+        console.error("Error saving settings:", error);
+        toast.error("Erreur lors de la sauvegarde des paramètres en ligne");
+      }
+    }
   };
-  
+
   return (
     <MainLayout>
-      <div className="flex flex-col space-y-6">
+      <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold mb-1">Paramètres</h1>
-          <p className="text-gray-500 dark:text-gray-400">
+          <p className="text-muted-foreground">
             Personnalisez votre expérience DeepFlow
           </p>
         </div>
-        
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Sun className="mr-2 h-5 w-5 text-yellow-500" />
-              <Moon className="mr-2 h-5 w-5 text-blue-500" />
-              Apparence
-            </CardTitle>
-            <CardDescription>
-              Personnalisez l'apparence de l'application
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="theme">Thème</Label>
-              <Select 
-                value={theme}
-                onValueChange={(value) => {
-                  setTheme(value);
-                  toast.success("Thème mis à jour");
-                }}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Sélectionnez un thème" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="light">Clair</SelectItem>
-                  <SelectItem value="dark">Sombre</SelectItem>
-                  <SelectItem value="system">Système</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Globe className="mr-2 h-5 w-5 text-green-500" />
-              Langue et région
-            </CardTitle>
-            <CardDescription>
-              Choisissez votre langue et vos préférences régionales
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="language">Langue</Label>
-              <Select 
-                value={settings.language}
-                onValueChange={(value) => handleSettingsChange('language', value)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Sélectionnez une langue" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="fr">Français</SelectItem>
-                  <SelectItem value="en">English</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <Separator className="my-4" />
-            
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Clock className="h-5 w-5 text-purple-500" />
-                  <Label htmlFor="clock-format">Format d'horloge</Label>
-                </div>
-                <Select 
-                  value={settings.clockFormat}
-                  onValueChange={(value) => handleSettingsChange('clockFormat', value)}
+
+        <Tabs defaultValue="appearance">
+          <TabsList className="grid grid-cols-3 md:grid-cols-5 mb-4">
+            <TabsTrigger value="appearance" className="flex items-center">
+              <Palette className="mr-2 h-4 w-4" />
+              <span className="hidden md:inline">Apparence</span>
+            </TabsTrigger>
+            <TabsTrigger value="preferences" className="flex items-center">
+              <Clock className="mr-2 h-4 w-4" />
+              <span className="hidden md:inline">Préférences</span>
+            </TabsTrigger>
+            <TabsTrigger value="notifications" className="flex items-center">
+              <Bell className="mr-2 h-4 w-4" />
+              <span className="hidden md:inline">Notifications</span>
+            </TabsTrigger>
+            <TabsTrigger value="languages" className="flex items-center">
+              <Globe className="mr-2 h-4 w-4" />
+              <span className="hidden md:inline">Langue</span>
+            </TabsTrigger>
+            <TabsTrigger value="account" className="flex items-center">
+              <User className="mr-2 h-4 w-4" />
+              <span className="hidden md:inline">Compte</span>
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="appearance" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Thème</CardTitle>
+                <CardDescription>
+                  Personnalisez l'apparence de l'application
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <RadioGroup 
+                  value={settings.theme}
+                  onValueChange={(value) => saveSettings({ theme: value as 'dark' | 'light' | 'system' })}
+                  className="flex flex-col space-y-3"
                 >
-                  <SelectTrigger className="w-[100px]">
-                    <SelectValue placeholder="Format" />
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="light" id="light" />
+                    <Label htmlFor="light" className="flex items-center cursor-pointer">
+                      <Sun className="mr-2 h-4 w-4" />
+                      Clair
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="dark" id="dark" />
+                    <Label htmlFor="dark" className="flex items-center cursor-pointer">
+                      <Moon className="mr-2 h-4 w-4" />
+                      Sombre
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="system" id="system" />
+                    <Label htmlFor="system" className="flex items-center cursor-pointer">
+                      <Palette className="mr-2 h-4 w-4" />
+                      Système
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="preferences" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Format d'horloge</CardTitle>
+                <CardDescription>
+                  Choisissez le format d'affichage de l'heure
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <RadioGroup 
+                  value={settings.clock_format} 
+                  onValueChange={(value) => saveSettings({ clock_format: value })}
+                  className="flex flex-col space-y-3"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="12h" id="12h" />
+                    <Label htmlFor="12h" className="cursor-pointer">12 heures (AM/PM)</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="24h" id="24h" />
+                    <Label htmlFor="24h" className="cursor-pointer">24 heures</Label>
+                  </div>
+                </RadioGroup>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Mode focus</CardTitle>
+                <CardDescription>
+                  Activez le mode focus pour limiter les distractions
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center space-x-2">
+                  <Switch 
+                    id="focus-mode"
+                    checked={settings.focus_mode}
+                    onCheckedChange={(checked) => saveSettings({ focus_mode: checked })}
+                  />
+                  <Label htmlFor="focus-mode">Activer le mode focus</Label>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="notifications" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Notifications</CardTitle>
+                <CardDescription>
+                  Configurez vos préférences de notification
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Switch 
+                    id="notifications-enabled"
+                    checked={settings.notifications_enabled}
+                    onCheckedChange={(checked) => saveSettings({ notifications_enabled: checked })}
+                  />
+                  <Label htmlFor="notifications-enabled">Activer les notifications</Label>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Sons</CardTitle>
+                <CardDescription>
+                  Configurez vos préférences de son
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="sound-enabled"
+                    checked={settings.sound_enabled}
+                    onCheckedChange={(checked) => saveSettings({ sound_enabled: checked })}
+                  />
+                  <Label htmlFor="sound-enabled" className="flex items-center">
+                    <Volume2 className="mr-2 h-4 w-4" />
+                    Activer les sons
+                  </Label>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="languages" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Langue</CardTitle>
+                <CardDescription>
+                  Choisissez la langue de l'application
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Select
+                  value={settings.language}
+                  onValueChange={(value) => saveSettings({ language: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionnez une langue" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="12h">12h</SelectItem>
-                    <SelectItem value="24h">24h</SelectItem>
+                    <SelectItem value="fr">Français</SelectItem>
+                    <SelectItem value="en">English</SelectItem>
+                    <SelectItem value="es">Español</SelectItem>
+                    <SelectItem value="de">Deutsch</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Bell className="mr-2 h-5 w-5 text-rose-500" />
-              Notifications
-            </CardTitle>
-            <CardDescription>
-              Configurez vos préférences de notification
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="notifications">Notifications</Label>
-                <div className="text-sm text-muted-foreground">
-                  Recevoir des rappels et des alertes
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="account" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Informations personnelles</CardTitle>
+                <CardDescription>
+                  Mettez à jour vos informations de profil
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Nom d'utilisateur</Label>
+                  <Input id="name" value={currentUser?.displayName || ''} readOnly />
                 </div>
-              </div>
-              <Switch 
-                id="notifications" 
-                checked={settings.notificationsEnabled}
-                onCheckedChange={(checked) => handleSettingsChange('notificationsEnabled', checked)}
-              />
-            </div>
-            
-            <Separator className="my-4" />
-            
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <div className="flex items-center space-x-2">
-                  <Volume2 className="h-5 w-5 text-orange-500" />
-                  <Label htmlFor="sounds">Sons</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input id="email" value={currentUser?.email || ''} readOnly />
                 </div>
-                <div className="text-sm text-muted-foreground">
-                  Activer les sons de l'application
-                </div>
-              </div>
-              <Switch 
-                id="sounds" 
-                checked={settings.soundEnabled}
-                onCheckedChange={(checked) => handleSettingsChange('soundEnabled', checked)}
-              />
-            </div>
-          </CardContent>
-        </Card>
-        
-        {currentUser && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-red-500">Zone de danger</CardTitle>
-              <CardDescription>
-                Actions irréversibles qui affectent votre compte
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button 
-                variant="destructive"
-                className="w-full sm:w-auto"
-                onClick={() => {
-                  if (confirm("Êtes-vous sûr de vouloir supprimer toutes vos données ? Cette action est irréversible.")) {
-                    localStorage.clear();
-                    toast.success("Toutes les données ont été supprimées");
-                    setTimeout(() => window.location.reload(), 1500);
-                  }
-                }}
-              >
-                Supprimer toutes mes données
-              </Button>
-            </CardContent>
-          </Card>
-        )}
+                <Button variant="outline" asChild>
+                  <a href="/profile">
+                    Gérer le profil <ArrowRight className="ml-2 h-4 w-4" />
+                  </a>
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </MainLayout>
   );

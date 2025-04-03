@@ -1,6 +1,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 // Helper function to generate UUID
 function generateUUID() {
@@ -28,6 +29,34 @@ export function useIndexedDB<T extends { id: string }>({
   const [error, setError] = useState<Error | null>(null);
   const { currentUser } = useAuth();
 
+  // Ensure unique store name per user
+  const userStoreKey = `${storeName}_${currentUser?.uid || 'anonymous'}`;
+
+  // Load data from localStorage (always do this first as a fallback)
+  const loadFromLocalStorage = useCallback(() => {
+    try {
+      const storedData = localStorage.getItem(userStoreKey);
+      if (storedData) {
+        const parsedData = JSON.parse(storedData);
+        setData(parsedData);
+        return parsedData;
+      }
+      return null;
+    } catch (err) {
+      console.error('Error loading from localStorage:', err);
+      return null;
+    }
+  }, [userStoreKey]);
+
+  // Save data to localStorage (always do this as a reliable fallback)
+  const saveToLocalStorage = useCallback((newData: T[]) => {
+    try {
+      localStorage.setItem(userStoreKey, JSON.stringify(newData));
+    } catch (err) {
+      console.error('Error saving to localStorage:', err);
+    }
+  }, [userStoreKey]);
+
   // Send message to service worker
   const sendToServiceWorker = useCallback((message: any) => {
     if (navigator.serviceWorker && navigator.serviceWorker.controller) {
@@ -37,108 +66,76 @@ export function useIndexedDB<T extends { id: string }>({
     return false;
   }, []);
 
-  // Load data from IndexedDB
+  // Load data
   const loadData = useCallback(async () => {
-    if (!navigator.serviceWorker) {
-      // Fallback to localStorage
-      try {
-        const storedData = localStorage.getItem(`${storeName}_${currentUser?.uid || 'anonymous'}`);
-        if (storedData) {
-          setData(JSON.parse(storedData));
-        }
-        setLoading(false);
-      } catch (err) {
-        console.error('Error loading from localStorage:', err);
-        setError(err instanceof Error ? err : new Error(String(err)));
-        setLoading(false);
-      }
-      return;
+    setLoading(true);
+    
+    // First, always try to load from localStorage as a reliable source
+    const localData = loadFromLocalStorage();
+    if (localData) {
+      setData(localData);
     }
-
+    
     try {
-      setLoading(true);
+      // Then try to get data from service worker/IndexedDB
+      if (!navigator.serviceWorker || !navigator.serviceWorker.controller) {
+        // If no service worker, we've already loaded from localStorage
+        setLoading(false);
+        return;
+      }
       
-      // Request data from service worker
+      // Create a channel for the service worker to respond on
       const messageChannel = new MessageChannel();
       
-      // Create a promise that will resolve when we get the response
-      const dataPromise = new Promise<T[]>((resolve) => {
-        messageChannel.port1.onmessage = (event) => {
-          if (event.data.type === 'DATA_RESPONSE' && event.data.storeName === storeName) {
-            resolve(event.data.data);
-          }
-        };
-      });
-      
-      // Register for messages
+      // Listen for response from service worker
       navigator.serviceWorker.addEventListener('message', (event) => {
-        if (event.data.type === 'DATA_RESPONSE' && event.data.storeName === storeName) {
-          setData(event.data.data);
+        if (event.data.type === 'DATA_RESPONSE' && event.data.storeName === userStoreKey) {
+          const swData = event.data.data;
+          // Only update if we got actual data and it's different from what we have
+          if (swData && swData.length > 0 && JSON.stringify(swData) !== JSON.stringify(data)) {
+            setData(swData);
+            // Also update localStorage for consistency
+            saveToLocalStorage(swData);
+          }
           setLoading(false);
         }
       }, { once: true });
       
-      // Get our client ID for the response - Fix the clients property error
-      let clientId = 'default-client';
-      try {
-        if (navigator.serviceWorker.controller) {
-          clientId = Math.random().toString(36).substring(2, 15);
-        }
-      } catch (err) {
-        console.error('Error getting client ID:', err);
-      }
-      
-      // Send the request
+      // Request data from service worker
+      const clientId = Math.random().toString(36).substring(2, 15);
       sendToServiceWorker({
         type: 'GET_DATA',
-        storeName: `${storeName}_${currentUser?.uid || 'anonymous'}`,
+        storeName: userStoreKey,
         clientId
       });
       
-      // Fallback if service worker doesn't respond in 1 second
+      // Fallback timeout - if service worker doesn't respond in 2 seconds
+      // we'll consider localStorage data as authoritative
       setTimeout(() => {
-        try {
-          const storedData = localStorage.getItem(`${storeName}_${currentUser?.uid || 'anonymous'}`);
-          if (storedData) {
-            setData(JSON.parse(storedData));
-          }
-          setLoading(false);
-        } catch (err) {
-          console.error('Fallback to localStorage error:', err);
-        }
-      }, 1000);
+        setLoading(false);
+      }, 2000);
       
     } catch (err) {
       console.error('Error in loadData:', err);
       setError(err instanceof Error ? err : new Error(String(err)));
       setLoading(false);
-      
-      // Fallback to localStorage
-      try {
-        const storedData = localStorage.getItem(`${storeName}_${currentUser?.uid || 'anonymous'}`);
-        if (storedData) {
-          setData(JSON.parse(storedData));
-        }
-      } catch (err) {
-        console.error('Error in localStorage fallback:', err);
-      }
     }
-  }, [storeName, sendToServiceWorker, currentUser?.uid]);
+  }, [data, userStoreKey, sendToServiceWorker, saveToLocalStorage, loadFromLocalStorage]);
 
-  // Save data to IndexedDB and localStorage (as backup)
+  // Save data 
   const saveData = useCallback((newData: T[]) => {
     try {
       // Always update local state
       setData(newData);
       
       // Always save to localStorage as backup
-      localStorage.setItem(`${storeName}_${currentUser?.uid || 'anonymous'}`, JSON.stringify(newData));
+      saveToLocalStorage(newData);
       
       // Try to save to IndexedDB via service worker
       if (navigator.serviceWorker && navigator.serviceWorker.controller) {
         sendToServiceWorker({
           type: 'SAVE_DATA',
-          storeName: `${storeName}_${currentUser?.uid || 'anonymous'}`,
+          storeName: userStoreKey,
           data: newData
         });
       }
@@ -146,7 +143,7 @@ export function useIndexedDB<T extends { id: string }>({
       console.error('Error saving data:', err);
       setError(err instanceof Error ? err : new Error(String(err)));
     }
-  }, [storeName, sendToServiceWorker, currentUser?.uid]);
+  }, [userStoreKey, sendToServiceWorker, saveToLocalStorage]);
 
   // Add an item
   const addItem = useCallback((item: Omit<T, 'id'>) => {
@@ -158,6 +155,12 @@ export function useIndexedDB<T extends { id: string }>({
 
   // Update an item
   const updateItem = useCallback((id: string, updates: Partial<T>) => {
+    const itemExists = data.some(item => item.id === id);
+    if (!itemExists) {
+      console.warn(`Attempted to update non-existent item with id: ${id}`);
+      return null;
+    }
+    
     const newData = data.map(item => 
       item.id === id ? { ...item, ...updates } as T : item
     );
@@ -167,6 +170,12 @@ export function useIndexedDB<T extends { id: string }>({
 
   // Delete an item
   const deleteItem = useCallback((id: string) => {
+    const itemExists = data.some(item => item.id === id);
+    if (!itemExists) {
+      console.warn(`Attempted to delete non-existent item with id: ${id}`);
+      return;
+    }
+    
     const newData = data.filter(item => item.id !== id);
     saveData(newData);
   }, [data, saveData]);
@@ -181,6 +190,9 @@ export function useIndexedDB<T extends { id: string }>({
     if (!autoSync) return;
     
     const handleOnline = () => {
+      toast.info("Connexion rétablie, synchronisation des données...");
+      loadData();
+      
       if (navigator.serviceWorker && navigator.serviceWorker.controller) {
         sendToServiceWorker({
           type: 'APP_ACTIVE'
@@ -193,7 +205,7 @@ export function useIndexedDB<T extends { id: string }>({
     return () => {
       window.removeEventListener('online', handleOnline);
     };
-  }, [autoSync, sendToServiceWorker]);
+  }, [autoSync, sendToServiceWorker, loadData]);
 
   return {
     data,
