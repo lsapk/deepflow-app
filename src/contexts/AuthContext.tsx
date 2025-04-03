@@ -82,7 +82,7 @@ const saveLocalData = (key: string, data: any): void => {
   }
 };
 
-// Fix: Properly define AuthProvider as a React functional component
+// Properly define AuthProvider as a React functional component
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<ExtendedUser | null>(null);
   const [session, setSession] = useState<Session | null>(null);

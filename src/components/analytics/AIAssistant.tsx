@@ -47,10 +47,7 @@ declare global {
   }
 }
 
-// OpenRouter API key for testing purposes - in a real app, use environment variables
-const OPENROUTER_API_KEY = "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";
-
-const AIAssistant = () => {
+const AIAssistant: React.FC = () => {
   const { currentUser } = useAuth();
   const [isListening, setIsListening] = useState(false);
   const [messages, setMessages] = useState<{ role: 'user' | 'assistant', content: string }[]>([
@@ -221,7 +218,7 @@ const AIAssistant = () => {
         {isLoading && (
           <div className="flex justify-start">
             <div className="bg-muted rounded-lg p-3">
-              <Loader2 className="h-5 w-5 animate-spin" />
+              <Loader2 className="h-5 w-4 animate-spin" />
             </div>
           </div>
         )}

@@ -17,7 +17,17 @@ interface AIInsightProps {
   data?: any;
 }
 
-export const AIInsightCard = ({ 
+interface InsightItem {
+  id: string;
+  text: string;
+  category: string;
+  trend?: 'up' | 'down' | 'neutral';
+  value?: number;
+  recommendation?: string;
+  priority: 'high' | 'medium' | 'low';
+}
+
+export const AIInsightCard: React.FC<AIInsightProps> = ({ 
   title = "Analyse IA",
   description = "Voici quelques analyses basées sur vos données récentes",
   type = 'general',
@@ -27,16 +37,6 @@ export const AIInsightCard = ({
   const [showAll, setShowAll] = useState(false);
   const [insights, setInsights] = useState<InsightItem[]>([]);
   const [lastUpdated, setLastUpdated] = useState(new Date());
-
-  interface InsightItem {
-    id: string;
-    text: string;
-    category: string;
-    trend?: 'up' | 'down' | 'neutral';
-    value?: number;
-    recommendation?: string;
-    priority: 'high' | 'medium' | 'low';
-  }
 
   // Generate insights based on type and user data
   useEffect(() => {
