@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,11 +13,11 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import {
+import { 
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
+  DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 import {
   Dialog,
@@ -39,67 +38,15 @@ import {
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-
-interface Task {
-  id: string;
-  title: string;
-  description?: string;
-  completed: boolean;
-  dueDate?: string;
-  priority: 'low' | 'medium' | 'high';
-  category?: string;
-}
-
-const demoTasks: Task[] = [
-  {
-    id: '1',
-    title: 'Finaliser la présentation',
-    description: 'Terminer les slides et ajouter les animations',
-    completed: false,
-    dueDate: '2025-04-15',
-    priority: 'high',
-    category: 'Travail',
-  },
-  {
-    id: '2',
-    title: 'Appeler le plombier',
-    completed: true,
-    dueDate: '2025-04-10',
-    priority: 'medium',
-    category: 'Personnel',
-  },
-  {
-    id: '3',
-    title: 'Faire les courses',
-    description: 'Acheter des légumes, du pain et du lait',
-    completed: false,
-    dueDate: '2025-04-12',
-    priority: 'low',
-    category: 'Personnel',
-  },
-  {
-    id: '4',
-    title: 'Réviser pour l\'examen',
-    description: 'Chapitres 5 à 8',
-    completed: false,
-    dueDate: '2025-04-20',
-    priority: 'high',
-    category: 'Études',
-  },
-  {
-    id: '5',
-    title: 'Répondre aux emails',
-    completed: false,
-    dueDate: '2025-04-11',
-    priority: 'medium',
-    category: 'Travail',
-  },
-];
+import { useTasks, Task, createTask, updateTask } from '@/services/taskService';
+import { useAuth } from '@/contexts/AuthContext';
 
 const categories = ['Travail', 'Personnel', 'Études', 'Santé', 'Projets', 'Autre'];
 
 const TasksPage = () => {
-  const [tasks, setTasks] = useState<Task[]>(demoTasks);
+  const { currentUser } = useAuth();
+  const { data: tasks, addItem, updateItem, deleteItem, loading } = useTasks();
+  
   const [newTask, setNewTask] = useState<Partial<Task>>({
     title: '',
     description: '',
@@ -116,17 +63,19 @@ const TasksPage = () => {
       return;
     }
 
-    const task: Task = {
-      id: Date.now().toString(),
+    const taskToCreate = createTask({
       title: newTask.title,
-      description: newTask.description,
+      description: newTask.description || '',
       completed: false,
-      dueDate: newTask.dueDate,
+      status: 'todo',
+      due_date: newTask.dueDate,
       priority: newTask.priority as 'low' | 'medium' | 'high',
       category: newTask.category,
-    };
+      user_id: currentUser?.uid
+    });
 
-    setTasks([task, ...tasks]);
+    addItem(taskToCreate);
+    
     setNewTask({
       title: '',
       description: '',
@@ -139,23 +88,23 @@ const TasksPage = () => {
   };
 
   const toggleTaskCompletion = (id: string) => {
-    setTasks(
-      tasks.map((task) =>
-        task.id === id ? { ...task, completed: !task.completed } : task
-      )
-    );
-    
-    const taskName = tasks.find(t => t.id === id)?.title;
-    const isCompleted = !tasks.find(t => t.id === id)?.completed;
-    
-    if (isCompleted) {
-      toast.success(`Tâche "${taskName}" terminée`);
+    const task = tasks.find(t => t.id === id);
+    if (task) {
+      const updatedTask = updateTask({
+        id,
+        completed: !task.completed
+      });
+      updateItem(id, updatedTask);
+      
+      if (!task.completed) {
+        toast.success(`Tâche "${task.title}" terminée`);
+      }
     }
   };
 
   const deleteTask = (id: string) => {
     const taskName = tasks.find(t => t.id === id)?.title;
-    setTasks(tasks.filter((task) => task.id !== id));
+    deleteItem(id);
     toast.success(`Tâche "${taskName}" supprimée`);
   };
 

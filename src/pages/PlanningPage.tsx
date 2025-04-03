@@ -1,23 +1,31 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Calendar } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { TimePicker } from '@/components/ui/time-picker';
 import { toast } from 'sonner';
 import { fr } from 'date-fns/locale';
 import { format, isToday, isAfter, isBefore, isSameDay, parseISO, startOfDay } from 'date-fns';
 import { PlusCircle, Calendar as CalendarIcon, Clock, Edit, Trash2, Check, X } from 'lucide-react';
-import { usePlanningEvents, PlanningEvent, formatEventTime, createPlanningEvent, updatePlanningEvent } from '@/services/planningService';
+import { 
+  usePlanningEvents, 
+  PlanningEvent, 
+  formatEventTime, 
+  createPlanningEvent, 
+  updatePlanningEvent 
+} from '@/services/planningService';
+import { useAuth } from '@/contexts/AuthContext';
 
 const PlanningPage = () => {
+  const { currentUser } = useAuth();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isAddEventDialogOpen, setIsAddEventDialogOpen] = useState(false);
   const [view, setView] = useState<'day' | 'agenda'>('day');
@@ -62,6 +70,7 @@ const PlanningPage = () => {
       category: newEvent.category,
       color: newEvent.color,
       completed: false,
+      user_id: currentUser?.uid
     };
     
     // Add created_at and updated_at timestamps
@@ -169,7 +178,7 @@ const PlanningPage = () => {
   const daysWithEvents = events.map(event => parseISO(event.date));
   
   // Group events by date for agenda view
-  const eventsByDate = sortedEvents.reduce((acc, event) => {
+  const eventsByDate = events.reduce((acc, event) => {
     const date = event.date;
     if (!acc[date]) {
       acc[date] = [];
