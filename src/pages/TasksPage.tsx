@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -54,6 +54,7 @@ const TasksPage = () => {
     completed: false,
     priority: 'medium',
     category: 'Personnel',
+    due_date: '',
   });
   const [activeTab, setActiveTab] = useState('all');
   const [showAddTask, setShowAddTask] = useState(false);
@@ -83,6 +84,7 @@ const TasksPage = () => {
       completed: false,
       priority: 'medium',
       category: 'Personnel',
+      due_date: '',
     });
     setShowAddTask(false);
     toast.success('Tâche ajoutée avec succès');
