@@ -7,13 +7,30 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { JournalEntry, createJournalEntry, getJournalEntries, deleteJournalEntry, updateJournalEntry } from '@/services/supabase';
 import { FilePlus, FileText, Trash2, Calendar, Tag, Search, Edit } from 'lucide-react';
+import { useIndexedDB } from '@/hooks/use-indexed-db';
+import { toast } from 'sonner';
+
+interface JournalEntry {
+  id: string;
+  title: string;
+  content: string;
+  mood?: 'great' | 'good' | 'neutral' | 'bad' | 'terrible';
+  tags?: string[];
+  created_at?: string;
+  updated_at?: string;
+  userId: string;
+}
 
 const JournalPage = () => {
   const { currentUser } = useAuth();
-  const [entries, setEntries] = useState<JournalEntry[]>([]);
+  const { data: entriesData = [], addItem, updateItem, deleteItem } = useIndexedDB<JournalEntry>({
+    storeName: 'journal_entries',
+    initialData: []
+  });
+  
   const [loading, setLoading] = useState(true);
+  const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [newEntry, setNewEntry] = useState({
     title: '',
     content: '',
@@ -25,24 +42,12 @@ const JournalPage = () => {
   const [editingEntry, setEditingEntry] = useState<JournalEntry | null>(null);
 
   useEffect(() => {
-    if (currentUser) {
-      fetchEntries();
-    }
-  }, [currentUser]);
-
-  const fetchEntries = async () => {
-    if (!currentUser) return;
-    
-    try {
-      setLoading(true);
-      const fetchedEntries = await getJournalEntries(currentUser.uid);
-      setEntries(fetchedEntries);
-    } catch (error) {
-      console.error("Error fetching journal entries:", error);
-    } finally {
+    // When entries are loaded from IndexedDB, update the local state
+    if (entriesData) {
+      setEntries(entriesData);
       setLoading(false);
     }
-  };
+  }, [entriesData]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -60,10 +65,13 @@ const JournalPage = () => {
   };
 
   const handleSubmit = async () => {
-    if (!currentUser) return;
+    if (!currentUser) {
+      toast.error("Vous devez être connecté pour créer une entrée de journal");
+      return;
+    }
     
     if (!newEntry.title.trim() || !newEntry.content.trim()) {
-      console.error("Le titre et le contenu sont requis");
+      toast.error("Le titre et le contenu sont requis");
       return;
     }
     
@@ -73,43 +81,50 @@ const JournalPage = () => {
         : [];
       
       if (editingEntry) {
-        // Mettre à jour l'entrée existante
-        const updatedEntry = await updateJournalEntry(editingEntry.id, {
+        // Update existing entry
+        const updatedEntry = updateItem(editingEntry.id, {
           title: newEntry.title,
           content: newEntry.content,
           mood: newEntry.mood as any,
-          tags
+          tags,
+          updated_at: new Date().toISOString()
         });
         
-        setEntries(prev => prev.map(entry => 
-          entry.id === updatedEntry.id ? updatedEntry : entry
-        ));
+        if (updatedEntry) {
+          toast.success("Entrée de journal mise à jour avec succès");
+        }
       } else {
-        // Créer une nouvelle entrée
-        const entryData = {
+        // Create new entry
+        const newJournalEntry = addItem({
           title: newEntry.title,
           content: newEntry.content,
           mood: newEntry.mood as any,
-          tags
-        };
+          tags,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          userId: currentUser.uid
+        });
         
-        const newJournalEntry = await createJournalEntry(currentUser.uid, entryData);
-        setEntries(prev => [newJournalEntry, ...prev]);
+        if (newJournalEntry) {
+          toast.success("Nouvelle entrée de journal créée avec succès");
+        }
       }
       
       resetForm();
       setIsDialogOpen(false);
     } catch (error) {
       console.error("Error saving journal entry:", error);
+      toast.error("Erreur lors de l'enregistrement de l'entrée de journal");
     }
   };
 
   const handleDeleteEntry = async (id: string) => {
     try {
-      await deleteJournalEntry(id);
-      setEntries(entries.filter(entry => entry.id !== id));
+      deleteItem(id);
+      toast.success("Entrée de journal supprimée avec succès");
     } catch (error) {
       console.error("Error deleting journal entry:", error);
+      toast.error("Erreur lors de la suppression de l'entrée de journal");
     }
   };
 

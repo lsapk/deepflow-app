@@ -59,8 +59,13 @@ export function useIndexedDB<T extends { id: string }>({
   // Send message to service worker
   const sendToServiceWorker = useCallback((message: any) => {
     if (navigator.serviceWorker && navigator.serviceWorker.controller) {
-      navigator.serviceWorker.controller.postMessage(message);
-      return true;
+      try {
+        navigator.serviceWorker.controller.postMessage(message);
+        return true;
+      } catch (err) {
+        console.error('Error sending message to service worker:', err);
+        return false;
+      }
     }
     return false;
   }, []);
@@ -88,7 +93,7 @@ export function useIndexedDB<T extends { id: string }>({
       
       // Listen for response from service worker
       const messageHandler = (event: MessageEvent) => {
-        if (event.data.type === 'DATA_RESPONSE' && event.data.storeName === userStoreKey) {
+        if (event.data && event.data.type === 'DATA_RESPONSE' && event.data.storeName === userStoreKey) {
           const swData = event.data.data;
           // Only update if we got actual data and it's different from what we have
           if (swData && swData.length > 0 && JSON.stringify(swData) !== JSON.stringify(data)) {
@@ -150,37 +155,56 @@ export function useIndexedDB<T extends { id: string }>({
 
   // Add an item
   const addItem = useCallback((item: Omit<T, 'id'>) => {
-    const newItem = { ...item, id: generateUUID() } as T;
-    const newData = [...data, newItem];
-    saveData(newData);
-    return newItem;
+    try {
+      const newItem = { ...item, id: generateUUID() } as T;
+      const newData = [...data, newItem];
+      saveData(newData);
+      return newItem;
+    } catch (err) {
+      console.error('Error adding item:', err);
+      toast.error('Erreur lors de l\'ajout de l\'élément');
+      return null;
+    }
   }, [data, saveData]);
 
   // Update an item
   const updateItem = useCallback((id: string, updates: Partial<T>) => {
-    const itemExists = data.some(item => item.id === id);
-    if (!itemExists) {
-      console.warn(`Attempted to update non-existent item with id: ${id}`);
+    try {
+      const itemExists = data.some(item => item.id === id);
+      if (!itemExists) {
+        console.warn(`Attempted to update non-existent item with id: ${id}`);
+        return null;
+      }
+      
+      const newData = data.map(item => 
+        item.id === id ? { ...item, ...updates } as T : item
+      );
+      saveData(newData);
+      return newData.find(item => item.id === id);
+    } catch (err) {
+      console.error('Error updating item:', err);
+      toast.error('Erreur lors de la mise à jour de l\'élément');
       return null;
     }
-    
-    const newData = data.map(item => 
-      item.id === id ? { ...item, ...updates } as T : item
-    );
-    saveData(newData);
-    return newData.find(item => item.id === id);
   }, [data, saveData]);
 
   // Delete an item
   const deleteItem = useCallback((id: string) => {
-    const itemExists = data.some(item => item.id === id);
-    if (!itemExists) {
-      console.warn(`Attempted to delete non-existent item with id: ${id}`);
-      return;
+    try {
+      const itemExists = data.some(item => item.id === id);
+      if (!itemExists) {
+        console.warn(`Attempted to delete non-existent item with id: ${id}`);
+        return false;
+      }
+      
+      const newData = data.filter(item => item.id !== id);
+      saveData(newData);
+      return true;
+    } catch (err) {
+      console.error('Error deleting item:', err);
+      toast.error('Erreur lors de la suppression de l\'élément');
+      return false;
     }
-    
-    const newData = data.filter(item => item.id !== id);
-    saveData(newData);
   }, [data, saveData]);
 
   // Initial load

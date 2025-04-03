@@ -8,12 +8,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
-import { Habit as HabitType, getHabits, createHabit, updateHabit, deleteHabit } from '@/services/supabase';
-import { FilePlus, CheckCircle, CheckCircle2, MoreVertical, Trash2, Edit, AlertCircle } from 'lucide-react';
+import { FilePlus, CheckCircle, CheckCircle2, MoreVertical, Trash2, Edit } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { HabitsWidget } from '@/components/habits/HabitsWidget';
+import { useHabits } from '@/services/habitService';
 
 // Définir l'interface pour les valeurs du formulaire de nouvelle habitude
 interface NewHabitFormValues {
@@ -24,13 +23,33 @@ interface NewHabitFormValues {
   category: string;
 }
 
+// Define the Habit interface
+interface Habit {
+  id: string;
+  title: string;
+  description?: string;
+  frequency: 'daily' | 'weekly' | 'monthly';
+  target_days?: number[];
+  streak: number;
+  longest_streak?: number;
+  category?: string;
+  created_at?: string;
+  updated_at?: string;
+  last_completed?: string;
+  completions?: {
+    date: string;
+    completed: boolean;
+  }[];
+  user_id?: string;
+}
+
 const HabitsPage = () => {
   const { currentUser } = useAuth();
-  const [habits, setHabits] = useState<HabitType[]>([]);
+  const { data: habits = [], addItem, updateItem, deleteItem, saveData } = useHabits();
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [currentHabit, setCurrentHabit] = useState<HabitType | null>(null);
+  const [currentHabit, setCurrentHabit] = useState<Habit | null>(null);
   
   const [formValues, setFormValues] = useState<NewHabitFormValues>({
     title: '',
@@ -41,25 +60,11 @@ const HabitsPage = () => {
   });
 
   useEffect(() => {
-    if (currentUser) {
-      fetchHabits();
-    }
-  }, [currentUser]);
-
-  const fetchHabits = async () => {
-    if (!currentUser) return;
-    
-    try {
-      setLoading(true);
-      const fetchedHabits = await getHabits(currentUser.uid);
-      setHabits(fetchedHabits);
-    } catch (error) {
-      console.error("Error fetching habits:", error);
-      // Pas de toast ici
-    } finally {
+    // When habits are loaded from IndexedDB, set loading to false
+    if (habits) {
       setLoading(false);
     }
-  };
+  }, [habits]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -91,47 +96,60 @@ const HabitsPage = () => {
   };
 
   const handleSubmit = async () => {
-    if (!currentUser) return;
-    
     try {
       if (!formValues.title.trim()) {
-        // Pas de toast ici
+        toast.error("Le titre est requis");
         return;
       }
       
       if (isEditMode && currentHabit) {
-        // Mise à jour d'une habitude existante
-        const updatedHabit = await updateHabit(currentHabit.id, {
-          ...formValues,
-          user_id: currentUser.uid
+        // Update an existing habit
+        const updatedHabit = updateItem(currentHabit.id, {
+          title: formValues.title,
+          description: formValues.description,
+          frequency: formValues.frequency,
+          target: formValues.target,
+          category: formValues.category
         });
         
-        setHabits(habits.map(h => h.id === updatedHabit.id ? updatedHabit : h));
+        if (updatedHabit) {
+          toast.success("Habitude mise à jour avec succès");
+        }
       } else {
-        // Création d'une nouvelle habitude
-        const newHabit = await createHabit(currentUser.uid, {
-          ...formValues,
-          streak: 0
+        // Create a new habit
+        const newHabit = addItem({
+          title: formValues.title,
+          description: formValues.description,
+          frequency: formValues.frequency,
+          target_days: [1, 2, 3, 4, 5, 6, 7], // Default to all days
+          streak: 0,
+          longest_streak: 0,
+          category: formValues.category,
+          user_id: currentUser?.uid || 'anonymous',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         });
         
-        setHabits([newHabit, ...habits]);
+        if (newHabit) {
+          toast.success("Nouvelle habitude créée avec succès");
+        }
       }
       
       resetForm();
       setIsDialogOpen(false);
     } catch (error) {
       console.error("Error saving habit:", error);
-      // Pas de toast ici
+      toast.error("Erreur lors de l'enregistrement de l'habitude");
     }
   };
 
-  const handleEditHabit = (habit: HabitType) => {
+  const handleEditHabit = (habit: Habit) => {
     setCurrentHabit(habit);
     setFormValues({
       title: habit.title,
       description: habit.description || '',
       frequency: habit.frequency as 'daily' | 'weekly',
-      target: habit.target,
+      target: habit.target_days?.length || 7,
       category: habit.category || 'health'
     });
     setIsEditMode(true);
@@ -140,27 +158,27 @@ const HabitsPage = () => {
 
   const handleDeleteHabit = async (id: string) => {
     try {
-      await deleteHabit(id);
-      setHabits(habits.filter(habit => habit.id !== id));
-      // Pas de toast ici
+      deleteItem(id);
+      toast.success("Habitude supprimée avec succès");
     } catch (error) {
       console.error("Error deleting habit:", error);
-      // Pas de toast ici
+      toast.error("Erreur lors de la suppression de l'habitude");
     }
   };
 
-  const updateHabitStreak = async (habit: HabitType) => {
+  const updateHabitStreak = async (habit: Habit) => {
     try {
-      const updatedHabit = await updateHabit(habit.id, {
-        streak: habit.streak + 1,
-        last_completed_at: new Date().toISOString()
+      const updatedHabit = updateItem(habit.id, {
+        streak: (habit.streak || 0) + 1,
+        last_completed: new Date().toISOString()
       });
       
-      setHabits(habits.map(h => h.id === updatedHabit.id ? updatedHabit : h));
-      // Pas de toast ici
+      if (updatedHabit) {
+        toast.success("Habitude complétée ! Streak mise à jour");
+      }
     } catch (error) {
       console.error("Error updating habit streak:", error);
-      // Pas de toast ici
+      toast.error("Erreur lors de la mise à jour du streak");
     }
   };
 
@@ -283,7 +301,7 @@ const HabitsPage = () => {
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {loading ? (
-            // États de chargement
+            // Loading states
             Array(3).fill(0).map((_, index) => (
               <Card key={index} className="animate-pulse">
                 <CardHeader className="pb-2">
@@ -324,7 +342,7 @@ const HabitsPage = () => {
                     </DropdownMenu>
                   </div>
                   <CardDescription>
-                    {habit.frequency === 'daily' ? 'Quotidien' : 'Hebdomadaire'} • {habit.streak} jours
+                    {habit.frequency === 'daily' ? 'Quotidien' : 'Hebdomadaire'} • {habit.streak || 0} jours
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
