@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -68,7 +69,7 @@ const TasksPage = () => {
       description: newTask.description || '',
       completed: false,
       status: 'todo',
-      due_date: newTask.dueDate,
+      due_date: newTask.due_date,
       priority: newTask.priority as 'low' | 'medium' | 'high',
       category: newTask.category,
       user_id: currentUser?.uid
@@ -211,15 +212,15 @@ const TasksPage = () => {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
-                      <label htmlFor="dueDate" className="text-sm font-medium">
+                      <label htmlFor="due_date" className="text-sm font-medium">
                         Échéance
                       </label>
                       <Input
-                        id="dueDate"
+                        id="due_date"
                         type="date"
-                        value={newTask.dueDate}
+                        value={newTask.due_date}
                         onChange={(e) =>
-                          setNewTask({ ...newTask, dueDate: e.target.value })
+                          setNewTask({ ...newTask, due_date: e.target.value })
                         }
                       />
                     </div>
@@ -419,7 +420,7 @@ const TasksPage = () => {
                                 {task.description}
                               </p>
                             )}
-                            {task.dueDate && (
+                            {task.due_date && (
                               <div
                                 className={`flex items-center text-xs mt-2 ${
                                   task.completed
@@ -429,7 +430,7 @@ const TasksPage = () => {
                               >
                                 <CalendarClock className="h-3 w-3 mr-1" />
                                 Échéance:{' '}
-                                {new Date(task.dueDate).toLocaleDateString(
+                                {new Date(task.due_date).toLocaleDateString(
                                   'fr-FR',
                                   {
                                     year: 'numeric',
