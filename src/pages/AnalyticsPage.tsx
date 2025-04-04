@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -11,6 +12,7 @@ import { getAllHabits, Habit } from '@/services/habitService';
 import { getUserFocusData, getFocusSessions } from '@/services/focusService';
 import { Skeleton } from '@/components/ui/skeleton';
 
+// Define internal types for the analytics page
 interface AnalyticsTask {
   id: string;
   title: string;
@@ -68,6 +70,7 @@ const AnalyticsPage = () => {
         setHasData(tasks.length > 0 || habits.length > 0 || (focusData && focusData.completedSessions > 0));
         
         if (tasks.length > 0) {
+          // Map service Task to AnalyticsTask, converting 'in_progress' to 'in-progress'
           const analyticsTasks: AnalyticsTask[] = tasks.map(task => ({
             id: task.id,
             title: task.title,
@@ -81,13 +84,14 @@ const AnalyticsPage = () => {
         }
         
         if (habits.length > 0) {
+          // Map service Habit to AnalyticsHabit with the additional properties needed
           const analyticsHabits: AnalyticsHabit[] = habits.map(habit => ({
             id: habit.id,
             name: habit.title,
             description: habit.description,
             frequency: [habit.frequency],
             streak: habit.streak,
-            total_completions: habit.streak,
+            total_completions: habit.streak || 0,
             created_at: habit.created_at || '',
             completed_today: habit.last_completed ? new Date(habit.last_completed).toDateString() === new Date().toDateString() : false,
             last_completed: habit.last_completed,
@@ -176,16 +180,30 @@ const AnalyticsPage = () => {
   };
   
   const generateInsightMessage = (tasks: Task[], habits: Habit[], focusData: any) => {
-    if (tasks.length === 0 && habits.length === 0 && (!focusData || focusData.completedSessions === 0)) {
+    // Convert the Task[] to match expected internal types first
+    const analyzedTasks = tasks.map(task => ({
+      ...task,
+      status: task.status === 'in_progress' ? 'in-progress' : task.status
+    } as unknown as AnalyticsTask));
+    
+    // Convert Habits to match expected internal types
+    const analyzedHabits = habits.map(habit => ({
+      ...habit,
+      name: habit.title,
+      total_completions: habit.streak || 0,
+      completed_today: habit.last_completed ? new Date(habit.last_completed).toDateString() === new Date().toDateString() : false,
+    } as unknown as AnalyticsHabit));
+    
+    if (analyzedTasks.length === 0 && analyzedHabits.length === 0 && (!focusData || focusData.completedSessions === 0)) {
       setInsightMessage("Commencez à utiliser les fonctionnalités de l'application pour obtenir des insights personnalisés sur votre productivité.");
       return;
     }
     
     let message = "";
     
-    if (tasks.length > 0) {
-      const completedTasks = tasks.filter(t => t.status === 'done').length;
-      const completionRate = (completedTasks / tasks.length) * 100;
+    if (analyzedTasks.length > 0) {
+      const completedTasks = analyzedTasks.filter(t => t.status === 'done').length;
+      const completionRate = (completedTasks / analyzedTasks.length) * 100;
       
       if (completionRate >= 70) {
         message += "Excellent travail ! Vous avez complété plus de 70% de vos tâches. ";
@@ -195,15 +213,15 @@ const AnalyticsPage = () => {
         message += "Vous avez quelques tâches en attente. Essayez de prioriser pour augmenter votre productivité. ";
       }
       
-      const highPriorityTasks = tasks.filter(t => t.priority === 'high' && t.status !== 'done').length;
+      const highPriorityTasks = analyzedTasks.filter(t => t.priority === 'high' && t.status !== 'done').length;
       if (highPriorityTasks > 0) {
         message += `Il vous reste ${highPriorityTasks} tâche(s) à haute priorité à compléter. `;
       }
     }
     
-    if (habits.length > 0) {
-      const completedHabits = habits.filter(h => h.completed_today).length;
-      const habitCompletionRate = (completedHabits / habits.length) * 100;
+    if (analyzedHabits.length > 0) {
+      const completedHabits = analyzedHabits.filter(h => h.completed_today).length;
+      const habitCompletionRate = (completedHabits / analyzedHabits.length) * 100;
       
       if (habitCompletionRate >= 80) {
         message += "Vos habitudes sont bien maintenues, excellent travail ! ";
@@ -213,7 +231,7 @@ const AnalyticsPage = () => {
         message += "N'oubliez pas de maintenir vos habitudes régulièrement pour progresser. ";
       }
       
-      const highStreak = Math.max(...habits.map(h => h.streak));
+      const highStreak = Math.max(...analyzedHabits.map(h => h.streak));
       if (highStreak >= 7) {
         message += `Votre plus longue série est de ${highStreak} jours, continuez ! `;
       }
