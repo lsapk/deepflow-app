@@ -12,7 +12,7 @@ import { DashboardActivity } from '@/components/DashboardActivity';
 import { getDoc, doc, collection, query, where, limit, getDocs } from 'firebase/firestore';
 import { db } from '@/services/firebase';
 import { getAllTasks } from '@/services/taskService';
-import { getAllHabits } from '@/services/habitService';
+import { getAllHabits, Habit } from '@/services/habitService';
 import { getFocusSessions } from '@/services/focusService';
 
 const Dashboard = () => {
@@ -48,7 +48,14 @@ const Dashboard = () => {
           
           // Charger les habitudes
           const habits = await getAllHabits();
-          const completedHabits = habits.filter(habit => habit.completed_today).length;
+          // Check if a habit was completed today by looking at last_completed
+          const completedHabits = habits.filter(habit => {
+            if (!habit.last_completed) return false;
+            const completedDate = new Date(habit.last_completed);
+            completedDate.setHours(0, 0, 0, 0);
+            return completedDate.getTime() === today.getTime();
+          }).length;
+          
           setHabitsStats({
             completed: completedHabits,
             total: habits.length

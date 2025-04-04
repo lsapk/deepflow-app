@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -7,12 +6,12 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import AIAssistant from '@/components/analytics/AIAssistant';
 import { useAuth } from '@/contexts/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { getAllTasks } from '@/services/taskService';
-import { getAllHabits } from '@/services/habitService';
+import { getAllTasks, Task } from '@/services/taskService';
+import { getAllHabits, Habit } from '@/services/habitService';
 import { getUserFocusData, getFocusSessions } from '@/services/focusService';
 import { Skeleton } from '@/components/ui/skeleton';
 
-interface Task {
+interface AnalyticsTask {
   id: string;
   title: string;
   description?: string;
@@ -23,7 +22,7 @@ interface Task {
   tags?: string[];
 }
 
-interface Habit {
+interface AnalyticsHabit {
   id: string;
   name: string;
   description?: string;
@@ -60,30 +59,47 @@ const AnalyticsPage = () => {
       }
       
       try {
-        // Récupérer les tâches
         const tasks = await getAllTasks();
         
-        // Récupérer les habitudes
         const habits = await getAllHabits();
         
-        // Récupérer les données de focus
         const focusData = await getUserFocusData(currentUser.uid);
         
         setHasData(tasks.length > 0 || habits.length > 0 || (focusData && focusData.completedSessions > 0));
         
         if (tasks.length > 0) {
-          processTaskData(tasks);
+          const analyticsTasks: AnalyticsTask[] = tasks.map(task => ({
+            id: task.id,
+            title: task.title,
+            description: task.description,
+            priority: task.priority,
+            status: task.status === 'in_progress' ? 'in-progress' : task.status as any,
+            due_date: task.due_date,
+            created_at: task.created_at,
+          }));
+          processTaskData(analyticsTasks);
         }
         
         if (habits.length > 0) {
-          processHabitData(habits);
+          const analyticsHabits: AnalyticsHabit[] = habits.map(habit => ({
+            id: habit.id,
+            name: habit.title,
+            description: habit.description,
+            frequency: [habit.frequency],
+            streak: habit.streak,
+            total_completions: habit.streak,
+            created_at: habit.created_at || '',
+            completed_today: habit.last_completed ? new Date(habit.last_completed).toDateString() === new Date().toDateString() : false,
+            last_completed: habit.last_completed,
+            category: habit.category
+          }));
+          processHabitData(analyticsHabits);
         }
         
         if (focusData) {
           processFocusData(focusData);
         }
         
-        // Générer un message d'insight basé sur les données
         generateInsightMessage(tasks, habits, focusData);
         
         setLoading(false);
@@ -96,48 +112,40 @@ const AnalyticsPage = () => {
     loadData();
   }, [currentUser]);
   
-  const processTaskData = (tasks: Task[]) => {
-    // Données par statut
+  const processTaskData = (tasks: AnalyticsTask[]) => {
     const statusCounts = {
       'todo': 0,
       'in-progress': 0,
       'done': 0
     };
     
-    // Données par priorité
     const priorityCounts = {
       'low': 0,
       'medium': 0,
       'high': 0
     };
     
-    // Données par jour de la semaine
     const weekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
     const weeklyData = weekDays.map(day => ({ name: day, tasks: 0 }));
     
     tasks.forEach(task => {
-      // Compter par statut
       statusCounts[task.status]++;
       
-      // Compter par priorité
       priorityCounts[task.priority]++;
       
-      // Compter par jour de la semaine
       if (task.due_date) {
         const dueDate = new Date(task.due_date);
-        const dayIndex = (dueDate.getDay() + 6) % 7; // Convertir 0=Dimanche à 0=Lundi
+        const dayIndex = (dueDate.getDay() + 6) % 7;
         weeklyData[dayIndex].tasks++;
       }
     });
     
-    // Convertir les données de statut pour le graphique
     const statusDataForChart = [
       { name: 'À faire', value: statusCounts['todo'] },
       { name: 'En cours', value: statusCounts['in-progress'] },
       { name: 'Terminées', value: statusCounts['done'] }
     ];
     
-    // Convertir les données de priorité pour le graphique
     const priorityDataForChart = [
       { name: 'Basse', value: priorityCounts['low'] },
       { name: 'Moyenne', value: priorityCounts['medium'] },
@@ -149,8 +157,7 @@ const AnalyticsPage = () => {
     setPriorityData(priorityDataForChart);
   };
   
-  const processHabitData = (habits: Habit[]) => {
-    // Données de complétion des habitudes
+  const processHabitData = (habits: AnalyticsHabit[]) => {
     const completionData = [
       { name: 'Complétées', value: habits.filter(h => h.completed_today).length },
       { name: 'Non complétées', value: habits.filter(h => !h.completed_today).length }
@@ -160,7 +167,6 @@ const AnalyticsPage = () => {
   };
   
   const processFocusData = (focusData: any) => {
-    // Données de temps de focus
     const focusTimeDataForChart = [
       { name: 'Sessions terminées', value: focusData.completedSessions },
       { name: 'Temps total (min)', value: focusData.totalTimeMinutes }
@@ -177,7 +183,6 @@ const AnalyticsPage = () => {
     
     let message = "";
     
-    // Insights basés sur les tâches
     if (tasks.length > 0) {
       const completedTasks = tasks.filter(t => t.status === 'done').length;
       const completionRate = (completedTasks / tasks.length) * 100;
@@ -196,7 +201,6 @@ const AnalyticsPage = () => {
       }
     }
     
-    // Insights basés sur les habitudes
     if (habits.length > 0) {
       const completedHabits = habits.filter(h => h.completed_today).length;
       const habitCompletionRate = (completedHabits / habits.length) * 100;
@@ -215,7 +219,6 @@ const AnalyticsPage = () => {
       }
     }
     
-    // Insights basés sur focus
     if (focusData && focusData.completedSessions > 0) {
       message += `Vous avez complété ${focusData.completedSessions} session(s) de focus, pour un total de ${focusData.totalTimeMinutes} minutes. `;
       
@@ -250,7 +253,9 @@ const AnalyticsPage = () => {
           </p>
         </div>
 
-        <AIAssistant message={insightMessage} />
+        <div>
+          <AIAssistant message={insightMessage} />
+        </div>
 
         {loading ? (
           <div className="space-y-4">

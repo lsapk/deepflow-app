@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,9 +8,9 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useHabits } from '@/services/habitService';
+import { useHabits, Habit } from '@/services/habitService';
 
-interface Habit {
+interface ComponentHabit {
   id: string;
   title: string;
   description?: string;
@@ -25,7 +24,7 @@ interface Habit {
 }
 
 export const HabitsWidget = () => {
-  const [habits, setHabits] = useState<Habit[]>([]);
+  const [habits, setHabits] = useState<ComponentHabit[]>([]);
   const [loading, setLoading] = useState(true);
   const { currentUser } = useAuth();
   const navigate = useNavigate();
@@ -35,24 +34,35 @@ export const HabitsWidget = () => {
       try {
         setLoading(true);
         
-        // Use the local IndexedDB storage if available
         const { data: localHabits } = useHabits();
         
         if (localHabits && localHabits.length > 0) {
-          const formattedHabits = localHabits.map(habit => ({
-            id: habit.id,
-            title: habit.title,
-            description: habit.description,
-            frequency: habit.frequency,
-            streak: habit.streak,
-            target: habit.target_days?.length || 7,
-            userId: habit.user_id || currentUser?.uid || 'anonymous',
-            completed: false
-          })) as Habit[];
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          
+          const formattedHabits = localHabits.map(habit => {
+            let completed = false;
+            if (habit.last_completed) {
+              const lastCompleted = new Date(habit.last_completed);
+              lastCompleted.setHours(0, 0, 0, 0);
+              completed = lastCompleted.getTime() === today.getTime();
+            }
+            
+            return {
+              id: habit.id,
+              title: habit.title,
+              description: habit.description,
+              frequency: habit.frequency === 'monthly' ? 'weekly' : habit.frequency,
+              streak: habit.streak,
+              target: habit.target_days?.length || 7,
+              userId: habit.user_id || currentUser?.uid || 'anonymous',
+              completed,
+              lastCompletedAt: habit.last_completed
+            };
+          }) as ComponentHabit[];
           
           setHabits(formattedHabits);
         } else {
-          // If no local habits, use mock data for demonstration
           setHabits([
             {
               id: '1',
@@ -78,7 +88,6 @@ export const HabitsWidget = () => {
         }
       } catch (error) {
         console.error("Erreur lors du chargement des habitudes:", error);
-        // Use fallback mock data
         setHabits([
           {
             id: '1',
@@ -101,7 +110,6 @@ export const HabitsWidget = () => {
   
   const completeHabit = async (habitId: string) => {
     try {
-      // Find the habit and update it locally
       const updatedHabits = habits.map(habit => 
         habit.id === habitId ? { ...habit, streak: habit.streak + 1, completed: true } : habit
       );
