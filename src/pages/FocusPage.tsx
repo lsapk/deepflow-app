@@ -7,12 +7,13 @@ import { Progress } from '@/components/ui/progress';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Clock, Play, Pause, RotateCcw, CheckCircle2, BellRing, Volume2 } from 'lucide-react';
+import { Clock, Play, Pause, RotateCcw, CheckCircle2, Volume2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { doc, setDoc, increment, getDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/services/firebase';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const alarmSound = new Audio('/alarm.mp3');
 
@@ -27,8 +28,9 @@ const FocusPage = () => {
   const [playSound, setPlaySound] = useState(true);
   const [showNotification, setShowNotification] = useState(true);
   const [volume, setVolume] = useState(70);
-  const intervalRef = useRef<number | null>(null);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<Date | null>(null);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     // Load user preferences and stats
@@ -77,16 +79,18 @@ const FocusPage = () => {
   useEffect(() => {
     if (isActive && !isPaused) {
       startTimeRef.current = new Date();
-      intervalRef.current = window.setInterval(() => {
-        setTime((time) => {
-          if (time <= 1) {
-            clearInterval(intervalRef.current as number);
+      intervalRef.current = setInterval(() => {
+        setTime((prevTime) => {
+          if (prevTime <= 1) {
+            if (intervalRef.current) {
+              clearInterval(intervalRef.current);
+            }
             setIsActive(false);
             setIsPaused(false);
             sessionComplete();
             return selectedTime * 60;
           }
-          return time - 1;
+          return prevTime - 1;
         });
       }, 1000);
     } else {
@@ -416,20 +420,22 @@ const FocusPage = () => {
               </CardContent>
             </Card>
             
-            <Card>
-              <CardHeader>
-                <CardTitle>Conseils</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="text-sm text-gray-500 dark:text-gray-400 space-y-1">
-                  <li>• Éliminez les distractions pendant les sessions</li>
-                  <li>• Prenez une courte pause entre les sessions</li>
-                  <li>• Définissez un objectif clair pour chaque session</li>
-                  <li>• Alternez 25 minutes de travail et 5 minutes de pause</li>
-                  <li>• Après 4 sessions, prenez une pause plus longue</li>
-                </ul>
-              </CardContent>
-            </Card>
+            {!isMobile && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Conseils</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ul className="text-sm text-gray-500 dark:text-gray-400 space-y-1">
+                    <li>• Éliminez les distractions pendant les sessions</li>
+                    <li>• Prenez une courte pause entre les sessions</li>
+                    <li>• Définissez un objectif clair pour chaque session</li>
+                    <li>• Alternez 25 minutes de travail et 5 minutes de pause</li>
+                    <li>• Après 4 sessions, prenez une pause plus longue</li>
+                  </ul>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       </div>

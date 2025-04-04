@@ -4,11 +4,12 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Sparkles, TrendingUp, TrendingDown, ArrowRight, Calendar, Target, Brain } from 'lucide-react';
+import { Sparkles, TrendingUp, TrendingDown, ArrowRight, Calendar, Target, Brain, AlertCircle } from 'lucide-react';
 import { motion } from "framer-motion";
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { useIndexedDB } from '@/hooks/use-indexed-db';
 
 interface AIInsightProps {
   title?: string;
@@ -37,75 +38,179 @@ export const AIInsightCard: React.FC<AIInsightProps> = ({
   const [showAll, setShowAll] = useState(false);
   const [insights, setInsights] = useState<InsightItem[]>([]);
   const [lastUpdated, setLastUpdated] = useState(new Date());
+  const [loading, setLoading] = useState(true);
+  const [hasData, setHasData] = useState(false);
 
-  // Generate insights based on type and user data
+  // Récupérer les données depuis IndexedDB
+  const { data: tasksData } = useIndexedDB<any>({ 
+    storeName: 'tasks', 
+    initialData: [] 
+  });
+  
+  const { data: habitsData } = useIndexedDB<any>({ 
+    storeName: 'habits', 
+    initialData: [] 
+  });
+  
+  const { data: journalData } = useIndexedDB<any>({ 
+    storeName: 'journal', 
+    initialData: [] 
+  });
+  
+  const { data: planningData } = useIndexedDB<any>({ 
+    storeName: 'planning', 
+    initialData: [] 
+  });
+
+  // Generate insights based on real data
   useEffect(() => {
-    if (!currentUser) return;
-
-    // In a real app, this would come from an API call or database
-    // For now, we'll use mock data based on the insight type
-    generateInsights();
+    setLoading(true);
     
-    // Set last updated to current time
+    // Vérifier si nous avons des données
+    const hasAnyData = (
+      (tasksData && tasksData.length > 0) || 
+      (habitsData && habitsData.length > 0) || 
+      (journalData && journalData.length > 0) || 
+      (planningData && planningData.length > 0)
+    );
+    
+    setHasData(hasAnyData);
+    
+    if (!hasAnyData) {
+      setInsights([]);
+      setLoading(false);
+      return;
+    }
+
+    // Générer des insights basés sur les données réelles
+    const generatedInsights: InsightItem[] = [];
+    
+    // Insights sur les habitudes
+    if (habitsData && habitsData.length > 0 && (type === 'habits' || type === 'general')) {
+      // Trouver la meilleure habitude (celle avec le streak le plus élevé)
+      const bestHabit = habitsData.reduce((prev: any, current: any) => 
+        (prev.streak > current.streak) ? prev : current, { streak: 0 });
+      
+      if (bestHabit && bestHabit.streak > 0) {
+        generatedInsights.push({
+          id: 'habit-streak',
+          text: `Vous avez maintenu l'habitude "${bestHabit.title}" pendant ${bestHabit.streak} jours consécutifs`,
+          category: 'Habitudes',
+          trend: 'up',
+          value: bestHabit.streak,
+          recommendation: 'Continuez sur cette lancée pour atteindre votre objectif !',
+          priority: bestHabit.streak > 5 ? 'high' : 'medium'
+        });
+      }
+      
+      // Habitude à améliorer
+      const habitToImprove = habitsData.find((h: any) => h.streak === 0 || h.streak < 3);
+      if (habitToImprove) {
+        generatedInsights.push({
+          id: 'habit-improve',
+          text: `Votre habitude "${habitToImprove.title}" pourrait être renforcée`,
+          category: 'Habitudes',
+          trend: 'down',
+          value: habitToImprove.streak,
+          recommendation: 'Essayez de vous créer un rappel quotidien pour cette habitude',
+          priority: 'medium'
+        });
+      }
+      
+      // Nombre total d'habitudes actives
+      if (habitsData.length >= 3) {
+        generatedInsights.push({
+          id: 'habit-count',
+          text: `Vous suivez actuellement ${habitsData.length} habitudes, c'est bien !`,
+          category: 'Habitudes',
+          trend: 'neutral',
+          recommendation: 'Concentrez-vous sur celles qui sont les plus importantes pour vous',
+          priority: 'low'
+        });
+      }
+    }
+    
+    // Insights sur les tâches
+    if (tasksData && tasksData.length > 0 && (type === 'productivity' || type === 'general')) {
+      const completedTasks = tasksData.filter((t: any) => t.completed);
+      const pendingTasks = tasksData.filter((t: any) => !t.completed);
+      const completionRate = tasksData.length > 0 ? Math.round((completedTasks.length / tasksData.length) * 100) : 0;
+      
+      if (completionRate > 0) {
+        generatedInsights.push({
+          id: 'task-completion',
+          text: `Votre taux de complétion des tâches est de ${completionRate}%`,
+          category: 'Productivité',
+          trend: completionRate > 50 ? 'up' : 'neutral',
+          value: completionRate,
+          recommendation: completionRate < 50 ? 'Essayez de diviser vos grandes tâches en plus petites sous-tâches' : 'Bon travail, continuez comme ça !',
+          priority: completionRate > 70 ? 'high' : 'medium'
+        });
+      }
+      
+      // Tâches en retard
+      const today = new Date();
+      const overdueTasks = pendingTasks.filter((t: any) => {
+        if (!t.due_date) return false;
+        const dueDate = new Date(t.due_date);
+        return dueDate < today;
+      });
+      
+      if (overdueTasks.length > 0) {
+        generatedInsights.push({
+          id: 'overdue-tasks',
+          text: `Vous avez ${overdueTasks.length} tâche${overdueTasks.length > 1 ? 's' : ''} en retard`,
+          category: 'Productivité',
+          trend: 'down',
+          value: overdueTasks.length,
+          recommendation: 'Réévaluez leur priorité ou programmez un moment dédié pour les terminer',
+          priority: 'high'
+        });
+      }
+    }
+    
+    // Insights sur le journal
+    if (journalData && journalData.length > 0 && type === 'general') {
+      // Fréquence d'écriture
+      const writingFrequency = journalData.length;
+      if (writingFrequency > 3) {
+        generatedInsights.push({
+          id: 'journal-frequency',
+          text: `Vous avez écrit ${writingFrequency} entrées dans votre journal, bravo !`,
+          category: 'Bien-être',
+          trend: 'up',
+          recommendation: 'La régularité dans la tenue de journal contribue à une meilleure clarté mentale',
+          priority: 'medium'
+        });
+      }
+    }
+    
+    // Insights sur le planning
+    if (planningData && planningData.length > 0 && (type === 'goals' || type === 'general')) {
+      const upcomingEvents = planningData.filter((event: any) => {
+        if (!event.date) return false;
+        const eventDate = new Date(event.date);
+        const today = new Date();
+        return eventDate > today;
+      });
+      
+      if (upcomingEvents.length > 0) {
+        generatedInsights.push({
+          id: 'upcoming-events',
+          text: `Vous avez ${upcomingEvents.length} événement${upcomingEvents.length > 1 ? 's' : ''} à venir`,
+          category: 'Objectifs',
+          trend: 'neutral',
+          value: upcomingEvents.length,
+          recommendation: 'Assurez-vous de prévoir du temps de préparation pour chaque événement',
+          priority: 'medium'
+        });
+      }
+    }
+    
+    setInsights(generatedInsights);
     setLastUpdated(new Date());
-  }, [currentUser, type, data]);
-
-  const generateInsights = () => {
-    // Simulate loading insights from user data
-    // In a real implementation, this would come from analyzing user data
-    
-    const mockInsights: InsightItem[] = [];
-    
-    if (type === 'productivity' || type === 'general') {
-      mockInsights.push({
-        id: '1',
-        text: 'Votre productivité a augmenté de 15% cette semaine',
-        category: 'Productivité',
-        trend: 'up',
-        value: 15,
-        recommendation: 'Continuez avec vos sessions de focus quotidiennes',
-        priority: 'high'
-      });
-    }
-    
-    if (type === 'habits' || type === 'general') {
-      mockInsights.push({
-        id: '2',
-        text: 'Vous avez maintenu votre habitude de lecture pendant 7 jours consécutifs',
-        category: 'Habitudes',
-        trend: 'up',
-        value: 7,
-        recommendation: 'Essayez d\'augmenter légèrement votre durée de lecture',
-        priority: 'medium'
-      });
-    }
-    
-    if (type === 'goals' || type === 'general') {
-      mockInsights.push({
-        id: '3',
-        text: 'Vous êtes à 60% de votre objectif mensuel principal',
-        category: 'Objectifs',
-        trend: 'neutral',
-        value: 60,
-        recommendation: 'Concentrez-vous sur les tâches à forte valeur pour progresser plus rapidement',
-        priority: 'high'
-      });
-    }
-    
-    if (type === 'general') {
-      mockInsights.push({
-        id: '4',
-        text: 'Votre temps de sommeil moyen a diminué de 30 minutes',
-        category: 'Bien-être',
-        trend: 'down',
-        value: 30,
-        recommendation: 'Essayez de vous coucher 30 minutes plus tôt',
-        priority: 'medium'
-      });
-    }
-    
-    setInsights(mockInsights);
-  };
+    setLoading(false);
+  }, [currentUser, type, tasksData, habitsData, journalData, planningData]);
 
   const getTrendIcon = (trend?: 'up' | 'down' | 'neutral') => {
     switch(trend) {
@@ -146,8 +251,8 @@ export const AIInsightCard: React.FC<AIInsightProps> = ({
     }
   };
 
-  // Display placeholder for new users with no data
-  if (insights.length === 0) {
+  // Afficher un message lorsqu'il n'y a pas de données
+  if (loading) {
     return (
       <Card>
         <CardHeader className="pb-2">
@@ -159,10 +264,31 @@ export const AIInsightCard: React.FC<AIInsightProps> = ({
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center justify-center py-6 text-center">
-            <Brain className="h-12 w-12 text-gray-300 dark:text-gray-600 mb-3" />
-            <h3 className="text-lg font-medium mb-2">Pas encore d'analyses disponibles</h3>
+            <div className="animate-spin h-8 w-8 border-t-2 border-b-2 border-primary rounded-full mb-3"></div>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Analyse en cours...</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Display placeholder for new users with no data
+  if (!hasData || insights.length === 0) {
+    return (
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-xl flex items-center">
+            <Sparkles className="h-5 w-5 mr-2 text-primary" />
+            {title}
+          </CardTitle>
+          <CardDescription>{description}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col items-center justify-center py-6 text-center">
+            <AlertCircle className="h-12 w-12 text-gray-300 dark:text-gray-600 mb-3" />
+            <h3 className="text-lg font-medium mb-2">Pas encore de données disponibles</h3>
             <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs">
-              Continuez à utiliser DeepFlow pour recevoir des analyses personnalisées et des recommandations basées sur vos données.
+              Ajoutez des tâches, habitudes ou entrées de journal pour recevoir des analyses personnalisées.
             </p>
           </div>
         </CardContent>
