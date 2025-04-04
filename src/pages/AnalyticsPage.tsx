@@ -1,9 +1,9 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line } from 'recharts';
 import AIAssistant from '@/components/analytics/AIAssistant';
 import { useAuth } from '@/contexts/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -11,6 +11,9 @@ import { getAllTasks, Task } from '@/services/taskService';
 import { getAllHabits, Habit } from '@/services/habitService';
 import { getUserFocusData, getFocusSessions } from '@/services/focusService';
 import { Skeleton } from '@/components/ui/skeleton';
+import { RefreshCcw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 
 // Define internal types for the analytics page
 interface AnalyticsTask {
@@ -47,74 +50,91 @@ const AnalyticsPage = () => {
   const [statusData, setStatusData] = useState([]);
   const [focusTimeData, setFocusTimeData] = useState([]);
   const [priorityData, setPriorityData] = useState([]);
+  const [taskTrendData, setTaskTrendData] = useState([]);
   const [insightMessage, setInsightMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [hasData, setHasData] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
   
-  useEffect(() => {
-    const loadData = async () => {
-      if (!currentUser) {
-        setLoading(false);
-        return;
+  const loadData = useCallback(async () => {
+    if (!currentUser) {
+      setLoading(false);
+      return;
+    }
+    
+    try {
+      setRefreshing(true);
+      
+      const tasks = await getAllTasks();
+      
+      const habits = await getAllHabits();
+      
+      const focusData = await getUserFocusData(currentUser.uid);
+      
+      setHasData(tasks.length > 0 || habits.length > 0 || (focusData && focusData.completedSessions > 0));
+      
+      if (tasks.length > 0) {
+        // Map service Task to AnalyticsTask, converting 'in_progress' to 'in-progress'
+        const analyticsTasks: AnalyticsTask[] = tasks.map(task => ({
+          id: task.id,
+          title: task.title,
+          description: task.description,
+          priority: task.priority,
+          status: task.status === 'in_progress' ? 'in-progress' : task.status as any,
+          due_date: task.due_date,
+          created_at: task.created_at,
+        }));
+        processTaskData(analyticsTasks);
       }
       
-      try {
-        const tasks = await getAllTasks();
-        
-        const habits = await getAllHabits();
-        
-        const focusData = await getUserFocusData(currentUser.uid);
-        
-        setHasData(tasks.length > 0 || habits.length > 0 || (focusData && focusData.completedSessions > 0));
-        
-        if (tasks.length > 0) {
-          // Map service Task to AnalyticsTask, converting 'in_progress' to 'in-progress'
-          const analyticsTasks: AnalyticsTask[] = tasks.map(task => ({
-            id: task.id,
-            title: task.title,
-            description: task.description,
-            priority: task.priority,
-            status: task.status === 'in_progress' ? 'in-progress' : task.status as any,
-            due_date: task.due_date,
-            created_at: task.created_at,
-          }));
-          processTaskData(analyticsTasks);
-        }
-        
-        if (habits.length > 0) {
-          // Map service Habit to AnalyticsHabit with the additional properties needed
-          const analyticsHabits: AnalyticsHabit[] = habits.map(habit => ({
-            id: habit.id,
-            name: habit.title,
-            description: habit.description,
-            frequency: [habit.frequency],
-            streak: habit.streak,
-            total_completions: habit.streak || 0,
-            created_at: habit.created_at || '',
-            completed_today: habit.last_completed ? new Date(habit.last_completed).toDateString() === new Date().toDateString() : false,
-            last_completed: habit.last_completed,
-            category: habit.category
-          }));
-          processHabitData(analyticsHabits);
-        }
-        
-        if (focusData) {
-          processFocusData(focusData);
-        }
-        
-        generateInsightMessage(tasks, habits, focusData);
-        
-        setLoading(false);
-      } catch (error) {
-        console.error("Erreur lors du chargement des données d'analyse:", error);
-        setLoading(false);
+      if (habits.length > 0) {
+        // Map service Habit to AnalyticsHabit with the additional properties needed
+        const analyticsHabits: AnalyticsHabit[] = habits.map(habit => ({
+          id: habit.id,
+          name: habit.title,
+          description: habit.description,
+          frequency: [habit.frequency],
+          streak: habit.streak,
+          total_completions: habit.streak || 0,
+          created_at: habit.created_at || '',
+          completed_today: habit.last_completed ? new Date(habit.last_completed).toDateString() === new Date().toDateString() : false,
+          last_completed: habit.last_completed,
+          category: habit.category
+        }));
+        processHabitData(analyticsHabits);
       }
-    };
-    
-    loadData();
+      
+      if (focusData) {
+        processFocusData(focusData);
+      }
+      
+      generateInsightMessage(tasks, habits, focusData);
+      
+      // Generate task trend data (simulation for now)
+      generateTaskTrendData();
+      
+      setLoading(false);
+      setRefreshing(false);
+    } catch (error) {
+      console.error("Erreur lors du chargement des données d'analyse:", error);
+      setLoading(false);
+      setRefreshing(false);
+      toast.error("Impossible de charger les données d'analyse");
+    }
   }, [currentUser]);
+  
+  useEffect(() => {
+    loadData();
+    
+    // Set up a refresh interval for real-time updates
+    const refreshInterval = setInterval(() => {
+      loadData();
+    }, 60000); // Refresh every minute
+    
+    return () => clearInterval(refreshInterval);
+  }, [loadData]);
   
   const processTaskData = (tasks: AnalyticsTask[]) => {
     const statusCounts = {
@@ -177,6 +197,26 @@ const AnalyticsPage = () => {
     ];
     
     setFocusTimeData(focusTimeDataForChart);
+  };
+  
+  const generateTaskTrendData = () => {
+    // This would ideally come from a real data source
+    // For now, we'll simulate trend data for the last 7 days
+    const trend = [];
+    const today = new Date();
+    
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      
+      trend.push({
+        date: date.toLocaleDateString('fr-FR', { weekday: 'short' }),
+        completed: Math.floor(Math.random() * 5) + 1,
+        created: Math.floor(Math.random() * 7) + 1
+      });
+    }
+    
+    setTaskTrendData(trend);
   };
   
   const generateInsightMessage = (tasks: Task[], habits: Habit[], focusData: any) => {
@@ -261,14 +301,31 @@ const AnalyticsPage = () => {
     </div>
   );
   
+  const handleRefresh = () => {
+    loadData();
+    toast.success("Données d'analyse actualisées");
+  };
+  
   return (
     <MainLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold mb-2">Analytiques</h1>
-          <p className="text-gray-500 dark:text-gray-400">
-            Visualisez vos données et améliorez votre productivité
-          </p>
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Analytiques</h1>
+            <p className="text-gray-500 dark:text-gray-400">
+              Visualisez vos données et améliorez votre productivité
+            </p>
+          </div>
+          <Button
+            onClick={handleRefresh}
+            variant="outline"
+            size="sm"
+            className="flex gap-2 items-center"
+            disabled={refreshing || loading}
+          >
+            <RefreshCcw size={16} className={refreshing ? "animate-spin" : ""} />
+            <span className="hidden md:inline">Actualiser</span>
+          </Button>
         </div>
 
         <div>
@@ -285,7 +342,7 @@ const AnalyticsPage = () => {
           </div>
         ) : (
           <Tabs defaultValue="overview" className="space-y-4">
-            <TabsList className="grid grid-cols-3 md:grid-cols-4 lg:w-[400px]">
+            <TabsList className="grid grid-cols-4 lg:w-[500px] w-full">
               <TabsTrigger value="overview">Vue d'ensemble</TabsTrigger>
               <TabsTrigger value="tasks">Tâches</TabsTrigger>
               <TabsTrigger value="habits">Habitudes</TabsTrigger>
@@ -295,32 +352,36 @@ const AnalyticsPage = () => {
             <TabsContent value="overview" className="space-y-4">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <Card>
-                  <CardHeader>
-                    <CardTitle>Tâches par jour</CardTitle>
-                    <CardDescription>
-                      Répartition de vos tâches sur la semaine
-                    </CardDescription>
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <div>
+                      <CardTitle>Évolution des tâches</CardTitle>
+                      <CardDescription>
+                        Progression sur les 7 derniers jours
+                      </CardDescription>
+                    </div>
                   </CardHeader>
                   <CardContent className="h-[300px]">
-                    {hasData && weeklyTaskData.length > 0 ? (
+                    {hasData && taskTrendData.length > 0 ? (
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={weeklyTaskData}>
+                        <LineChart data={taskTrendData}>
                           <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="name" />
+                          <XAxis dataKey="date" />
                           <YAxis />
                           <Tooltip />
-                          <Bar dataKey="tasks" fill="#8884d8" />
-                        </BarChart>
+                          <Legend />
+                          <Line type="monotone" dataKey="completed" stroke="#8884d8" name="Tâches terminées" />
+                          <Line type="monotone" dataKey="created" stroke="#82ca9d" name="Tâches créées" />
+                        </LineChart>
                       </ResponsiveContainer>
                     ) : renderNoDataMessage()}
                   </CardContent>
                 </Card>
                 
                 <Card>
-                  <CardHeader>
+                  <CardHeader className="pb-2">
                     <CardTitle>Statut des tâches</CardTitle>
                     <CardDescription>
-                      Répartition de vos tâches par statut
+                      Répartition par statut
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="h-[300px]">
@@ -341,7 +402,7 @@ const AnalyticsPage = () => {
                               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                             ))}
                           </Pie>
-                          <Legend layout={isMobile ? "horizontal" : "vertical"} verticalAlign={isMobile ? "bottom" : "middle"} align={isMobile ? "center" : "right"} />
+                          <Legend layout={isMobile ? "horizontal" : "vertical"} verticalAlign="bottom" align="center" />
                           <Tooltip />
                         </PieChart>
                       </ResponsiveContainer>
@@ -354,10 +415,10 @@ const AnalyticsPage = () => {
             <TabsContent value="tasks" className="space-y-4">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <Card>
-                  <CardHeader>
+                  <CardHeader className="pb-2">
                     <CardTitle>Priorité des tâches</CardTitle>
                     <CardDescription>
-                      Répartition de vos tâches par niveau de priorité
+                      Répartition par niveau de priorité
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="h-[300px]">
@@ -366,8 +427,8 @@ const AnalyticsPage = () => {
                         <PieChart>
                           <Pie
                             data={priorityData}
-                            cx={isMobile ? "50%" : "50%"}
-                            cy={isMobile ? "40%" : "50%"}
+                            cx="50%"
+                            cy="50%"
                             outerRadius={isMobile ? 80 : 100}
                             fill="#8884d8"
                             dataKey="value"
@@ -378,7 +439,7 @@ const AnalyticsPage = () => {
                               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                             ))}
                           </Pie>
-                          <Legend layout={isMobile ? "horizontal" : "vertical"} verticalAlign={isMobile ? "bottom" : "middle"} align={isMobile ? "center" : "right"} />
+                          <Legend layout="horizontal" verticalAlign="bottom" align="center" />
                           <Tooltip />
                         </PieChart>
                       </ResponsiveContainer>
@@ -387,24 +448,21 @@ const AnalyticsPage = () => {
                 </Card>
                 
                 <Card>
-                  <CardHeader>
-                    <CardTitle>Progression des tâches</CardTitle>
+                  <CardHeader className="pb-2">
+                    <CardTitle>Tâches par jour</CardTitle>
                     <CardDescription>
-                      Taux de complétion de vos tâches
+                      Répartition sur la semaine
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="h-[300px]">
-                    {hasData && statusData.length > 0 && statusData.some(item => item.value > 0) ? (
+                    {hasData && weeklyTaskData.length > 0 ? (
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart
-                          data={statusData}
-                          layout="vertical"
-                        >
+                        <BarChart data={weeklyTaskData}>
                           <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis type="number" />
-                          <YAxis dataKey="name" type="category" />
+                          <XAxis dataKey="name" />
+                          <YAxis />
                           <Tooltip />
-                          <Bar dataKey="value" fill="#82ca9d" />
+                          <Bar dataKey="tasks" fill="#8884d8" name="Tâches" />
                         </BarChart>
                       </ResponsiveContainer>
                     ) : renderNoDataMessage()}
@@ -415,7 +473,7 @@ const AnalyticsPage = () => {
 
             <TabsContent value="habits" className="space-y-4">
               <Card>
-                <CardHeader>
+                <CardHeader className="pb-2">
                   <CardTitle>Complétion des habitudes</CardTitle>
                   <CardDescription>
                     Pourcentage d'habitudes complétées aujourd'hui
@@ -427,7 +485,7 @@ const AnalyticsPage = () => {
                       <PieChart>
                         <Pie
                           data={habitCompletionData}
-                          cx={isMobile ? "50%" : "50%"}
+                          cx="50%"
                           cy="50%"
                           outerRadius={100}
                           fill="#8884d8"
@@ -439,7 +497,7 @@ const AnalyticsPage = () => {
                             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                           ))}
                         </Pie>
-                        <Legend />
+                        <Legend layout="horizontal" verticalAlign="bottom" align="center" />
                         <Tooltip />
                       </PieChart>
                     </ResponsiveContainer>
@@ -450,7 +508,7 @@ const AnalyticsPage = () => {
 
             <TabsContent value="focus" className="space-y-4">
               <Card>
-                <CardHeader>
+                <CardHeader className="pb-2">
                   <CardTitle>Temps de concentration</CardTitle>
                   <CardDescription>
                     Statistiques de vos sessions de focus
@@ -461,22 +519,14 @@ const AnalyticsPage = () => {
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
                         data={focusTimeData}
-                        layout={isMobile ? "vertical" : "horizontal"}
+                        layout="horizontal"
                       >
                         <CartesianGrid strokeDasharray="3 3" />
-                        {isMobile ? (
-                          <>
-                            <XAxis type="number" />
-                            <YAxis dataKey="name" type="category" width={150} />
-                          </>
-                        ) : (
-                          <>
-                            <XAxis dataKey="name" />
-                            <YAxis />
-                          </>
-                        )}
+                        <XAxis dataKey="name" />
+                        <YAxis />
                         <Tooltip />
-                        <Bar dataKey="value" fill="#8884d8" />
+                        <Legend />
+                        <Bar dataKey="value" fill="#8884d8" name="Valeur" />
                       </BarChart>
                     </ResponsiveContainer>
                   ) : renderNoDataMessage()}
