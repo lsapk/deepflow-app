@@ -5,67 +5,96 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { HabitsWidget } from '@/components/habits/HabitsWidget';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { CalendarClock, CheckSquare, Clock, ListTodo, Plus, BookOpen, Calendar } from 'lucide-react';
+import { CalendarClock, CheckSquare, Clock, ListTodo, BookOpen, Calendar } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { toast } from 'sonner';
+import { DashboardShortcuts } from '@/components/DashboardShortcuts';
+import { DashboardActivity } from '@/components/DashboardActivity';
+import { getDoc, doc, collection, query, where, limit, getDocs } from 'firebase/firestore';
+import { db } from '@/services/firebase';
+import { getAllTasks } from '@/services/taskService';
+import { getAllHabits } from '@/services/habitService';
+import { getFocusSessions } from '@/services/focusService';
 
 const Dashboard = () => {
-  const { currentUser, userProfile, isOnline } = useAuth();
+  const { currentUser, userProfile } = useAuth();
   const displayName = userProfile?.display_name || currentUser?.displayName || 'Utilisateur';
   const navigate = useNavigate();
   
-  const [taskCount, setTaskCount] = useState(4);
-  const [todayTaskCount, setTodayTaskCount] = useState(2);
-  const [habitsStats, setHabitsStats] = useState({ completed: 3, total: 5 });
-  const [focusStats, setFocusStats] = useState({ duration: '1h 20m', sessions: 4 });
+  const [taskCount, setTaskCount] = useState(0);
+  const [todayTaskCount, setTodayTaskCount] = useState(0);
+  const [habitsStats, setHabitsStats] = useState({ completed: 0, total: 0 });
+  const [focusStats, setFocusStats] = useState({ duration: '0h 0m', sessions: 0 });
+  const [dataLoaded, setDataLoaded] = useState(false);
   
   useEffect(() => {
-    // Simuler le chargement des données pour cette démonstration
+    // Charger les données réelles du tableau de bord
     const loadDashboardData = async () => {
       try {
-        // En production, nous chargerions les données réelles depuis Supabase ou le stockage local
-        console.log('Chargement des données du tableau de bord...');
+        if (currentUser) {
+          // Charger les tâches
+          const tasks = await getAllTasks();
+          setTaskCount(tasks.length);
+          
+          // Calculer les tâches pour aujourd'hui
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const todayTasks = tasks.filter(task => {
+            if (!task.due_date) return false;
+            const taskDate = new Date(task.due_date);
+            taskDate.setHours(0, 0, 0, 0);
+            return taskDate.getTime() === today.getTime();
+          });
+          setTodayTaskCount(todayTasks.length);
+          
+          // Charger les habitudes
+          const habits = await getAllHabits();
+          const completedHabits = habits.filter(habit => habit.completed_today).length;
+          setHabitsStats({
+            completed: completedHabits,
+            total: habits.length
+          });
+          
+          // Charger les sessions focus
+          try {
+            if (currentUser) {
+              const userFocusRef = doc(db, "userFocus", currentUser.uid);
+              const userFocusDoc = await getDoc(userFocusRef);
+              
+              if (userFocusDoc.exists()) {
+                const focusData = userFocusDoc.data();
+                const totalMinutes = focusData.totalTimeMinutes || 0;
+                const hours = Math.floor(totalMinutes / 60);
+                const minutes = totalMinutes % 60;
+                
+                setFocusStats({
+                  duration: `${hours}h ${minutes}m`,
+                  sessions: focusData.completedSessions || 0
+                });
+              }
+              
+              // Obtenir les sessions de focus pour aujourd'hui
+              const todaySessions = await getFocusSessions(currentUser.uid, today);
+              if (todaySessions) {
+                setFocusStats(prev => ({
+                  ...prev,
+                  sessions: todaySessions.length
+                }));
+              }
+            }
+          } catch (error) {
+            console.error("Erreur lors du chargement des données de focus :", error);
+          }
+          
+          setDataLoaded(true);
+        }
       } catch (error) {
         console.error('Erreur lors du chargement des données:', error);
+        setDataLoaded(true);
       }
     };
     
     loadDashboardData();
   }, [currentUser]);
-
-  const mainFeatures = [
-    {
-      title: "Tâches",
-      icon: CheckSquare,
-      path: "/tasks",
-      color: "bg-green-600 hover:bg-green-700 text-white"
-    },
-    {
-      title: "Focus",
-      icon: Clock,
-      path: "/focus",
-      color: "bg-purple-600 hover:bg-purple-700 text-white"
-    },
-    {
-      title: "Habitudes",
-      icon: ListTodo,
-      path: "/habits",
-      color: "bg-orange-600 hover:bg-orange-700 text-white"
-    },
-    {
-      title: "Journal",
-      icon: BookOpen,
-      path: "/journal",
-      color: "bg-pink-600 hover:bg-pink-700 text-white"
-    },
-    {
-      title: "Calendrier",
-      icon: Calendar,
-      path: "/planning",
-      color: "bg-indigo-600 hover:bg-indigo-700 text-white"
-    }
-  ];
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -86,10 +115,6 @@ const Dashboard = () => {
     },
   };
 
-  const handleNavigation = (path) => {
-    navigate(path);
-  };
-
   return (
     <MainLayout>
       <motion.div 
@@ -105,85 +130,19 @@ const Dashboard = () => {
               Voici le résumé de vos activités et tâches pour aujourd'hui
             </p>
           </div>
-          
-          <Button 
-            onClick={() => navigate('/tasks')} 
-            className="mt-4 md:mt-0 bg-blue-600 hover:bg-blue-700"
-          >
-            <Plus className="mr-2 h-4 w-4" /> Nouvelle tâche
-          </Button>
         </motion.div>
 
         {/* Section d'accès rapide */}
-        <motion.div variants={itemVariants} className="mt-6">
-          <h2 className="text-xl font-semibold mb-4">Accès rapide</h2>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            {mainFeatures.map((feature) => (
-              <Button
-                key={feature.title}
-                onClick={() => navigate(feature.path)}
-                className={`h-24 ${feature.color} flex flex-col items-center justify-center space-y-2 rounded-xl shadow-lg`}
-              >
-                <feature.icon className="h-8 w-8" />
-                <span className="font-medium">{feature.title}</span>
-              </Button>
-            ))}
-          </div>
-        </motion.div>
+        <DashboardShortcuts />
 
-        <motion.div variants={itemVariants} className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <Card className="hover:shadow-md transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Tâches en cours</CardTitle>
-              <CheckSquare className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{taskCount}</div>
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">
-                  {todayTaskCount} tâches à faire aujourd'hui
-                </p>
-                <Button variant="ghost" size="sm" onClick={() => navigate('/tasks')}>
-                  Voir
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="hover:shadow-md transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Habitudes complétées</CardTitle>
-              <ListTodo className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{habitsStats.completed}/{habitsStats.total}</div>
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">
-                  +20.1% par rapport à la semaine dernière
-                </p>
-                <Button variant="ghost" size="sm" onClick={() => navigate('/habits')}>
-                  Voir
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="hover:shadow-md transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Focus aujourd'hui</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{focusStats.duration}</div>
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">
-                  {focusStats.sessions} sessions de concentration
-                </p>
-                <Button variant="ghost" size="sm" onClick={() => navigate('/focus')}>
-                  Voir
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+        {/* Section d'activité */}
+        <DashboardActivity 
+          taskCount={taskCount}
+          todayTaskCount={todayTaskCount}
+          habitsStats={habitsStats}
+          focusStats={focusStats}
+          dataLoaded={dataLoaded}
+        />
 
         <motion.div variants={itemVariants} className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
           <Card className="col-span-4 hover:shadow-md transition-shadow">
@@ -196,10 +155,6 @@ const Dashboard = () => {
             <CardContent className="pl-2">
               <div className="h-[200px] flex flex-col items-center justify-center bg-muted rounded-md text-muted-foreground">
                 <p className="mb-4">Graphique hebdomadaire (Fonctionnalité en développement)</p>
-                <Button variant="outline" onClick={() => navigate('/planning')}>
-                  <CalendarClock className="mr-2 h-4 w-4" />
-                  Voir planning complet
-                </Button>
               </div>
             </CardContent>
           </Card>

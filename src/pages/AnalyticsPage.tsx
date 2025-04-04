@@ -1,544 +1,467 @@
 
 import React, { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
-import { AIInsightCard } from '@/components/analytics/AIInsightCard';
-import AIAssistant from '@/components/analytics/AIAssistant';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
+import { AIAssistant } from '@/components/analytics/AIAssistant';
+import { useAuth } from '@/contexts/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { useIndexedDB } from '@/hooks/use-indexed-db';
-import { Loader2 } from 'lucide-react';
-import { 
-  Activity, 
-  BarChart as BarChartIcon,
-  Calendar, 
-  Clock, 
-  PieChart as PieChartIcon, 
-  Target, 
-  TrendingUp, 
-  MessageSquare, 
-  Sparkles,
-  AlertCircle 
-} from 'lucide-react';
+import { getAllTasks } from '@/services/taskService';
+import { getAllHabits } from '@/services/habitService';
+import { getUserFocusData, getFocusSessions } from '@/services/focusService';
+import { Skeleton } from '@/components/ui/skeleton';
+
+interface Task {
+  id: string;
+  title: string;
+  description?: string;
+  priority: 'low' | 'medium' | 'high';
+  status: 'todo' | 'in-progress' | 'done';
+  due_date?: string;
+  created_at: string;
+  tags?: string[];
+}
+
+interface Habit {
+  id: string;
+  name: string;
+  description?: string;
+  frequency: string[];
+  streak: number;
+  total_completions: number;
+  created_at: string;
+  completed_today: boolean;
+  last_completed?: string;
+  color?: string;
+  category?: string;
+}
 
 const AnalyticsPage = () => {
-  const [activeTab, setActiveTab] = useState('insights');
+  const { currentUser } = useAuth();
   const isMobile = useIsMobile();
+  
+  const [weeklyTaskData, setWeeklyTaskData] = useState([]);
+  const [habitCompletionData, setHabitCompletionData] = useState([]);
+  const [statusData, setStatusData] = useState([]);
+  const [focusTimeData, setFocusTimeData] = useState([]);
+  const [priorityData, setPriorityData] = useState([]);
+  const [insightMessage, setInsightMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [hasData, setHasData] = useState(false);
   
-  // Données des différentes collections
-  const [productivityData, setProductivityData] = useState([]);
-  const [habitData, setHabitData] = useState([]);
-  const [focusData, setFocusData] = useState([]);
-  const [categoryData, setCategoryData] = useState([]);
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
   
-  // Récupérer les données depuis IndexedDB
-  const { data: tasksData, loading: tasksLoading } = useIndexedDB<any>({ 
-    storeName: 'tasks', 
-    initialData: [] 
-  });
-  
-  const { data: habitsData, loading: habitsLoading } = useIndexedDB<any>({ 
-    storeName: 'habits', 
-    initialData: [] 
-  });
-  
-  const { data: journalData, loading: journalLoading } = useIndexedDB<any>({ 
-    storeName: 'journal', 
-    initialData: [] 
-  });
-  
-  const { data: planningData, loading: planningLoading } = useIndexedDB<any>({ 
-    storeName: 'planning', 
-    initialData: [] 
-  });
-
-  // Traiter les données pour les visualisations
   useEffect(() => {
-    if (tasksLoading || habitsLoading || journalLoading || planningLoading) {
-      setLoading(true);
+    const loadData = async () => {
+      if (!currentUser) {
+        setLoading(false);
+        return;
+      }
+      
+      try {
+        // Récupérer les tâches
+        const tasks = await getAllTasks();
+        
+        // Récupérer les habitudes
+        const habits = await getAllHabits();
+        
+        // Récupérer les données de focus
+        const focusData = await getUserFocusData(currentUser.uid);
+        
+        setHasData(tasks.length > 0 || habits.length > 0 || (focusData && focusData.completedSessions > 0));
+        
+        if (tasks.length > 0) {
+          processTaskData(tasks);
+        }
+        
+        if (habits.length > 0) {
+          processHabitData(habits);
+        }
+        
+        if (focusData) {
+          processFocusData(focusData);
+        }
+        
+        // Générer un message d'insight basé sur les données
+        generateInsightMessage(tasks, habits, focusData);
+        
+        setLoading(false);
+      } catch (error) {
+        console.error("Erreur lors du chargement des données d'analyse:", error);
+        setLoading(false);
+      }
+    };
+    
+    loadData();
+  }, [currentUser]);
+  
+  const processTaskData = (tasks: Task[]) => {
+    // Données par statut
+    const statusCounts = {
+      'todo': 0,
+      'in-progress': 0,
+      'done': 0
+    };
+    
+    // Données par priorité
+    const priorityCounts = {
+      'low': 0,
+      'medium': 0,
+      'high': 0
+    };
+    
+    // Données par jour de la semaine
+    const weekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+    const weeklyData = weekDays.map(day => ({ name: day, tasks: 0 }));
+    
+    tasks.forEach(task => {
+      // Compter par statut
+      statusCounts[task.status]++;
+      
+      // Compter par priorité
+      priorityCounts[task.priority]++;
+      
+      // Compter par jour de la semaine
+      if (task.due_date) {
+        const dueDate = new Date(task.due_date);
+        const dayIndex = (dueDate.getDay() + 6) % 7; // Convertir 0=Dimanche à 0=Lundi
+        weeklyData[dayIndex].tasks++;
+      }
+    });
+    
+    // Convertir les données de statut pour le graphique
+    const statusDataForChart = [
+      { name: 'À faire', value: statusCounts['todo'] },
+      { name: 'En cours', value: statusCounts['in-progress'] },
+      { name: 'Terminées', value: statusCounts['done'] }
+    ];
+    
+    // Convertir les données de priorité pour le graphique
+    const priorityDataForChart = [
+      { name: 'Basse', value: priorityCounts['low'] },
+      { name: 'Moyenne', value: priorityCounts['medium'] },
+      { name: 'Haute', value: priorityCounts['high'] }
+    ];
+    
+    setWeeklyTaskData(weeklyData);
+    setStatusData(statusDataForChart);
+    setPriorityData(priorityDataForChart);
+  };
+  
+  const processHabitData = (habits: Habit[]) => {
+    // Données de complétion des habitudes
+    const completionData = [
+      { name: 'Complétées', value: habits.filter(h => h.completed_today).length },
+      { name: 'Non complétées', value: habits.filter(h => !h.completed_today).length }
+    ];
+    
+    setHabitCompletionData(completionData);
+  };
+  
+  const processFocusData = (focusData: any) => {
+    // Données de temps de focus
+    const focusTimeDataForChart = [
+      { name: 'Sessions terminées', value: focusData.completedSessions },
+      { name: 'Temps total (min)', value: focusData.totalTimeMinutes }
+    ];
+    
+    setFocusTimeData(focusTimeDataForChart);
+  };
+  
+  const generateInsightMessage = (tasks: Task[], habits: Habit[], focusData: any) => {
+    if (tasks.length === 0 && habits.length === 0 && (!focusData || focusData.completedSessions === 0)) {
+      setInsightMessage("Commencez à utiliser les fonctionnalités de l'application pour obtenir des insights personnalisés sur votre productivité.");
       return;
     }
-
-    // Vérifier si nous avons des données
-    const hasAnyData = (
-      (tasksData && tasksData.length > 0) || 
-      (habitsData && habitsData.length > 0) || 
-      (journalData && journalData.length > 0) || 
-      (planningData && planningData.length > 0)
-    );
     
-    setHasData(hasAnyData);
+    let message = "";
     
-    // Générer les données pour les graphiques
-    if (hasAnyData) {
-      // Données de productivité par jour
-      const days = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
-      const tasksByDay = Array(7).fill(0);
+    // Insights basés sur les tâches
+    if (tasks.length > 0) {
+      const completedTasks = tasks.filter(t => t.status === 'done').length;
+      const completionRate = (completedTasks / tasks.length) * 100;
       
-      if (tasksData && tasksData.length > 0) {
-        tasksData.forEach((task: any) => {
-          if (task.completed && task.completed_at) {
-            const date = new Date(task.completed_at);
-            const dayIndex = date.getDay() === 0 ? 6 : date.getDay() - 1; // Convertir 0-6 (dimanche-samedi) en 0-6 (lundi-dimanche)
-            tasksByDay[dayIndex]++;
-          }
-        });
+      if (completionRate >= 70) {
+        message += "Excellent travail ! Vous avez complété plus de 70% de vos tâches. ";
+      } else if (completionRate >= 30) {
+        message += "Vous progressez bien avec vos tâches. Continuez sur cette lancée ! ";
+      } else {
+        message += "Vous avez quelques tâches en attente. Essayez de prioriser pour augmenter votre productivité. ";
       }
       
-      const prodData = days.map((day, index) => ({
-        day,
-        score: tasksByDay[index] > 0 
-          ? Math.min(100, tasksByDay[index] * 20) // Score basé sur le nombre de tâches complétées
-          : Math.floor(Math.random() * 60) + 40 // Données aléatoires si pas de tâches ce jour-là
-      }));
-      
-      setProductivityData(prodData);
-      
-      // Données des habitudes
-      if (habitsData && habitsData.length > 0) {
-        const habitStats = habitsData.slice(0, 4).map((habit: any) => ({
-          name: habit.title,
-          completed: habit.streak || 0,
-          missed: Math.max(0, (habit.target || 7) - (habit.streak || 0))
-        }));
-        
-        setHabitData(habitStats);
-      } else {
-        // Données d'exemple
-        setHabitData([
-          { name: 'Méditation', completed: 5, missed: 2 },
-          { name: 'Lecture', completed: 7, missed: 0 },
-          { name: 'Exercice', completed: 4, missed: 3 },
-          { name: 'Eau', completed: 6, missed: 1 },
-        ]);
-      }
-      
-      // Données de focus
-      const hourlyFocus = [
-        { hour: '8:00', focus: 75 },
-        { hour: '10:00', focus: 92 },
-        { hour: '12:00', focus: 60 },
-        { hour: '14:00', focus: 65 },
-        { hour: '16:00', focus: 84 },
-        { hour: '18:00', focus: 72 },
-        { hour: '20:00', focus: 55 },
-      ];
-      
-      setFocusData(hourlyFocus);
-      
-      // Données par catégorie
-      if (tasksData && tasksData.length > 0) {
-        const categories: Record<string, number> = {};
-        
-        tasksData.forEach((task: any) => {
-          if (task.category) {
-            categories[task.category] = (categories[task.category] || 0) + 1;
-          }
-        });
-        
-        const catData = Object.entries(categories).map(([name, value]) => ({ name, value }));
-        
-        if (catData.length > 0) {
-          setCategoryData(catData);
-        } else {
-          // Données d'exemple si pas de catégories
-          setCategoryData([
-            { name: 'Travail', value: 40 },
-            { name: 'Études', value: 30 },
-            { name: 'Personnel', value: 20 },
-            { name: 'Autre', value: 10 },
-          ]);
-        }
-      } else {
-        // Données d'exemple
-        setCategoryData([
-          { name: 'Travail', value: 40 },
-          { name: 'Études', value: 30 },
-          { name: 'Personnel', value: 20 },
-          { name: 'Autre', value: 10 },
-        ]);
+      const highPriorityTasks = tasks.filter(t => t.priority === 'high' && t.status !== 'done').length;
+      if (highPriorityTasks > 0) {
+        message += `Il vous reste ${highPriorityTasks} tâche(s) à haute priorité à compléter. `;
       }
     }
     
-    setLoading(false);
-  }, [tasksData, habitsData, journalData, planningData, tasksLoading, habitsLoading, journalLoading, planningLoading]);
+    // Insights basés sur les habitudes
+    if (habits.length > 0) {
+      const completedHabits = habits.filter(h => h.completed_today).length;
+      const habitCompletionRate = (completedHabits / habits.length) * 100;
+      
+      if (habitCompletionRate >= 80) {
+        message += "Vos habitudes sont bien maintenues, excellent travail ! ";
+      } else if (habitCompletionRate >= 40) {
+        message += "Vous êtes sur la bonne voie avec vos habitudes. ";
+      } else {
+        message += "N'oubliez pas de maintenir vos habitudes régulièrement pour progresser. ";
+      }
+      
+      const highStreak = Math.max(...habits.map(h => h.streak));
+      if (highStreak >= 7) {
+        message += `Votre plus longue série est de ${highStreak} jours, continuez ! `;
+      }
+    }
+    
+    // Insights basés sur focus
+    if (focusData && focusData.completedSessions > 0) {
+      message += `Vous avez complété ${focusData.completedSessions} session(s) de focus, pour un total de ${focusData.totalTimeMinutes} minutes. `;
+      
+      if (focusData.totalTimeMinutes > 120) {
+        message += "Excellent travail en matière de concentration ! ";
+      } else if (focusData.totalTimeMinutes > 60) {
+        message += "Bonne utilisation du mode focus. ";
+      } else {
+        message += "Essayez d'augmenter vos sessions de focus pour améliorer votre productivité. ";
+      }
+    }
+    
+    setInsightMessage(message || "Utilisez davantage les fonctionnalités pour obtenir des insights personnalisés.");
+  };
 
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
-
-  // Afficher un état de chargement
-  if (loading) {
-    return (
-      <MainLayout>
-        <div className="h-full flex flex-col items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-          <p className="text-lg text-muted-foreground">Chargement des analyses...</p>
-        </div>
-      </MainLayout>
-    );
-  }
-
-  // Composant pour afficher un message quand il n'y a pas de données
-  const NoDataDisplay = () => (
-    <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
-      <AlertCircle className="h-12 w-12 text-gray-300 dark:text-gray-600 mb-4" />
-      <h3 className="text-lg font-medium mb-2">Pas encore de données</h3>
-      <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md">
-        Ajoutez des tâches, habitudes ou entrées de journal pour générer des analyses.
-        Les graphiques apparaîtront automatiquement lorsque vous aurez suffisamment de données.
+  const renderNoDataMessage = () => (
+    <div className="flex flex-col items-center justify-center h-[300px] text-center">
+      <p className="text-lg text-muted-foreground mb-2">Aucune donnée disponible</p>
+      <p className="text-sm text-muted-foreground">
+        Commencez à utiliser les fonctionnalités de l'application pour générer des analyses.
       </p>
     </div>
   );
-
+  
   return (
     <MainLayout>
       <div className="space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold mb-1">Analyses</h1>
-            <p className="text-gray-500 dark:text-gray-400">
-              Suivez vos tendances et découvrez des insights personnalisés
-            </p>
-          </div>
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Analytiques</h1>
+          <p className="text-gray-500 dark:text-gray-400">
+            Visualisez vos données et améliorez votre productivité
+          </p>
         </div>
 
-        <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className={`grid ${isMobile ? 'grid-cols-2 mb-4' : 'grid-cols-4'} w-full`}>
-            <TabsTrigger value="insights" className="flex items-center justify-center">
-              <Sparkles className="mr-2 h-4 w-4" />
-              {!isMobile && "Insights IA"}
-              {isMobile && "Insights"}
-            </TabsTrigger>
-            <TabsTrigger value="productivity" className="flex items-center justify-center">
-              <Activity className="mr-2 h-4 w-4" />
-              {!isMobile && "Productivité"}
-              {isMobile && "Données"}
-            </TabsTrigger>
-            {isMobile ? (
-              <TabsTrigger value="ai" className="flex items-center justify-center">
-                <MessageSquare className="mr-2 h-4 w-4" />
-                Assistant
-              </TabsTrigger>
-            ) : (
-              <TabsTrigger value="habits" className="flex items-center justify-center">
-                <Target className="mr-2 h-4 w-4" />
-                Habitudes
-              </TabsTrigger>
-            )}
-            {isMobile ? (
-              <TabsTrigger value="habits" className="flex items-center justify-center">
-                <Target className="mr-2 h-4 w-4" />
-                Habitudes
-              </TabsTrigger>
-            ) : (
-              <TabsTrigger value="ai" className="flex items-center justify-center">
-                <MessageSquare className="mr-2 h-4 w-4" />
-                Assistant IA
-              </TabsTrigger>
-            )}
-          </TabsList>
+        <AIAssistant message={insightMessage} />
 
-          <TabsContent value="insights" className="space-y-6">
-            <div className="grid gap-6 md:grid-cols-2">
-              <AIInsightCard
-                title="Productivité"
-                description="Analyse de vos performances de productivité"
-                type="productivity"
-              />
-              
-              <AIInsightCard
-                title="Habitudes"
-                description="Progression et constance de vos habitudes"
-                type="habits"
-              />
-              
-              <AIInsightCard
-                title="Objectifs"
-                description="Analyse de vos objectifs et événements"
-                type="goals"
-              />
-              
-              <AIInsightCard
-                title="Recommandations générales"
-                description="Conseils généraux basés sur vos données"
-                type="general"
-              />
+        {loading ? (
+          <div className="space-y-4">
+            <Skeleton className="h-[300px] w-full rounded-md" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Skeleton className="h-[250px] rounded-md" />
+              <Skeleton className="h-[250px] rounded-md" />
             </div>
-          </TabsContent>
+          </div>
+        ) : (
+          <Tabs defaultValue="overview" className="space-y-4">
+            <TabsList className="grid grid-cols-3 md:grid-cols-4 lg:w-[400px]">
+              <TabsTrigger value="overview">Vue d'ensemble</TabsTrigger>
+              <TabsTrigger value="tasks">Tâches</TabsTrigger>
+              <TabsTrigger value="habits">Habitudes</TabsTrigger>
+              <TabsTrigger value="focus">Focus</TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="productivity" className="space-y-6">
-            <div className="grid gap-6 md:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <BarChartIcon className="mr-2 h-5 w-5 text-blue-500" />
-                    Score de productivité
-                  </CardTitle>
-                  <CardDescription>
-                    Score journalier basé sur les tâches complétées
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {!hasData ? (
-                    <NoDataDisplay />
-                  ) : (
-                    <div className="h-[300px]">
+            <TabsContent value="overview" className="space-y-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Tâches par jour</CardTitle>
+                    <CardDescription>
+                      Répartition de vos tâches sur la semaine
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="h-[300px]">
+                    {hasData && weeklyTaskData.length > 0 ? (
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={productivityData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                          <XAxis dataKey="day" />
-                          <YAxis domain={[0, 100]} />
-                          <Tooltip formatter={(value) => [`${value}%`, 'Score']} />
-                          <Bar dataKey="score" fill="#8884d8" radius={[4, 4, 0, 0]} />
+                        <BarChart data={weeklyTaskData}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="name" />
+                          <YAxis />
+                          <Tooltip />
+                          <Bar dataKey="tasks" fill="#8884d8" />
                         </BarChart>
                       </ResponsiveContainer>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <PieChartIcon className="mr-2 h-5 w-5 text-green-500" />
-                    Répartition par catégorie
-                  </CardTitle>
-                  <CardDescription>
-                    Répartition de vos tâches par catégorie
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {!hasData ? (
-                    <NoDataDisplay />
-                  ) : (
-                    <div className="h-[300px]">
+                    ) : renderNoDataMessage()}
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Statut des tâches</CardTitle>
+                    <CardDescription>
+                      Répartition de vos tâches par statut
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="h-[300px]">
+                    {hasData && statusData.length > 0 && statusData.some(item => item.value > 0) ? (
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                           <Pie
-                            data={categoryData}
-                            cx="50%"
-                            cy="50%"
-                            labelLine={false}
-                            outerRadius={80}
+                            data={statusData}
+                            cx={isMobile ? "50%" : "50%"}
+                            cy={isMobile ? "40%" : "50%"}
+                            outerRadius={isMobile ? 80 : 100}
                             fill="#8884d8"
                             dataKey="value"
-                            label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                            nameKey="name"
+                            label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                           >
-                            {categoryData.map((entry, index) => (
+                            {statusData.map((entry, index) => (
                               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                             ))}
                           </Pie>
-                          <Tooltip formatter={(value) => [`${value}%`, 'Pourcentage']} />
+                          <Legend layout={isMobile ? "horizontal" : "vertical"} verticalAlign={isMobile ? "bottom" : "middle"} align={isMobile ? "center" : "right"} />
+                          <Tooltip />
                         </PieChart>
                       </ResponsiveContainer>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                    ) : renderNoDataMessage()}
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
 
-              {!isMobile && (
-                <>
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center">
-                        <Clock className="mr-2 h-5 w-5 text-purple-500" />
-                        Efficacité par heure
-                      </CardTitle>
-                      <CardDescription>
-                        Votre niveau de concentration selon l'heure
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      {!hasData ? (
-                        <NoDataDisplay />
-                      ) : (
-                        <div className="h-[300px]">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={focusData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
-                              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                              <XAxis dataKey="hour" />
-                              <YAxis domain={[0, 100]} />
-                              <Tooltip formatter={(value) => [`${value}%`, 'Focus']} />
-                              <Line type="monotone" dataKey="focus" stroke="#8884d8" activeDot={{ r: 8 }} />
-                            </LineChart>
-                          </ResponsiveContainer>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center">
-                        <Calendar className="mr-2 h-5 w-5 text-rose-500" />
-                        Habitudes hebdomadaires
-                      </CardTitle>
-                      <CardDescription>
-                        Suivi des habitudes complétées et manquées
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      {!hasData ? (
-                        <NoDataDisplay />
-                      ) : (
-                        <div className="h-[300px]">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <BarChart
-                              data={habitData}
-                              margin={{ top: 20, right: 30, left: 0, bottom: 5 }}
-                              layout="vertical"
-                            >
-                              <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
-                              <XAxis type="number" />
-                              <YAxis dataKey="name" type="category" />
-                              <Tooltip />
-                              <Bar dataKey="completed" stackId="a" fill="#82ca9d" name="Complétée" />
-                              <Bar dataKey="missed" stackId="a" fill="#ff8042" name="Manquée" />
-                            </BarChart>
-                          </ResponsiveContainer>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </>
-              )}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="habits" className="space-y-6">
-            <div className="grid gap-6 md:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <TrendingUp className="mr-2 h-5 w-5 text-green-500" />
-                    Progression des habitudes
-                  </CardTitle>
-                  <CardDescription>
-                    Évolution sur les 30 derniers jours
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {!hasData || !(habitsData && habitsData.length > 0) ? (
-                    <div className="h-[300px] flex items-center justify-center">
-                      <p className="text-muted-foreground">Commencez à suivre vos habitudes pour voir votre progression</p>
-                    </div>
-                  ) : (
-                    <div className="h-[300px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart
-                          data={habitData}
-                          margin={{ top: 20, right: 30, left: 0, bottom: 5 }}
-                          layout="vertical"
-                        >
-                          <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
-                          <XAxis type="number" />
-                          <YAxis dataKey="name" type="category" />
-                          <Tooltip />
-                          <Bar dataKey="completed" stackId="a" fill="#82ca9d" name="Complétée" />
-                          <Bar dataKey="missed" stackId="a" fill="#ff8042" name="Manquée" />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Target className="mr-2 h-5 w-5 text-orange-500" />
-                    Statistiques d'habitudes
-                  </CardTitle>
-                  <CardDescription>
-                    Taux de complétion et constance
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {!hasData || !(habitsData && habitsData.length > 0) ? (
-                    <div className="h-[300px] flex items-center justify-center">
-                      <p className="text-muted-foreground">Complétez des habitudes pour générer des statistiques</p>
-                    </div>
-                  ) : (
-                    <div className="h-[300px]">
+            <TabsContent value="tasks" className="space-y-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Priorité des tâches</CardTitle>
+                    <CardDescription>
+                      Répartition de vos tâches par niveau de priorité
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="h-[300px]">
+                    {hasData && priorityData.length > 0 && priorityData.some(item => item.value > 0) ? (
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                           <Pie
-                            data={[
-                              { name: 'Complétées', value: habitsData.reduce((sum: number, h: any) => sum + (h.streak || 0), 0) },
-                              { name: 'Manquées', value: habitsData.reduce((sum: number, h: any) => sum + Math.max(0, (h.target || 7) - (h.streak || 0)), 0) }
-                            ]}
-                            cx="50%"
-                            cy="50%"
-                            labelLine={false}
-                            outerRadius={80}
+                            data={priorityData}
+                            cx={isMobile ? "50%" : "50%"}
+                            cy={isMobile ? "40%" : "50%"}
+                            outerRadius={isMobile ? 80 : 100}
                             fill="#8884d8"
                             dataKey="value"
-                            label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                            nameKey="name"
+                            label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                           >
-                            <Cell fill="#82ca9d" />
-                            <Cell fill="#ff8042" />
+                            {priorityData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            ))}
                           </Pie>
+                          <Legend layout={isMobile ? "horizontal" : "vertical"} verticalAlign={isMobile ? "bottom" : "middle"} align={isMobile ? "center" : "right"} />
                           <Tooltip />
                         </PieChart>
                       </ResponsiveContainer>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                    ) : renderNoDataMessage()}
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Progression des tâches</CardTitle>
+                    <CardDescription>
+                      Taux de complétion de vos tâches
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="h-[300px]">
+                    {hasData && statusData.length > 0 && statusData.some(item => item.value > 0) ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          data={statusData}
+                          layout="vertical"
+                        >
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis type="number" />
+                          <YAxis dataKey="name" type="category" />
+                          <Tooltip />
+                          <Bar dataKey="value" fill="#82ca9d" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : renderNoDataMessage()}
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
 
+            <TabsContent value="habits" className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Sparkles className="mr-2 h-5 w-5 text-yellow-500" />
-                    Insights sur les habitudes
-                  </CardTitle>
+                  <CardTitle>Complétion des habitudes</CardTitle>
                   <CardDescription>
-                    Conseils personnalisés pour améliorer vos habitudes
+                    Pourcentage d'habitudes complétées aujourd'hui
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  {!hasData || !(habitsData && habitsData.length > 0) ? (
-                    <>
-                      <p className="text-sm">Vous n'avez pas encore assez de données pour générer des insights personnalisés. Voici quelques conseils généraux :</p>
-                      
-                      <ul className="list-disc pl-5 space-y-2 text-sm">
-                        <li>Commencez par des habitudes simples et faciles à maintenir</li>
-                        <li>Associez de nouvelles habitudes à des habitudes existantes</li>
-                        <li>Suivez votre progression quotidiennement</li>
-                        <li>Célébrez vos petites victoires</li>
-                      </ul>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-sm">Basé sur vos {habitsData.length} habitudes suivies, voici des recommandations :</p>
-                      
-                      <ul className="list-disc pl-5 space-y-2 text-sm">
-                        <li>
-                          <strong>Meilleure habitude:</strong> Continuez avec {
-                            habitsData.reduce((best: any, current: any) => (best.streak > current.streak) ? best : current, { streak: 0, title: "aucune" }).title
-                          }
-                        </li>
-                        <li>
-                          <strong>À améliorer:</strong> Concentrez-vous sur {
-                            habitsData.reduce((worst: any, current: any) => (worst.streak < current.streak) ? worst : current, { streak: 999, title: "aucune" }).title
-                          }
-                        </li>
-                        <li>Essayez de maintenir une constance plutôt que la perfection</li>
-                        <li>Ajustez vos objectifs s'ils semblent trop difficiles à atteindre</li>
-                      </ul>
-                    </>
-                  )}
+                <CardContent className="h-[300px]">
+                  {hasData && habitCompletionData.length > 0 && habitCompletionData.some(item => item.value > 0) ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={habitCompletionData}
+                          cx={isMobile ? "50%" : "50%"}
+                          cy="50%"
+                          outerRadius={100}
+                          fill="#8884d8"
+                          dataKey="value"
+                          nameKey="name"
+                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                        >
+                          {habitCompletionData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Legend />
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : renderNoDataMessage()}
                 </CardContent>
               </Card>
-            </div>
-          </TabsContent>
+            </TabsContent>
 
-          <TabsContent value="ai" className="space-y-6">
-            <AIAssistant />
-          </TabsContent>
-        </Tabs>
+            <TabsContent value="focus" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Temps de concentration</CardTitle>
+                  <CardDescription>
+                    Statistiques de vos sessions de focus
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="h-[300px]">
+                  {hasData && focusTimeData.length > 0 && focusTimeData.some(item => item.value > 0) ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={focusTimeData}
+                        layout={isMobile ? "vertical" : "horizontal"}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        {isMobile ? (
+                          <>
+                            <XAxis type="number" />
+                            <YAxis dataKey="name" type="category" width={150} />
+                          </>
+                        ) : (
+                          <>
+                            <XAxis dataKey="name" />
+                            <YAxis />
+                          </>
+                        )}
+                        <Tooltip />
+                        <Bar dataKey="value" fill="#8884d8" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : renderNoDataMessage()}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        )}
       </div>
     </MainLayout>
   );

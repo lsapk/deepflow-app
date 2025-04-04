@@ -14,6 +14,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { doc, setDoc, increment, getDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/services/firebase';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { PomodoroTimer } from '@/components/focus/PomodoroTimer';
+import { FocusStats } from '@/components/focus/FocusStats';
+import { FocusPreferences } from '@/components/focus/FocusPreferences';
+import { FocusTips } from '@/components/focus/FocusTips';
 
 const alarmSound = new Audio('/alarm.mp3');
 
@@ -76,23 +80,33 @@ const FocusPage = () => {
     alarmSound.volume = volume / 100;
   }, [volume]);
 
+  // Correction du timer pour qu'il décompte correctement
   useEffect(() => {
     if (isActive && !isPaused) {
       startTimeRef.current = new Date();
+      
+      // Utiliser Date.now() pour un décompte plus précis
+      const startTime = Date.now();
+      const totalTimeInMs = time * 1000;
+      
       intervalRef.current = setInterval(() => {
-        setTime((prevTime) => {
-          if (prevTime <= 1) {
-            if (intervalRef.current) {
-              clearInterval(intervalRef.current);
-            }
-            setIsActive(false);
-            setIsPaused(false);
-            sessionComplete();
-            return selectedTime * 60;
+        const elapsedMs = Date.now() - startTime;
+        const remainingMs = totalTimeInMs - elapsedMs;
+        const remainingSeconds = Math.ceil(remainingMs / 1000);
+        
+        if (remainingSeconds <= 0) {
+          if (intervalRef.current) {
+            clearInterval(intervalRef.current);
           }
-          return prevTime - 1;
-        });
-      }, 1000);
+          setTime(0);
+          setIsActive(false);
+          setIsPaused(false);
+          sessionComplete();
+          setTime(selectedTime * 60);
+        } else {
+          setTime(remainingSeconds);
+        }
+      }, 100); // Mise à jour plus fréquente pour une meilleure précision
     } else {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
