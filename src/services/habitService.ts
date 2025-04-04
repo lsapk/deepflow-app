@@ -29,6 +29,40 @@ export const useHabits = () => {
   });
 };
 
+// Get all habits from IndexedDB
+export const getAllHabits = async (): Promise<Habit[]> => {
+  // Access IndexedDB directly to get all habits
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('deepflow-db', 1);
+
+    request.onerror = (event) => {
+      console.error('Error opening IndexedDB:', event);
+      resolve([]);
+    };
+
+    request.onsuccess = (event) => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains('habits')) {
+        resolve([]);
+        return;
+      }
+
+      const transaction = db.transaction(['habits'], 'readonly');
+      const store = transaction.objectStore('habits');
+      const getAllRequest = store.getAll();
+
+      getAllRequest.onsuccess = () => {
+        resolve(getAllRequest.result || []);
+      };
+
+      getAllRequest.onerror = (event) => {
+        console.error('Error getting habits:', event);
+        resolve([]);
+      };
+    };
+  });
+};
+
 // Check if a habit should be completed today
 export const shouldCompleteToday = (habit: Habit) => {
   const today = new Date();

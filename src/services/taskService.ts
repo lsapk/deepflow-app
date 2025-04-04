@@ -24,6 +24,40 @@ export const useTasks = () => {
   });
 };
 
+// Get all tasks from IndexedDB
+export const getAllTasks = async (): Promise<Task[]> => {
+  // Access IndexedDB directly to get all tasks
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('deepflow-db', 1);
+
+    request.onerror = (event) => {
+      console.error('Error opening IndexedDB:', event);
+      resolve([]);
+    };
+
+    request.onsuccess = (event) => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains('tasks')) {
+        resolve([]);
+        return;
+      }
+
+      const transaction = db.transaction(['tasks'], 'readonly');
+      const store = transaction.objectStore('tasks');
+      const getAllRequest = store.getAll();
+
+      getAllRequest.onsuccess = () => {
+        resolve(getAllRequest.result || []);
+      };
+
+      getAllRequest.onerror = (event) => {
+        console.error('Error getting tasks:', event);
+        resolve([]);
+      };
+    };
+  });
+};
+
 // Format date for display
 export const formatDueDate = (date: string | undefined) => {
   if (!date) return '';
