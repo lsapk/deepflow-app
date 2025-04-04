@@ -3,6 +3,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
 import { Play, Pause, RotateCcw } from 'lucide-react';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 interface PomodoroTimerProps {
   time: number;
@@ -61,29 +62,13 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
         </motion.div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3 mb-6 w-full max-w-md">
-        <Button 
-          variant={selectedTime === 25 ? "default" : "outline"}
-          onClick={() => setTimePreset(25)}
-          className="w-full"
-        >
-          25 min
-        </Button>
-        <Button 
-          variant={selectedTime === 15 ? "default" : "outline"}
-          onClick={() => setTimePreset(15)}
-          className="w-full"
-        >
-          15 min
-        </Button>
-        <Button 
-          variant={selectedTime === 5 ? "default" : "outline"}
-          onClick={() => setTimePreset(5)}
-          className="w-full"
-        >
-          5 min
-        </Button>
-      </div>
+      <ToggleGroup type="single" value={String(selectedTime)} onValueChange={(value) => {
+        if (value) setTimePreset(Number(value));
+      }} className="mb-6 w-full max-w-md">
+        <ToggleGroupItem value="25" className="flex-1">25 min</ToggleGroupItem>
+        <ToggleGroupItem value="15" className="flex-1">15 min</ToggleGroupItem>
+        <ToggleGroupItem value="5" className="flex-1">5 min</ToggleGroupItem>
+      </ToggleGroup>
 
       <div className="flex flex-wrap justify-center gap-4 w-full">
         {!isActive ? (

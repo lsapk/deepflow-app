@@ -1,14 +1,13 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Clock, Play, Pause, RotateCcw, CheckCircle2, Volume2 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { CheckCircle2, Clock, Volume2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { doc, setDoc, increment, getDoc, Timestamp } from 'firebase/firestore';
@@ -34,6 +33,7 @@ const FocusPage = () => {
   const [volume, setVolume] = useState(70);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<Date | null>(null);
+  const endTimeRef = useRef<Date | null>(null);
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -80,21 +80,21 @@ const FocusPage = () => {
     alarmSound.volume = volume / 100;
   }, [volume]);
 
-  // Correction du timer pour qu'il décompte correctement
+  // Fixed timer implementation for accurate countdown
   useEffect(() => {
     if (isActive && !isPaused) {
-      startTimeRef.current = new Date();
-      
-      // Utiliser Date.now() pour un décompte plus précis
-      const startTime = Date.now();
-      const totalTimeInMs = time * 1000;
+      // Set end time when timer starts
+      if (!endTimeRef.current) {
+        const now = new Date();
+        endTimeRef.current = new Date(now.getTime() + time * 1000);
+      }
       
       intervalRef.current = setInterval(() => {
-        const elapsedMs = Date.now() - startTime;
-        const remainingMs = totalTimeInMs - elapsedMs;
-        const remainingSeconds = Math.ceil(remainingMs / 1000);
+        const now = new Date();
+        const endTime = endTimeRef.current as Date;
         
-        if (remainingSeconds <= 0) {
+        if (now >= endTime) {
+          // Timer complete
           if (intervalRef.current) {
             clearInterval(intervalRef.current);
           }
@@ -103,14 +103,23 @@ const FocusPage = () => {
           setIsPaused(false);
           sessionComplete();
           setTime(selectedTime * 60);
+          endTimeRef.current = null;
         } else {
+          // Calculate remaining time in seconds
+          const remainingMs = endTime.getTime() - now.getTime();
+          const remainingSeconds = Math.ceil(remainingMs / 1000);
           setTime(remainingSeconds);
         }
-      }, 100); // Mise à jour plus fréquente pour une meilleure précision
+      }, 250); // Update more frequently for smoother countdown
     } else {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
-        intervalRef.current = null;
+        
+        // If paused, update end time for when we resume
+        if (isPaused && endTimeRef.current) {
+          const pauseTimeRemaining = time * 1000; // Convert seconds to ms
+          endTimeRef.current = new Date(new Date().getTime() + pauseTimeRemaining);
+        }
       }
     }
 
@@ -124,7 +133,11 @@ const FocusPage = () => {
   const sessionComplete = async () => {
     // Play sound if enabled
     if (playSound) {
-      alarmSound.play();
+      try {
+        await alarmSound.play();
+      } catch (error) {
+        console.error("Error playing sound:", error);
+      }
     }
     
     // Show notification if enabled
@@ -173,6 +186,7 @@ const FocusPage = () => {
     setIsActive(true);
     setIsPaused(false);
     startTimeRef.current = new Date();
+    endTimeRef.current = new Date(new Date().getTime() + time * 1000);
   };
 
   const handlePause = () => {
@@ -192,6 +206,7 @@ const FocusPage = () => {
     setIsPaused(false);
     setTime(selectedTime * 60);
     startTimeRef.current = null;
+    endTimeRef.current = null;
   };
 
   const setTimePreset = (minutes: number) => {
@@ -204,6 +219,7 @@ const FocusPage = () => {
       intervalRef.current = null;
     }
     startTimeRef.current = null;
+    endTimeRef.current = null;
   };
 
   const formatTime = (time: number) => {
@@ -256,84 +272,19 @@ const FocusPage = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col items-center">
-              <div className="flex justify-center mb-8 w-full max-w-xs">
-                <motion.div 
-                  className="w-64 h-64 relative flex items-center justify-center rounded-full border-8 border-gray-100 dark:border-gray-800"
-                  animate={{ rotate: isActive && !isPaused ? 360 : 0 }}
-                  transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                >
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <h2 className="text-5xl font-bold">{formatTime(time)}</h2>
-                  </div>
-                  <div className="absolute inset-0">
-                    <svg width="100%" height="100%" viewBox="0 0 100 100">
-                      <circle
-                        cx="50"
-                        cy="50"
-                        r="45"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="8"
-                        strokeLinecap="round"
-                        strokeDasharray={`${calculateProgress() * 2.83}, 283`}
-                        transform="rotate(-90 50 50)"
-                        className="text-primary"
-                      />
-                    </svg>
-                  </div>
-                </motion.div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3 mb-6 w-full max-w-md">
-                <Button 
-                  variant={selectedTime === 25 ? "default" : "outline"}
-                  onClick={() => setTimePreset(25)}
-                  className="w-full"
-                >
-                  25 min
-                </Button>
-                <Button 
-                  variant={selectedTime === 15 ? "default" : "outline"}
-                  onClick={() => setTimePreset(15)}
-                  className="w-full"
-                >
-                  15 min
-                </Button>
-                <Button 
-                  variant={selectedTime === 5 ? "default" : "outline"}
-                  onClick={() => setTimePreset(5)}
-                  className="w-full"
-                >
-                  5 min
-                </Button>
-              </div>
-
-              <div className="flex flex-wrap justify-center gap-4 w-full">
-                {!isActive ? (
-                  <Button onClick={handleStart} size="lg" className="px-8">
-                    <Play size={16} className="mr-2" />
-                    Démarrer
-                  </Button>
-                ) : (
-                  <>
-                    {isPaused ? (
-                      <Button onClick={handleResume} size="lg" variant="outline" className="px-8">
-                        <Play size={16} className="mr-2" />
-                        Continuer
-                      </Button>
-                    ) : (
-                      <Button onClick={handlePause} size="lg" variant="outline" className="px-8">
-                        <Pause size={16} className="mr-2" />
-                        Pause
-                      </Button>
-                    )}
-                    <Button onClick={handleReset} size="lg" variant="outline" className="px-8">
-                      <RotateCcw size={16} className="mr-2" />
-                      Réinitialiser
-                    </Button>
-                  </>
-                )}
-              </div>
+              <PomodoroTimer 
+                time={time}
+                selectedTime={selectedTime}
+                isActive={isActive}
+                isPaused={isPaused}
+                formatTime={formatTime}
+                calculateProgress={calculateProgress}
+                handleStart={handleStart}
+                handlePause={handlePause}
+                handleResume={handleResume}
+                handleReset={handleReset}
+                setTimePreset={setTimePreset}
+              />
             </CardContent>
           </Card>
 
@@ -377,60 +328,15 @@ const FocusPage = () => {
                 <CardTitle>Préférences</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label htmlFor="sound">Sons</Label>
-                      <p className="text-xs text-muted-foreground">
-                        Jouer un son à la fin de la session
-                      </p>
-                    </div>
-                    <Switch 
-                      id="sound"
-                      checked={playSound}
-                      onCheckedChange={setPlaySound}
-                    />
-                  </div>
-                  
-                  {playSound && (
-                    <div className="space-y-2">
-                      <Label htmlFor="volume">Volume</Label>
-                      <div className="flex items-center gap-2">
-                        <Volume2 className="h-4 w-4" />
-                        <Slider
-                          id="volume"
-                          defaultValue={[volume]}
-                          max={100}
-                          step={1}
-                          onValueChange={(value) => setVolume(value[0])}
-                        />
-                      </div>
-                    </div>
-                  )}
-                  
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label htmlFor="notifications">Notifications</Label>
-                      <p className="text-xs text-muted-foreground">
-                        Recevoir une notification à la fin de la session
-                      </p>
-                    </div>
-                    <Switch 
-                      id="notifications"
-                      checked={showNotification}
-                      onCheckedChange={setShowNotification}
-                    />
-                  </div>
-                  
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-full mt-2"
-                    onClick={handleSavePreferences}
-                  >
-                    Enregistrer les préférences
-                  </Button>
-                </div>
+                <FocusPreferences
+                  playSound={playSound}
+                  setPlaySound={setPlaySound}
+                  showNotification={showNotification}
+                  setShowNotification={setShowNotification}
+                  volume={volume}
+                  setVolume={setVolume}
+                  handleSavePreferences={handleSavePreferences}
+                />
               </CardContent>
             </Card>
             
@@ -440,13 +346,7 @@ const FocusPage = () => {
                   <CardTitle>Conseils</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <ul className="text-sm text-gray-500 dark:text-gray-400 space-y-1">
-                    <li>• Éliminez les distractions pendant les sessions</li>
-                    <li>• Prenez une courte pause entre les sessions</li>
-                    <li>• Définissez un objectif clair pour chaque session</li>
-                    <li>• Alternez 25 minutes de travail et 5 minutes de pause</li>
-                    <li>• Après 4 sessions, prenez une pause plus longue</li>
-                  </ul>
+                  <FocusTips />
                 </CardContent>
               </Card>
             )}
