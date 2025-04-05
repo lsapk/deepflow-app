@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -48,8 +47,8 @@ const Dashboard = () => {
           
           const habits = await getAllHabits();
           const completedHabits = habits.filter(habit => {
-            if (!habit.last_completed_at) return false;
-            const completedDate = new Date(habit.last_completed_at);
+            if (!habit.last_completed) return false;
+            const completedDate = new Date(habit.last_completed);
             completedDate.setHours(0, 0, 0, 0);
             return completedDate.getTime() === today.getTime();
           }).length;

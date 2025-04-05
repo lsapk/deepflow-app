@@ -1,12 +1,11 @@
-
 import React, { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { SelectValue, SelectTrigger, SelectContent, SelectItem, Select } from '@/components/ui/select';
-import { AreaChart, BarChart, LineChart, PieChart, Pie, Area, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { AIAssistant } from '@/components/analytics/AIAssistant';
+import { AreaChart, BarChart, LineChart, PieChart, Pie, Area, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
+import AIAssistant from '@/components/analytics/AIAssistant';
 import { AIInsightCard } from '@/components/analytics/AIInsightCard';
 
 const productivityData = [
@@ -59,7 +58,6 @@ const moodData = [
   { day: 'Dim', mood: 4 },
 ];
 
-// Convertir le niveau d'humeur en texte
 const getMoodText = (mood: number) => {
   switch (mood) {
     case 1: return 'Terrible';
@@ -71,7 +69,6 @@ const getMoodText = (mood: number) => {
   }
 };
 
-// Convertir le niveau d'humeur en couleur
 const getMoodColor = (mood: number) => {
   switch (mood) {
     case 1: return '#ef4444';
@@ -150,7 +147,6 @@ const AnalyticsPage = () => {
   ]);
 
   useEffect(() => {
-    // Simuler un chargement des données
     const loadData = setTimeout(() => {
       setDataLoaded(true);
     }, 500);
@@ -189,7 +185,6 @@ const AnalyticsPage = () => {
           <AIInsightCard 
             title="IA Assistant" 
             description="Analysez vos données avec l'assistant IA"
-            actionLabel="Discuter avec l'IA"
             onClick={() => setShowAIInsights(!showAIInsights)}
           />
           
@@ -198,7 +193,6 @@ const AnalyticsPage = () => {
               key={index}
               title={insight.title}
               description={insight.content}
-              actionLabel="Voir détails"
               onClick={() => {}}
             />
           ))}
