@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,121 +7,80 @@ import { CheckCircle2, Plus, Trophy, TrendingUp, Calendar, CheckCheck } from 'lu
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useHabits, Habit } from '@/services/habitService';
-
-interface ComponentHabit {
-  id: string;
-  title: string;
-  description?: string;
-  frequency: 'daily' | 'weekly';
-  streak: number;
-  target: number;
-  lastCompletedAt?: any;
-  category?: string;
-  completed?: boolean;
-  userId: string;
-}
+import { useHabits, Habit, shouldCompleteToday } from '@/services/habitService';
 
 export const HabitsWidget = () => {
-  const [habits, setHabits] = useState<ComponentHabit[]>([]);
+  const [habits, setHabits] = useState<Habit[]>([]);
   const [loading, setLoading] = useState(true);
   const { currentUser } = useAuth();
   const navigate = useNavigate();
+  const { data: storedHabits, updateItem } = useHabits();
   
   useEffect(() => {
     const fetchHabits = async () => {
       try {
         setLoading(true);
         
-        const { data: localHabits } = useHabits();
-        
-        if (localHabits && localHabits.length > 0) {
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          
-          const formattedHabits = localHabits.map(habit => {
-            let completed = false;
-            if (habit.last_completed) {
-              const lastCompleted = new Date(habit.last_completed);
-              lastCompleted.setHours(0, 0, 0, 0);
-              completed = lastCompleted.getTime() === today.getTime();
-            }
-            
-            return {
-              id: habit.id,
-              title: habit.title,
-              description: habit.description,
-              frequency: habit.frequency === 'monthly' ? 'weekly' : habit.frequency,
-              streak: habit.streak,
-              target: habit.target_days?.length || 7,
-              userId: habit.user_id || currentUser?.uid || 'anonymous',
-              completed,
-              lastCompletedAt: habit.last_completed
-            };
-          }) as ComponentHabit[];
-          
-          setHabits(formattedHabits);
-        } else {
-          setHabits([
-            {
-              id: '1',
-              title: 'Méditer',
-              description: '10 minutes par jour',
-              frequency: 'daily',
-              streak: 5,
-              target: 30,
-              userId: currentUser?.uid || 'anonymous',
-              completed: false
-            },
-            {
-              id: '2',
-              title: 'Exercice physique',
-              description: '30 minutes',
-              frequency: 'daily',
-              streak: 3,
-              target: 90,
-              userId: currentUser?.uid || 'anonymous',
-              completed: false
-            }
-          ]);
+        if (storedHabits && storedHabits.length > 0) {
+          setHabits(storedHabits);
         }
       } catch (error) {
         console.error("Erreur lors du chargement des habitudes:", error);
-        setHabits([
-          {
-            id: '1',
-            title: 'Méditer',
-            description: '10 minutes par jour',
-            frequency: 'daily',
-            streak: 5,
-            target: 30,
-            userId: currentUser?.uid || 'anonymous',
-            completed: false
-          }
-        ]);
       } finally {
         setLoading(false);
       }
     };
     
     fetchHabits();
-  }, [currentUser]);
+  }, [storedHabits]);
   
-  const completeHabit = async (habitId: string) => {
+  const completeHabit = async (habit: Habit) => {
     try {
-      const updatedHabits = habits.map(habit => 
-        habit.id === habitId ? { ...habit, streak: habit.streak + 1, completed: true } : habit
-      );
+      const today = new Date();
+      const updatedHabit = {
+        ...habit,
+        streak: (habit.streak || 0) + 1,
+        last_completed: today.toISOString()
+      };
+
+      updateItem(habit.id, updatedHabit);
       
-      setHabits(updatedHabits);
-      toast.success("Habitude complétée !");
+      toast({
+        title: "Habitude complétée !",
+        description: "Votre habitude a été marquée comme complétée.",
+        variant: "default"
+      });
     } catch (error) {
       console.error("Erreur lors de la complétion de l'habitude:", error);
-      toast.error("Erreur lors de la mise à jour de l'habitude");
+      toast({
+        title: "Erreur",
+        description: "Erreur lors de la mise à jour de l'habitude",
+        variant: "destructive"
+      });
     }
   };
+  
+  const isHabitCompletedToday = (habit: Habit): boolean => {
+    if (!habit.last_completed) return false;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const lastCompleted = new Date(habit.last_completed);
+    lastCompleted.setHours(0, 0, 0, 0);
+    
+    return lastCompleted.getTime() === today.getTime();
+  };
+  
+  const filterHabitsForToday = (habits: Habit[]): Habit[] => {
+    return habits.filter(habit => shouldCompleteToday(habit))
+      .slice(0, 3); // Limiter à 3 habitudes pour le widget
+  };
+  
+  const habitsToShow = filterHabitsForToday(habits);
+  const maxStreak = habits.length > 0 ? Math.max(...habits.map(h => h.streak || 0)) : 0;
   
   return (
     <Card className="shadow-md">
@@ -155,48 +115,52 @@ export const HabitsWidget = () => {
               </div>
             ))}
           </div>
-        ) : habits.length > 0 ? (
+        ) : habitsToShow.length > 0 ? (
           <ul className="space-y-3">
             <AnimatePresence>
-              {habits.map(habit => (
-                <motion.li 
-                  key={habit.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="rounded-lg border p-3 hover:bg-muted/50 transition-colors"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className={`h-5 w-5 ${habit.completed ? 'text-green-500' : 'text-muted-foreground'}`} />
-                        <span className="font-medium">{habit.title}</span>
-                      </div>
-                      
-                      <div className="mt-2">
-                        <Progress 
-                          value={Math.min(100, (habit.streak / habit.target) * 100)} 
-                          className="h-2"
-                        />
-                        <div className="flex justify-between mt-1 text-xs text-muted-foreground">
-                          <span>Streak: {habit.streak} jours</span>
-                          <span>Objectif: {habit.target} jours</span>
+              {habitsToShow.map(habit => {
+                const isCompleted = isHabitCompletedToday(habit);
+                const target = habit.target || 7;
+                return (
+                  <motion.li 
+                    key={habit.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="rounded-lg border p-3 hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className={`h-5 w-5 ${isCompleted ? 'text-green-500' : 'text-muted-foreground'}`} />
+                          <span className="font-medium">{habit.title}</span>
+                        </div>
+                        
+                        <div className="mt-2">
+                          <Progress 
+                            value={Math.min(100, ((habit.streak || 0) / target) * 100)} 
+                            className="h-2"
+                          />
+                          <div className="flex justify-between mt-1 text-xs text-muted-foreground">
+                            <span>Streak: {habit.streak || 0} jours</span>
+                            <span>Objectif: {target} jours</span>
+                          </div>
                         </div>
                       </div>
+                      
+                      <Button 
+                        size="sm" 
+                        variant={isCompleted ? "outline" : "default"}
+                        className={isCompleted ? "bg-green-100 text-green-700 border-green-200 hover:bg-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800" : ""}
+                        onClick={() => !isCompleted && completeHabit(habit)}
+                        disabled={isCompleted}
+                      >
+                        {isCompleted ? 'Fait ✓' : 'Compléter'}
+                      </Button>
                     </div>
-                    
-                    <Button 
-                      size="sm" 
-                      variant={habit.completed ? "outline" : "default"}
-                      className={habit.completed ? "bg-green-100 text-green-700 border-green-200 hover:bg-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800" : ""}
-                      onClick={() => completeHabit(habit.id)}
-                      disabled={habit.completed}
-                    >
-                      {habit.completed ? 'Fait ✓' : 'Compléter'}
-                    </Button>
-                  </div>
-                </motion.li>
-              ))}
+                  </motion.li>
+                );
+              })}
             </AnimatePresence>
           </ul>
         ) : (
@@ -223,7 +187,7 @@ export const HabitsWidget = () => {
         <CardFooter className="border-t pt-4 flex justify-between bg-muted/40">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Trophy className="h-4 w-4 text-amber-500" />
-            <span>Meilleur streak: {Math.max(...habits.map(h => h.streak), 0)} jours</span>
+            <span>Meilleur streak: {maxStreak} jours</span>
           </div>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <TrendingUp className="h-4 w-4 text-blue-500" />

@@ -5,15 +5,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { HabitsWidget } from '@/components/habits/HabitsWidget';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { CalendarClock, CheckSquare, Clock, ListTodo, BookOpen, Calendar } from 'lucide-react';
+import { CalendarClock, CheckSquare, Clock, Calendar } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { DashboardShortcuts } from '@/components/DashboardShortcuts';
 import { DashboardActivity } from '@/components/DashboardActivity';
-import { getDoc, doc, collection, query, where, limit, getDocs } from 'firebase/firestore';
+import { getDoc, doc } from 'firebase/firestore';
 import { db } from '@/services/firebase';
-import { getAllTasks } from '@/services/taskService';
-import { getAllHabits, Habit } from '@/services/habitService';
+import { useHabits, shouldCompleteToday } from '@/services/habitService';
 import { getFocusSessions } from '@/services/focusService';
+import { getAllTasks } from '@/services/taskService';
 
 const Dashboard = () => {
   const { currentUser, userProfile } = useAuth();
@@ -25,6 +25,8 @@ const Dashboard = () => {
   const [habitsStats, setHabitsStats] = useState({ completed: 0, total: 0 });
   const [focusStats, setFocusStats] = useState({ duration: '0h 0m', sessions: 0 });
   const [dataLoaded, setDataLoaded] = useState(false);
+  
+  const { data: habits = [] } = useHabits();
   
   useEffect(() => {
     // Charger les données réelles du tableau de bord
@@ -47,19 +49,23 @@ const Dashboard = () => {
           setTodayTaskCount(todayTasks.length);
           
           // Charger les habitudes
-          const habits = await getAllHabits();
-          // Check if a habit was completed today by looking at last_completed
-          const completedHabits = habits.filter(habit => {
-            if (!habit.last_completed) return false;
-            const completedDate = new Date(habit.last_completed);
-            completedDate.setHours(0, 0, 0, 0);
-            return completedDate.getTime() === today.getTime();
-          }).length;
-          
-          setHabitsStats({
-            completed: completedHabits,
-            total: habits.length
-          });
+          if (habits.length > 0) {
+            // Filtrer les habitudes pour aujourd'hui
+            const todayHabits = habits.filter(habit => shouldCompleteToday(habit));
+            
+            // Vérifier quelles habitudes sont complétées aujourd'hui
+            const completedHabits = habits.filter(habit => {
+              if (!habit.last_completed) return false;
+              const completedDate = new Date(habit.last_completed);
+              completedDate.setHours(0, 0, 0, 0);
+              return completedDate.getTime() === today.getTime();
+            }).length;
+            
+            setHabitsStats({
+              completed: completedHabits,
+              total: todayHabits.length
+            });
+          }
           
           // Charger les sessions focus
           try {
@@ -101,7 +107,7 @@ const Dashboard = () => {
     };
     
     loadDashboardData();
-  }, [currentUser]);
+  }, [currentUser, habits]);
 
   const containerVariants = {
     hidden: { opacity: 0 },
