@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -120,7 +119,7 @@ export const HabitsWidget = () => {
             <AnimatePresence>
               {habitsToShow.map(habit => {
                 const isCompleted = isHabitCompletedToday(habit);
-                const target = habit.target || 7;
+                const target = habit.target_days?.length || 7;
                 return (
                   <motion.li 
                     key={habit.id}
