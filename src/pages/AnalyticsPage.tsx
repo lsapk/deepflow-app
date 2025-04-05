@@ -7,6 +7,7 @@ import { SelectValue, SelectTrigger, SelectContent, SelectItem, Select } from '@
 import { AreaChart, BarChart, LineChart, PieChart, Pie, Area, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import AIAssistant from '@/components/analytics/AIAssistant';
 import { AIInsightCard } from '@/components/analytics/AIInsightCard';
+import { toast } from '@/hooks/use-toast';
 
 const productivityData = [
   { day: 'Lun', tasks: 4, focus: 120, score: 85 },
@@ -156,6 +157,21 @@ const AnalyticsPage = () => {
 
   const displayName = userProfile?.display_name || currentUser?.displayName || 'Utilisateur';
 
+  const handleAIAssistantToggle = () => {
+    setShowAIInsights(!showAIInsights);
+    toast({
+      title: showAIInsights ? "Assistant IA masqué" : "Assistant IA affiché",
+      description: showAIInsights ? "L'assistant IA a été masqué" : "Vous pouvez maintenant interagir avec l'assistant IA",
+    });
+  };
+
+  const handleInsightClick = (insight: {title: string, content: string}) => {
+    toast({
+      title: insight.title,
+      description: "Détails de l'insight chargés",
+    });
+  };
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -185,7 +201,7 @@ const AnalyticsPage = () => {
           <AIInsightCard 
             title="IA Assistant" 
             description="Analysez vos données avec l'assistant IA"
-            onClick={() => setShowAIInsights(!showAIInsights)}
+            onClick={handleAIAssistantToggle}
           />
           
           {aiInsights.map((insight, index) => (
@@ -193,7 +209,7 @@ const AnalyticsPage = () => {
               key={index}
               title={insight.title}
               description={insight.content}
-              onClick={() => {}}
+              onClick={() => handleInsightClick(insight)}
             />
           ))}
         </div>
@@ -475,7 +491,7 @@ const AnalyticsPage = () => {
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="day" />
                         <YAxis />
-                        <Tooltip />
+                        <Tooltip content={<CustomTooltip />} />
                         <Area type="monotone" dataKey="rate" stroke="#4ade80" fill="#4ade8080" name="Taux de complétion (%)" />
                       </AreaChart>
                     </ResponsiveContainer>
