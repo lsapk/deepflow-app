@@ -10,14 +10,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useIndexedDB } from '@/hooks/use-indexed-db';
-import { toast } from '@/hooks/use-toast';
 
 interface AIInsightProps {
   title?: string;
   description?: string;
   type?: 'productivity' | 'habits' | 'goals' | 'general';
   data?: any;
-  onClick?: () => void; // Ajout de la prop onClick
 }
 
 interface InsightItem {
@@ -34,8 +32,7 @@ export const AIInsightCard: React.FC<AIInsightProps> = ({
   title = "Analyse IA",
   description = "Voici quelques analyses basées sur vos données récentes",
   type = 'general',
-  data,
-  onClick
+  data 
 }) => {
   const { currentUser } = useAuth();
   const [showAll, setShowAll] = useState(false);
@@ -300,7 +297,7 @@ export const AIInsightCard: React.FC<AIInsightProps> = ({
   }
 
   return (
-    <Card onClick={onClick} className={onClick ? "cursor-pointer hover:shadow-md transition-shadow" : ""}>
+    <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-xl flex items-center">
           <Sparkles className="h-5 w-5 mr-2 text-primary" />

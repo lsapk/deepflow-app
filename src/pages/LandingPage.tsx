@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/common/Logo';
 import { motion } from 'framer-motion';
-import { ArrowRight, Check, CheckCircle, Clock, Sparkles, Target, TrendingUp, Brain, Bell, Zap, Globe } from 'lucide-react';
+import { ArrowRight, Check, CheckCircle, Clock, Sparkles, Target, TrendingUp } from 'lucide-react';
 
 const LandingPage = () => {
   return (
@@ -80,7 +80,7 @@ const LandingPage = () => {
               <div className="mb-4 bg-orange-500/20 p-3 rounded-full w-fit">
                 <Clock className="h-6 w-6 text-orange-500" />
               </div>
-              <h3 className="text-xl font-semibold mb-2">Technique Pomodoro</h3>
+              <h3 className="text-xl font-semibold mb-2">Sessions de focus</h3>
               <p className="text-slate-300">Maximisez votre concentration avec des sessions de travail chronométrées.</p>
             </div>
           </motion.div>
@@ -93,47 +93,47 @@ const LandingPage = () => {
             transition={{ duration: 0.6, delay: 0.6 }}
           >
             <h2 className="text-3xl font-bold mb-12 text-center">
-              Nouvelles fonctionnalités
+              Fonctionnalités avancées
             </h2>
             
             <div className="grid md:grid-cols-2 gap-10">
               <div className="flex gap-4">
                 <div className="bg-purple-500/20 p-3 h-fit rounded-full">
-                  <Brain className="h-6 w-6 text-purple-400" />
+                  <Target className="h-6 w-6 text-purple-400" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-semibold mb-2">Assistant IA avancé</h3>
-                  <p className="text-slate-300">Notre IA analyse vos données et vous fournit des recommandations personnalisées pour améliorer votre productivité.</p>
+                  <h3 className="text-xl font-semibold mb-2">Objectifs intelligents</h3>
+                  <p className="text-slate-300">Définissez des objectifs SMART et suivez votre progression avec des analyses visuelles.</p>
                 </div>
               </div>
               
               <div className="flex gap-4">
                 <div className="bg-blue-500/20 p-3 h-fit rounded-full">
-                  <Globe className="h-6 w-6 text-blue-400" />
+                  <Sparkles className="h-6 w-6 text-blue-400" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-semibold mb-2">Support multilingue</h3>
-                  <p className="text-slate-300">Application désormais disponible en français, anglais et espagnol pour une meilleure expérience utilisateur.</p>
+                  <h3 className="text-xl font-semibold mb-2">Karma Productif</h3>
+                  <p className="text-slate-300">Plus vous êtes productif, plus vous débloquez des fonctionnalités exclusives.</p>
                 </div>
               </div>
               
               <div className="flex gap-4">
                 <div className="bg-yellow-500/20 p-3 h-fit rounded-full">
-                  <Bell className="h-6 w-6 text-yellow-400" />
+                  <Check className="h-6 w-6 text-yellow-400" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-semibold mb-2">Notifications et sons</h3>
-                  <p className="text-slate-300">Restez informé grâce à notre nouveau système de notifications et sons personnalisables.</p>
+                  <h3 className="text-xl font-semibold mb-2">Missions Secrètes</h3>
+                  <p className="text-slate-300">Relevez des défis cachés qui apparaissent aléatoirement pour booster votre motivation.</p>
                 </div>
               </div>
               
               <div className="flex gap-4">
                 <div className="bg-green-500/20 p-3 h-fit rounded-full">
-                  <Zap className="h-6 w-6 text-green-400" />
+                  <Sparkles className="h-6 w-6 text-green-400" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-semibold mb-2">Mode Focus amélioré</h3>
-                  <p className="text-slate-300">Éliminez les distractions avec notre nouveau mode focus qui vous aide à rester concentré sur vos tâches importantes.</p>
+                  <h3 className="text-xl font-semibold mb-2">Assistant IA</h3>
+                  <p className="text-slate-300">Un assistant intelligent qui vous donne des conseils personnalisés pour améliorer votre productivité.</p>
                 </div>
               </div>
             </div>
