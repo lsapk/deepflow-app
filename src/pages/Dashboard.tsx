@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -47,8 +48,8 @@ const Dashboard = () => {
           
           const habits = await getAllHabits();
           const completedHabits = habits.filter(habit => {
-            if (!habit.last_completed) return false;
-            const completedDate = new Date(habit.last_completed);
+            if (!habit.last_completed_at) return false;
+            const completedDate = new Date(habit.last_completed_at);
             completedDate.setHours(0, 0, 0, 0);
             return completedDate.getTime() === today.getTime();
           }).length;
@@ -108,7 +109,7 @@ const Dashboard = () => {
           });
           
           const tasks = await getAllTasks();
-          const focusSessions = await getFocusSessions(currentUser.uid);
+          const focusSessions = await getFocusSessions(currentUser.uid, today);
           
           const data = daysOfWeek.map(day => {
             const tasksForDay = tasks.filter(task => {
@@ -119,12 +120,12 @@ const Dashboard = () => {
             const completedTasks = tasksForDay.filter(task => task.completed).length;
             
             const sessionsForDay = focusSessions ? focusSessions.filter(session => {
-              if (!session.date) return false;
-              return isSameDay(new Date(session.date), day);
+              if (!session.completedAt) return false;
+              return isSameDay(new Date(session.completedAt.toDate()), day);
             }) : [];
             
             const focusMinutes = sessionsForDay.reduce((total, session) => {
-              return total + (session.duration_minutes || 0);
+              return total + (session.duration || 0);
             }, 0);
             
             return {
