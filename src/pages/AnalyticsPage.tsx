@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,15 +8,31 @@ import { getAllTasks } from '@/services/taskService';
 import { getAllHabits } from '@/services/habitService';
 import { motion } from 'framer-motion';
 import { AIInsightCard } from '@/components/analytics/AIInsightCard';
-import { AreaChart, BarChart, LineChart, PieChart } from '@/components/ui/chart';
+import { ChartContainer } from '@/components/ui/chart';
 import { Calendar, CheckCheck, Clock, Filter, RefreshCw, Settings2, TrendingUp } from 'lucide-react';
 import AIAssistant from '@/components/analytics/AIAssistant';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, subDays, isSameDay } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  AreaChart as RechartAreaChart,
+  BarChart as RechartBarChart,
+  LineChart as RechartLineChart,
+  PieChart as RechartPieChart,
+  Area,
+  Bar,
+  Line,
+  Pie,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  Cell
+} from 'recharts';
 
-// Interface pour la Task adaptée
 interface Task {
   id: string;
   title: string;
@@ -29,7 +44,6 @@ interface Task {
   created_at: string;
 }
 
-// Interface pour Habit adaptée
 interface Habit {
   id: string;
   title: string;
@@ -52,7 +66,6 @@ const AnalyticsPage = () => {
 
   useEffect(() => {
     loadData();
-    // Configurer un intervalle pour rafraîchir les données toutes les 5 minutes
     const refreshInterval = setInterval(() => {
       loadData(true);
     }, 5 * 60 * 1000);
@@ -65,16 +78,13 @@ const AnalyticsPage = () => {
     if (silent) setRefreshingData(true);
     
     try {
-      // Charger les tâches
       const fetchedTasks = await getAllTasks();
-      // Adapter les tâches à notre interface
       const adaptedTasks = fetchedTasks.map(task => ({
         ...task,
         status: task.status === 'in_progress' ? 'in-progress' : task.status as 'todo' | 'done' | 'in-progress'
       }));
       setTasks(adaptedTasks);
 
-      // Charger les habitudes
       const fetchedHabits = await getAllHabits();
       setHabits(fetchedHabits);
       
@@ -93,7 +103,6 @@ const AnalyticsPage = () => {
     }
   };
 
-  // Préparation des données du graphique pour les tâches
   const prepareTaskChartData = () => {
     const today = new Date();
     const dateLabels = [];
@@ -139,7 +148,6 @@ const AnalyticsPage = () => {
     };
   };
 
-  // Préparation des données pour le graphique des habitudes
   const prepareHabitChartData = () => {
     const habitsByFrequency = {
       daily: habits.filter(h => h.frequency === 'daily').length,
@@ -169,7 +177,6 @@ const AnalyticsPage = () => {
     };
   };
 
-  // Préparation des données pour le graphique des streaks
   const prepareStreakChartData = () => {
     const sortedHabits = [...habits].sort((a, b) => (b.streak || 0) - (a.streak || 0)).slice(0, 5);
     
@@ -187,41 +194,143 @@ const AnalyticsPage = () => {
   };
 
   const renderChart = (chartData: any) => {
+    const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
+    
     switch (chartType) {
       case 'bar':
         return (
-          <BarChart
-            data={chartData}
-            className="aspect-[4/3] w-full mt-4"
-          />
+          <ResponsiveContainer width="100%" height={300}>
+            <RechartBarChart data={chartData.labels.map((label: string, index: number) => {
+              const dataPoint: any = { name: label };
+              chartData.datasets.forEach((dataset: any, datasetIndex: number) => {
+                dataPoint[dataset.label] = dataset.data[index];
+              });
+              return dataPoint;
+            })} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              {chartData.datasets.map((dataset: any, index: number) => (
+                <Bar 
+                  key={dataset.label} 
+                  dataKey={dataset.label} 
+                  fill={dataset.backgroundColor.split(',')[0].replace('rgba(', 'rgb(').replace('0.5)', ')')} 
+                />
+              ))}
+            </RechartBarChart>
+          </ResponsiveContainer>
         );
       case 'line':
         return (
-          <LineChart
-            data={chartData}
-            className="aspect-[4/3] w-full mt-4"
-          />
+          <ResponsiveContainer width="100%" height={300}>
+            <RechartLineChart data={chartData.labels.map((label: string, index: number) => {
+              const dataPoint: any = { name: label };
+              chartData.datasets.forEach((dataset: any, datasetIndex: number) => {
+                dataPoint[dataset.label] = dataset.data[index];
+              });
+              return dataPoint;
+            })} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              {chartData.datasets.map((dataset: any, index: number) => (
+                <Line 
+                  key={dataset.label} 
+                  type="monotone" 
+                  dataKey={dataset.label} 
+                  stroke={dataset.borderColor} 
+                  activeDot={{ r: 8 }} 
+                />
+              ))}
+            </RechartLineChart>
+          </ResponsiveContainer>
         );
       case 'area':
         return (
-          <AreaChart
-            data={chartData}
-            className="aspect-[4/3] w-full mt-4"
-          />
+          <ResponsiveContainer width="100%" height={300}>
+            <RechartAreaChart data={chartData.labels.map((label: string, index: number) => {
+              const dataPoint: any = { name: label };
+              chartData.datasets.forEach((dataset: any, datasetIndex: number) => {
+                dataPoint[dataset.label] = dataset.data[index];
+              });
+              return dataPoint;
+            })} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              {chartData.datasets.map((dataset: any, index: number) => (
+                <Area 
+                  key={dataset.label} 
+                  type="monotone" 
+                  dataKey={dataset.label} 
+                  stroke={dataset.borderColor} 
+                  fill={dataset.backgroundColor} 
+                />
+              ))}
+            </RechartAreaChart>
+          </ResponsiveContainer>
         );
       case 'pie':
+        const pieData = chartData.labels.map((label: string, index: number) => ({
+          name: label,
+          value: chartData.datasets[0].data[index]
+        }));
+        
         return (
-          <PieChart
-            data={chartData}
-            className="aspect-[4/3] w-full mt-4"
-          />
+          <ResponsiveContainer width="100%" height={300}>
+            <RechartPieChart>
+              <Pie
+                data={pieData}
+                cx="50%"
+                cy="50%"
+                labelLine={true}
+                outerRadius={80}
+                fill="#8884d8"
+                dataKey="value"
+                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+              >
+                {pieData.map((entry: any, index: number) => (
+                  <Cell 
+                    key={`cell-${index}`} 
+                    fill={COLORS[index % COLORS.length]} 
+                  />
+                ))}
+              </Pie>
+              <Tooltip />
+              <Legend />
+            </RechartPieChart>
+          </ResponsiveContainer>
         );
       default:
         return (
-          <BarChart
-            data={chartData}
-            className="aspect-[4/3] w-full mt-4"
-          />
+          <ResponsiveContainer width="100%" height={300}>
+            <RechartBarChart data={chartData.labels.map((label: string, index: number) => {
+              const dataPoint: any = { name: label };
+              chartData.datasets.forEach((dataset: any, datasetIndex: number) => {
+                dataPoint[dataset.label] = dataset.data[index];
+              });
+              return dataPoint;
+            })} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              {chartData.datasets.map((dataset: any, index: number) => (
+                <Bar 
+                  key={dataset.label} 
+                  dataKey={dataset.label} 
+                  fill={dataset.backgroundColor.split(',')[0].replace('rgba(', 'rgb(').replace('0.5)', ')')} 
+                />
+              ))}
+            </RechartBarChart>
+          </ResponsiveContainer>
         );
     }
   };

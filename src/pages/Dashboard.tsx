@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,6 +13,9 @@ import { db } from '@/services/firebase';
 import { getAllTasks } from '@/services/taskService';
 import { getAllHabits } from '@/services/habitService';
 import { getFocusSessions } from '@/services/focusService';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { format, subDays, addDays, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay } from 'date-fns';
+import { fr } from 'date-fns/locale';
 
 const Dashboard = () => {
   const { currentUser, userProfile } = useAuth();
@@ -25,19 +27,16 @@ const Dashboard = () => {
   const [habitsStats, setHabitsStats] = useState({ completed: 0, total: 0 });
   const [focusStats, setFocusStats] = useState({ duration: '0h 0m', sessions: 0 });
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [weeklyData, setWeeklyData] = useState<any[]>([]);
   
   useEffect(() => {
-    // Charger les données réelles du tableau de bord
     const loadDashboardData = async () => {
       try {
         if (currentUser) {
-          // Charger les tâches
           const tasks = await getAllTasks();
           setTaskCount(tasks.length);
           
-          // Calculer les tâches pour aujourd'hui
           const today = new Date();
-          today.setHours(0, 0, 0, 0);
           const todayTasks = tasks.filter(task => {
             if (!task.due_date) return false;
             const taskDate = new Date(task.due_date);
@@ -46,9 +45,7 @@ const Dashboard = () => {
           });
           setTodayTaskCount(todayTasks.length);
           
-          // Charger les habitudes
           const habits = await getAllHabits();
-          // Check if a habit was completed today by looking at last_completed
           const completedHabits = habits.filter(habit => {
             if (!habit.last_completed) return false;
             const completedDate = new Date(habit.last_completed);
@@ -61,7 +58,6 @@ const Dashboard = () => {
             total: habits.length
           });
           
-          // Charger les sessions focus
           try {
             if (currentUser) {
               const userFocusRef = doc(db, "userFocus", currentUser.uid);
@@ -79,7 +75,6 @@ const Dashboard = () => {
                 });
               }
               
-              // Obtenir les sessions de focus pour aujourd'hui
               const todaySessions = await getFocusSessions(currentUser.uid, today);
               if (todaySessions) {
                 setFocusStats(prev => ({
@@ -100,7 +95,56 @@ const Dashboard = () => {
       }
     };
     
+    const loadWeeklyData = async () => {
+      if (currentUser) {
+        try {
+          const today = new Date();
+          const startOfCurrentWeek = startOfWeek(today, { weekStartsOn: 1 });
+          const endOfCurrentWeek = endOfWeek(today, { weekStartsOn: 1 });
+          
+          const daysOfWeek = eachDayOfInterval({
+            start: startOfCurrentWeek,
+            end: endOfCurrentWeek
+          });
+          
+          const tasks = await getAllTasks();
+          const focusSessions = await getFocusSessions(currentUser.uid);
+          
+          const data = daysOfWeek.map(day => {
+            const tasksForDay = tasks.filter(task => {
+              if (!task.due_date) return false;
+              return isSameDay(new Date(task.due_date), day);
+            });
+            
+            const completedTasks = tasksForDay.filter(task => task.completed).length;
+            
+            const sessionsForDay = focusSessions ? focusSessions.filter(session => {
+              if (!session.date) return false;
+              return isSameDay(new Date(session.date), day);
+            }) : [];
+            
+            const focusMinutes = sessionsForDay.reduce((total, session) => {
+              return total + (session.duration_minutes || 0);
+            }, 0);
+            
+            return {
+              name: format(day, 'EEE', { locale: fr }),
+              tasks: tasksForDay.length,
+              completed: completedTasks,
+              focus: focusMinutes
+            };
+          });
+          
+          setWeeklyData(data);
+          
+        } catch (error) {
+          console.error('Error loading weekly data:', error);
+        }
+      }
+    };
+    
     loadDashboardData();
+    loadWeeklyData();
   }, [currentUser]);
 
   const containerVariants = {
@@ -139,10 +183,8 @@ const Dashboard = () => {
           </div>
         </motion.div>
 
-        {/* Section d'accès rapide */}
         <DashboardShortcuts />
 
-        {/* Section d'activité */}
         <DashboardActivity 
           taskCount={taskCount}
           todayTaskCount={todayTaskCount}
@@ -160,9 +202,32 @@ const Dashboard = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="pl-2">
-              <div className="h-[200px] flex flex-col items-center justify-center bg-muted rounded-md text-muted-foreground">
-                <p className="mb-4">Graphique hebdomadaire (Fonctionnalité en développement)</p>
-              </div>
+              {dataLoaded && weeklyData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart
+                    data={weeklyData}
+                    margin={{
+                      top: 5,
+                      right: 30,
+                      left: 0,
+                      bottom: 5,
+                    }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="tasks" name="Tâches" fill="#8884d8" />
+                    <Bar dataKey="completed" name="Terminées" fill="#82ca9d" />
+                    <Bar dataKey="focus" name="Focus (min)" fill="#ffc658" />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[200px] flex flex-col items-center justify-center bg-muted rounded-md text-muted-foreground">
+                  <p className="mb-4">Chargement des données...</p>
+                </div>
+              )}
             </CardContent>
           </Card>
           <Card className="col-span-3 hover:shadow-md transition-shadow">
