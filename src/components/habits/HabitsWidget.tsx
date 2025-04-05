@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,7 +9,9 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useHabits, Habit } from '@/services/habitService';
+import { useHabits, Habit, getAllHabits } from '@/services/habitService';
+import { doc, updateDoc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '@/services/firebase';
 
 interface ComponentHabit {
   id: string;
@@ -28,93 +31,105 @@ export const HabitsWidget = () => {
   const [loading, setLoading] = useState(true);
   const { currentUser } = useAuth();
   const navigate = useNavigate();
+  const { updateItem } = useHabits();
   
-  useEffect(() => {
-    const fetchHabits = async () => {
-      try {
-        setLoading(true);
+  const fetchHabits = async () => {
+    try {
+      setLoading(true);
+      
+      const localHabits = await getAllHabits();
+      
+      if (localHabits && localHabits.length > 0) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
         
-        const { data: localHabits } = useHabits();
-        
-        if (localHabits && localHabits.length > 0) {
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          
-          const formattedHabits = localHabits.map(habit => {
-            let completed = false;
-            if (habit.last_completed) {
-              const lastCompleted = new Date(habit.last_completed);
-              lastCompleted.setHours(0, 0, 0, 0);
-              completed = lastCompleted.getTime() === today.getTime();
-            }
-            
-            return {
-              id: habit.id,
-              title: habit.title,
-              description: habit.description,
-              frequency: habit.frequency === 'monthly' ? 'weekly' : habit.frequency,
-              streak: habit.streak,
-              target: habit.target_days?.length || 7,
-              userId: habit.user_id || currentUser?.uid || 'anonymous',
-              completed,
-              lastCompletedAt: habit.last_completed
-            };
-          }) as ComponentHabit[];
-          
-          setHabits(formattedHabits);
-        } else {
-          setHabits([
-            {
-              id: '1',
-              title: 'Méditer',
-              description: '10 minutes par jour',
-              frequency: 'daily',
-              streak: 5,
-              target: 30,
-              userId: currentUser?.uid || 'anonymous',
-              completed: false
-            },
-            {
-              id: '2',
-              title: 'Exercice physique',
-              description: '30 minutes',
-              frequency: 'daily',
-              streak: 3,
-              target: 90,
-              userId: currentUser?.uid || 'anonymous',
-              completed: false
-            }
-          ]);
-        }
-      } catch (error) {
-        console.error("Erreur lors du chargement des habitudes:", error);
-        setHabits([
-          {
-            id: '1',
-            title: 'Méditer',
-            description: '10 minutes par jour',
-            frequency: 'daily',
-            streak: 5,
-            target: 30,
-            userId: currentUser?.uid || 'anonymous',
-            completed: false
+        const formattedHabits = localHabits.map(habit => {
+          let completed = false;
+          if (habit.last_completed) {
+            const lastCompleted = new Date(habit.last_completed);
+            lastCompleted.setHours(0, 0, 0, 0);
+            completed = lastCompleted.getTime() === today.getTime();
           }
-        ]);
-      } finally {
-        setLoading(false);
+          
+          return {
+            id: habit.id,
+            title: habit.title,
+            description: habit.description,
+            frequency: habit.frequency === 'monthly' ? 'weekly' : habit.frequency as 'daily' | 'weekly',
+            streak: habit.streak || 0,
+            target: habit.target_days?.length || 7,
+            userId: habit.user_id || currentUser?.uid || 'anonymous',
+            completed,
+            lastCompletedAt: habit.last_completed
+          };
+        }) as ComponentHabit[];
+        
+        setHabits(formattedHabits);
+      } else {
+        // Charger des données par défaut uniquement si l'utilisateur n'a pas d'habitudes
+        setHabits([]);
       }
-    };
-    
+    } catch (error) {
+      console.error("Erreur lors du chargement des habitudes:", error);
+      setHabits([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchHabits();
   }, [currentUser]);
   
   const completeHabit = async (habitId: string) => {
     try {
-      const updatedHabits = habits.map(habit => 
-        habit.id === habitId ? { ...habit, streak: habit.streak + 1, completed: true } : habit
-      );
+      // Trouver l'habitude à mettre à jour
+      const habitToUpdate = habits.find(h => h.id === habitId);
       
+      if (!habitToUpdate) {
+        toast.error("Habitude non trouvée");
+        return;
+      }
+      
+      // Mettre à jour localement pour une UI réactive immédiate
+      const updatedHabits = habits.map(habit => 
+        habit.id === habitId ? { ...habit, streak: habit.streak + 1, completed: true, lastCompletedAt: new Date().toISOString() } : habit
+      );
       setHabits(updatedHabits);
+      
+      // Mettre à jour dans IndexedDB via le service
+      await updateItem(habitId, {
+        streak: (habitToUpdate.streak + 1),
+        last_completed: new Date().toISOString()
+      });
+      
+      // Mettre à jour également dans Firebase si l'utilisateur est connecté
+      if (currentUser?.uid) {
+        try {
+          const habitDocRef = doc(db, "habits", habitId);
+          const habitDoc = await getDoc(habitDocRef);
+          
+          if (habitDoc.exists()) {
+            await updateDoc(habitDocRef, {
+              streak: (habitToUpdate.streak + 1),
+              last_completed: new Date().toISOString()
+            });
+          } else {
+            // Créer le document s'il n'existe pas
+            await setDoc(habitDocRef, {
+              id: habitId,
+              title: habitToUpdate.title,
+              streak: habitToUpdate.streak + 1,
+              last_completed: new Date().toISOString(),
+              user_id: currentUser.uid
+            });
+          }
+        } catch (firebaseError) {
+          console.error("Erreur lors de la mise à jour Firebase:", firebaseError);
+          // La mise à jour locale et IndexedDB a toujours eu lieu
+        }
+      }
+      
       toast.success("Habitude complétée !");
     } catch (error) {
       console.error("Erreur lors de la complétion de l'habitude:", error);

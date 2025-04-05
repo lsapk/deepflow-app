@@ -12,7 +12,7 @@ import { DashboardActivity } from '@/components/DashboardActivity';
 import { getDoc, doc, collection, query, where, limit, getDocs } from 'firebase/firestore';
 import { db } from '@/services/firebase';
 import { getAllTasks } from '@/services/taskService';
-import { getAllHabits, Habit } from '@/services/habitService';
+import { getAllHabits } from '@/services/habitService';
 import { getFocusSessions } from '@/services/focusService';
 
 const Dashboard = () => {
