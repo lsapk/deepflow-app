@@ -21,7 +21,7 @@ interface AIAssistantProps {
   initialMessage?: string;
 }
 
-// Initialize Hugging Face client
+// Initialize Hugging Face client with the provided API key
 const hf = new HfInference("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");
 
 const AIAssistant: React.FC<AIAssistantProps> = ({ initialMessage = "Bonjour! Je suis votre assistant IA personnel. Je peux vous aider à analyser vos données de productivité et répondre à vos questions." }) => {
@@ -143,9 +143,9 @@ Si tu n'as pas assez de données spécifiques, propose des suggestions général
         { role: 'user', content: query }
       ];
       
-      // Call Hugging Face API with Deepseek model
+      // Call Hugging Face API with DeepSeek-R1 model
       const response = await hf.textGeneration({
-        model: "deepseek-ai/deepseek-chat-v1",
+        model: "deepseek-ai/DeepSeek-R1",
         inputs: JSON.stringify(fullConversation),
         parameters: {
           max_new_tokens: 1024,
