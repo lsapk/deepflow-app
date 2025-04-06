@@ -9,6 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useIndexedDB } from '@/hooks/use-indexed-db';
+import { HfInference } from '@huggingface/inference';
 
 interface Message {
   role: 'assistant' | 'user';
@@ -19,6 +20,9 @@ interface Message {
 interface AIAssistantProps {
   initialMessage?: string;
 }
+
+// Initialize Hugging Face client
+const hf = new HfInference("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");
 
 const AIAssistant: React.FC<AIAssistantProps> = ({ initialMessage = "Bonjour! Je suis votre assistant IA personnel. Je peux vous aider à analyser vos données de productivité et répondre à vos questions." }) => {
   const [query, setQuery] = useState('');
@@ -126,40 +130,33 @@ Si tu n'as pas assez de données spécifiques, propose des suggestions général
     setIsLoading(true);
     
     try {
-      // Deepseek API call
-      const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer sk-1faa52f853a844d3aa842ef3d9fa61eb`
-        },
-        body: JSON.stringify({
-          model: 'deepseek-chat', // Using Deepseek's base model
-          messages: [
-            {
-              role: 'system',
-              content: prepareSystemPrompt()
-            },
-            ...messages.map(msg => ({
-              role: msg.role,
-              content: msg.content
-            })),
-            {
-              role: 'user',
-              content: query
-            }
-          ],
+      // Prepare conversation history for Hugging Face
+      const conversationHistory = messages.map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }));
+      
+      // Add the system prompt and user query
+      const fullConversation = [
+        { role: 'system', content: prepareSystemPrompt() },
+        ...conversationHistory,
+        { role: 'user', content: query }
+      ];
+      
+      // Call Hugging Face API with Deepseek model
+      const response = await hf.textGeneration({
+        model: "deepseek-ai/deepseek-chat-v1",
+        inputs: JSON.stringify(fullConversation),
+        parameters: {
+          max_new_tokens: 1024,
           temperature: 0.7,
-          max_tokens: 1024
-        })
+          top_p: 0.95,
+          return_full_text: false
+        }
       });
       
-      if (!response.ok) {
-        throw new Error(`API responded with status: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      const aiResponse = data.choices?.[0]?.message?.content || 
+      // Extract the AI response
+      const aiResponse = response.generated_text || 
         "Désolé, je n'ai pas pu traiter votre demande. Veuillez réessayer.";
       
       // Add AI response

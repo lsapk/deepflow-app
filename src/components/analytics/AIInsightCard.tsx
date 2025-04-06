@@ -33,6 +33,55 @@ interface InsightItem {
   icon?: string;
 }
 
+// Calculate a real productivity score based on user data
+const calculateProductivityScore = (
+  tasksData: any[] = [], 
+  habitsData: any[] = [], 
+  journalData: any[] = [], 
+  focusData: any[] = []
+) => {
+  // Base score starts at 50
+  let score = 50;
+  
+  // Task completion rate (up to 20 points)
+  if (tasksData.length > 0) {
+    const completedTasks = tasksData.filter((t: any) => t.status === 'done').length;
+    const taskCompletionRate = (completedTasks / tasksData.length) * 100;
+    score += Math.min(20, taskCompletionRate / 5); // Max 20 points
+  }
+  
+  // Habit consistency (up to 15 points)
+  if (habitsData.length > 0) {
+    const avgStreak = habitsData.reduce((acc: number, h: any) => acc + (h.streak || 0), 0) / habitsData.length;
+    score += Math.min(15, avgStreak * 3); // Max 15 points
+  }
+  
+  // Journal entries (up to 5 points)
+  if (journalData.length > 0) {
+    // Calculate entries from the last week
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    
+    const recentEntries = journalData.filter((entry: any) => {
+      const entryDate = new Date(entry.date || entry.created_at);
+      return entryDate >= oneWeekAgo;
+    }).length;
+    
+    score += Math.min(5, recentEntries); // Max 5 points
+  }
+  
+  // Focus sessions (up to 10 points)
+  if (focusData.length > 0) {
+    const totalFocusMinutes = focusData.reduce((acc: number, session: any) => 
+      acc + (session.duration || 0), 0);
+    
+    score += Math.min(10, totalFocusMinutes / 30); // Max 10 points
+  }
+  
+  // Ensure score is between 0 and 100
+  return Math.min(100, Math.max(0, Math.round(score)));
+};
+
 export const AIInsightCard: React.FC<AIInsightProps> = ({ 
   title = "Insights IA",
   description = "Analyses personnalisées basées sur vos données",
@@ -45,6 +94,7 @@ export const AIInsightCard: React.FC<AIInsightProps> = ({
   const [lastUpdated, setLastUpdated] = useState(new Date());
   const [loading, setLoading] = useState(true);
   const [hasData, setHasData] = useState(false);
+  const [productivityScore, setProductivityScore] = useState(0);
 
   // Récupérer les données depuis IndexedDB
   const { data: tasksData } = useIndexedDB<any>({ 
@@ -87,6 +137,10 @@ export const AIInsightCard: React.FC<AIInsightProps> = ({
       return;
     }
 
+    // Calculate real productivity score
+    const score = calculateProductivityScore(tasksData, habitsData, journalData, focusData);
+    setProductivityScore(score);
+
     // Générer des insights basés sur les données réelles
     const generatedInsights: InsightItem[] = [];
     
@@ -94,12 +148,16 @@ export const AIInsightCard: React.FC<AIInsightProps> = ({
     if (tasksData && tasksData.length > 0 && habitsData && habitsData.length > 0) {
       generatedInsights.push({
         id: 'productivity-score',
-        text: `Votre score de productivité pour cette semaine est de ${Math.floor(Math.random() * 30) + 70}/100`,
+        text: `Votre score de productivité pour cette semaine est de ${score}/100`,
         category: 'Performance',
-        trend: 'up',
-        value: 78,
-        recommendation: 'Continuez sur cette lancée, vous êtes sur la bonne voie !',
-        priority: 'high',
+        trend: score > 70 ? 'up' : score > 50 ? 'neutral' : 'down',
+        value: score,
+        recommendation: score > 70 
+          ? 'Excellent travail! Vous êtes très efficace.' 
+          : score > 50 
+            ? 'Bonne progression. Continuez vos efforts!' 
+            : 'Essayez de vous concentrer sur l\'achèvement de quelques tâches prioritaires.',
+        priority: score > 70 ? 'high' : 'medium',
         icon: 'bar-chart'
       });
     }
@@ -368,6 +426,29 @@ export const AIInsightCard: React.FC<AIInsightProps> = ({
         </CardDescription>
       </CardHeader>
       <CardContent className="pb-2">
+        {productivityScore > 0 && (
+          <div className="mb-4">
+            <h4 className="text-sm font-semibold mb-2 flex items-center">
+              <BarChart3 className="h-4 w-4 mr-1 text-primary" />
+              Score de productivité
+            </h4>
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+              <div 
+                className={`h-2.5 rounded-full ${
+                  productivityScore > 70 ? 'bg-green-600' : 
+                  productivityScore > 50 ? 'bg-amber-500' : 'bg-red-500'
+                }`} 
+                style={{ width: `${productivityScore}%` }}
+              ></div>
+            </div>
+            <div className="flex justify-between mt-1 text-xs text-gray-500 dark:text-gray-400">
+              <span>0</span>
+              <span>50</span>
+              <span>100</span>
+            </div>
+          </div>
+        )}
+        
         <div className="space-y-4">
           {insights.slice(0, showAll ? insights.length : 3).map((insight, index) => (
             <motion.div 
