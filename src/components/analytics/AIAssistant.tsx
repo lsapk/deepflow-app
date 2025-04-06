@@ -126,17 +126,15 @@ Si tu n'as pas assez de données spécifiques, propose des suggestions général
     setIsLoading(true);
     
     try {
-      // OpenRouter API call
-      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      // Deepseek API call
+      const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer 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`,
-          'HTTP-Referer': window.location.origin,
-          'X-Title': 'Analytics Assistant'
+          'Authorization': `Bearer sk-1faa52f853a844d3aa842ef3d9fa61eb`
         },
         body: JSON.stringify({
-          model: 'nousresearch/nous-hermes-2-mistral-7b-dpo',  // Free model with good performance
+          model: 'deepseek-chat', // Using Deepseek's base model
           messages: [
             {
               role: 'system',
@@ -161,7 +159,7 @@ Si tu n'as pas assez de données spécifiques, propose des suggestions général
       }
       
       const data = await response.json();
-      const aiResponse = data.choices[0]?.message?.content || 
+      const aiResponse = data.choices?.[0]?.message?.content || 
         "Désolé, je n'ai pas pu traiter votre demande. Veuillez réessayer.";
       
       // Add AI response
@@ -172,12 +170,23 @@ Si tu n'as pas assez de données spécifiques, propose des suggestions général
       }]);
     } catch (error) {
       console.error('Error querying AI assistant:', error);
-      toast.error('Impossible de communiquer avec l\'assistant IA. Veuillez réessayer.');
       
-      // Add error message
+      // Fallback for development/testing - create a simulated response
+      const simulatedResponses = [
+        "D'après vos données, vous avez une productivité plus élevée le matin. Essayez de planifier vos tâches importantes durant cette période.",
+        "Je remarque que vous maintenez bien certaines habitudes. Continuez sur cette lancée, la constance est clé dans le développement personnel.",
+        "Basé sur vos données de focus, vous pourriez améliorer votre concentration en utilisant la technique Pomodoro plus régulièrement.",
+        "Votre taux de complétion des tâches est bon. Pour l'améliorer davantage, essayez de diviser les grandes tâches en plus petites étapes."
+      ];
+      
+      const randomResponse = simulatedResponses[Math.floor(Math.random() * simulatedResponses.length)];
+      
+      toast.error('Problème de connexion avec l\'assistant IA. Mode hors ligne activé.');
+      
+      // Add simulated response
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: "Désolé, j'ai rencontré une erreur de communication. Veuillez réessayer dans quelques instants.", 
+        content: `Mode hors-ligne: ${randomResponse}`, 
         timestamp: new Date() 
       }]);
     } finally {
