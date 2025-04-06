@@ -54,6 +54,79 @@ export interface JournalEntry {
   updated_at?: string;
 }
 
+// S'assurer que l'utilisateur existe dans la base de données
+export const ensureUserInDatabase = async (user: User) => {
+  try {
+    // Vérifier si le profil existe déjà
+    const { data: existingProfile, error: profileError } = await supabase
+      .from('user_profiles')
+      .select('id')
+      .eq('id', user.id)
+      .single();
+    
+    if (profileError && profileError.code !== 'PGRST116') {
+      console.error("Error checking user profile:", profileError);
+      return;
+    }
+    
+    // Si le profil n'existe pas, le créer
+    if (!existingProfile) {
+      const { error: insertError } = await supabase
+        .from('user_profiles')
+        .insert({
+          id: user.id,
+          display_name: user.user_metadata?.display_name || user.user_metadata?.name || '',
+          email: user.email,
+          photo_url: user.user_metadata?.avatar_url || ''
+        });
+      
+      if (insertError) {
+        console.error("Error creating user profile:", insertError);
+        return;
+      }
+      
+      console.log("Created new user profile");
+    }
+    
+    // Vérifier si les paramètres existent déjà
+    const { data: existingSettings, error: settingsError } = await supabase
+      .from('user_settings')
+      .select('id')
+      .eq('id', user.id)
+      .single();
+    
+    if (settingsError && settingsError.code !== 'PGRST116') {
+      console.error("Error checking user settings:", settingsError);
+      return;
+    }
+    
+    // Si les paramètres n'existent pas, les créer
+    if (!existingSettings) {
+      const { error: insertError } = await supabase
+        .from('user_settings')
+        .insert({
+          id: user.id,
+          theme: 'system',
+          language: 'fr',
+          notifications_enabled: true,
+          sound_enabled: true,
+          clock_format: '24h',
+          karma_points: 0,
+          unlocked_features: ['dashboard', 'tasks', 'habits']
+        });
+      
+      if (insertError) {
+        console.error("Error creating user settings:", insertError);
+        return;
+      }
+      
+      console.log("Created new user settings");
+    }
+  } catch (error) {
+    console.error("Error ensuring user in database:", error);
+  }
+};
+
 // Authentification - optimized login
 export const registerUser = async (email: string, password: string, displayName: string) => {
   try {
@@ -68,6 +141,11 @@ export const registerUser = async (email: string, password: string, displayName:
     });
 
     if (error) throw error;
+    
+    if (data.user) {
+      // S'assurer que l'utilisateur existe dans la base de données
+      await ensureUserInDatabase(data.user);
+    }
     
     return data.user;
   } catch (error: any) {
@@ -93,6 +171,11 @@ export const loginUser = async (email: string, password: string) => {
     });
 
     if (error) throw error;
+    
+    if (data.user) {
+      // S'assurer que l'utilisateur existe dans la base de données
+      await ensureUserInDatabase(data.user);
+    }
     
     return data.user;
   } catch (error: any) {

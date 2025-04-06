@@ -8,7 +8,8 @@ import {
   registerUser, 
   signInWithGoogle, 
   UserProfile,
-  getUserProfile
+  getUserProfile,
+  ensureUserInDatabase
 } from '@/services/supabase';
 import { toast } from 'sonner';
 
@@ -120,7 +121,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     // Configuration du listener pour les changements d'état d'authentification
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, newSession) => {
+      async (event, newSession) => {
         // Avoid unnecessary state updates if session hasn't changed
         if (JSON.stringify(session) === JSON.stringify(newSession)) return;
         
@@ -129,6 +130,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setCurrentUser(adaptedUser);
         
         if (newSession?.user) {
+          // Ensure the user is in the database
+          try {
+            await ensureUserInDatabase(newSession.user);
+          } catch (error) {
+            console.error("Error ensuring user in database:", error);
+          }
+          
           // Sauvegarder les données de session en local pour un accès hors ligne
           saveLocalData('currentSession', newSession);
           saveLocalData('currentUser', adaptedUser);
@@ -197,7 +205,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             saveLocalData('currentSession', initialSession);
             saveLocalData('currentUser', adaptedUser);
             
+            // Ensure the user is in the database
             if (initialSession?.user) {
+              try {
+                await ensureUserInDatabase(initialSession.user);
+              } catch (error) {
+                console.error("Error ensuring user in database:", error);
+              }
+              
               // We don't need to await this - it can load in the background
               getUserProfile(initialSession.user.id)
                 .then(profile => {
@@ -255,6 +270,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return adaptUser(user);
     } catch (error: any) {
       console.error("Sign in error:", error);
+      toast.error(`Erreur de connexion: ${error.message || "Identifiants incorrects"}`);
       throw error;
     } finally {
       setLoading(false);
@@ -268,6 +284,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Pas de redirection ici car OAuth gère sa propre redirection
     } catch (error: any) {
       console.error("Google sign in error:", error);
+      toast.error(`Erreur de connexion avec Google: ${error.message}`);
       throw error;
     } finally {
       setLoading(false);
@@ -285,6 +302,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return adaptUser(user);
     } catch (error: any) {
       console.error("Sign up error:", error);
+      toast.error(`Erreur d'inscription: ${error.message}`);
       throw error;
     } finally {
       setLoading(false);

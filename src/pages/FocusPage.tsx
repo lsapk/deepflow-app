@@ -2,12 +2,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import { Slider } from '@/components/ui/slider';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import { CheckCircle2, Clock, Volume2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { doc, setDoc, increment, getDoc, Timestamp } from 'firebase/firestore';
@@ -17,6 +11,7 @@ import { PomodoroTimer } from '@/components/focus/PomodoroTimer';
 import { FocusStats } from '@/components/focus/FocusStats';
 import { FocusPreferences } from '@/components/focus/FocusPreferences';
 import { FocusTips } from '@/components/focus/FocusTips';
+import { Clock } from 'lucide-react';
 
 const alarmSound = new Audio('/alarm.mp3');
 
@@ -33,8 +28,10 @@ const FocusPage = () => {
   const [volume, setVolume] = useState(70);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<Date | null>(null);
-  const endTimeRef = useRef<Date | null>(null);
   const isMobile = useIsMobile();
+
+  // Correction du problème de décompte - Utilisation d'un useRef pour stocker la dernière mise à jour
+  const lastUpdateTimeRef = useRef<number | null>(null);
 
   useEffect(() => {
     // Load user preferences and stats
@@ -80,46 +77,40 @@ const FocusPage = () => {
     alarmSound.volume = volume / 100;
   }, [volume]);
 
-  // Fixed timer implementation for accurate countdown
+  // Correction du minuteur pour un décompte précis
   useEffect(() => {
     if (isActive && !isPaused) {
-      // Set end time when timer starts
-      if (!endTimeRef.current) {
-        const now = new Date();
-        endTimeRef.current = new Date(now.getTime() + time * 1000);
-      }
+      lastUpdateTimeRef.current = Date.now();
       
       intervalRef.current = setInterval(() => {
-        const now = new Date();
-        const endTime = endTimeRef.current as Date;
+        const now = Date.now();
+        const lastUpdate = lastUpdateTimeRef.current || now;
+        const elapsedSeconds = Math.floor((now - lastUpdate) / 1000);
         
-        if (now >= endTime) {
-          // Timer complete
-          if (intervalRef.current) {
-            clearInterval(intervalRef.current);
-          }
-          setTime(0);
-          setIsActive(false);
-          setIsPaused(false);
-          sessionComplete();
-          setTime(selectedTime * 60);
-          endTimeRef.current = null;
-        } else {
-          // Calculate remaining time in seconds
-          const remainingMs = endTime.getTime() - now.getTime();
-          const remainingSeconds = Math.ceil(remainingMs / 1000);
-          setTime(remainingSeconds);
+        if (elapsedSeconds >= 1) {
+          setTime(prevTime => {
+            const newTime = Math.max(0, prevTime - elapsedSeconds);
+            
+            if (newTime === 0) {
+              // Timer complete
+              if (intervalRef.current) {
+                clearInterval(intervalRef.current);
+              }
+              setIsActive(false);
+              setIsPaused(false);
+              sessionComplete();
+              return selectedTime * 60;
+            }
+            
+            return newTime;
+          });
+          
+          lastUpdateTimeRef.current = now;
         }
-      }, 250); // Update more frequently for smoother countdown
+      }, 200); // Vérifier plus fréquemment pour un décompte plus précis
     } else {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
-        
-        // If paused, update end time for when we resume
-        if (isPaused && endTimeRef.current) {
-          const pauseTimeRemaining = time * 1000; // Convert seconds to ms
-          endTimeRef.current = new Date(new Date().getTime() + pauseTimeRemaining);
-        }
       }
     }
 
@@ -186,7 +177,7 @@ const FocusPage = () => {
     setIsActive(true);
     setIsPaused(false);
     startTimeRef.current = new Date();
-    endTimeRef.current = new Date(new Date().getTime() + time * 1000);
+    lastUpdateTimeRef.current = Date.now();
   };
 
   const handlePause = () => {
@@ -195,6 +186,7 @@ const FocusPage = () => {
 
   const handleResume = () => {
     setIsPaused(false);
+    lastUpdateTimeRef.current = Date.now();
   };
 
   const handleReset = () => {
@@ -206,7 +198,6 @@ const FocusPage = () => {
     setIsPaused(false);
     setTime(selectedTime * 60);
     startTimeRef.current = null;
-    endTimeRef.current = null;
   };
 
   const setTimePreset = (minutes: number) => {
@@ -219,7 +210,6 @@ const FocusPage = () => {
       intervalRef.current = null;
     }
     startTimeRef.current = null;
-    endTimeRef.current = null;
   };
 
   const formatTime = (time: number) => {
@@ -290,54 +280,25 @@ const FocusPage = () => {
 
           <div className="space-y-6">
             <Card>
-              <CardHeader>
-                <CardTitle>Statistiques</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-medium">Sessions terminées aujourd'hui</span>
-                      <span className="text-sm font-medium">{completedSessions}</span>
-                    </div>
-                    <Progress value={completedSessions * 25} className="h-2" />
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="flex items-center">
-                        <CheckCircle2 size={16} className="mr-2 text-green-500" />
-                        Session en cours
-                      </span>
-                      <span>{isActive ? formatTime(time) : "Inactif"}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="flex items-center">
-                        <Clock size={16} className="mr-2 text-blue-500" />
-                        Temps de focus total
-                      </span>
-                      <span>{`${totalFocusTime} min`}</span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
+              <FocusStats 
+                completedSessions={completedSessions}
+                isActive={isActive}
+                time={time}
+                formatTime={formatTime}
+                totalFocusTime={totalFocusTime}
+              />
             </Card>
 
             <Card>
-              <CardHeader>
-                <CardTitle>Préférences</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <FocusPreferences
-                  playSound={playSound}
-                  setPlaySound={setPlaySound}
-                  showNotification={showNotification}
-                  setShowNotification={setShowNotification}
-                  volume={volume}
-                  setVolume={setVolume}
-                  handleSavePreferences={handleSavePreferences}
-                />
-              </CardContent>
+              <FocusPreferences
+                playSound={playSound}
+                setPlaySound={setPlaySound}
+                showNotification={showNotification}
+                setShowNotification={setShowNotification}
+                volume={volume}
+                setVolume={setVolume}
+                handleSavePreferences={handleSavePreferences}
+              />
             </Card>
             
             {!isMobile && (
