@@ -8,6 +8,25 @@ import ReactMarkdown from 'react-markdown';
 const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
   const isAssistant = message.role === 'assistant';
   
+  // Fonction pour nettoyer le contenu si nécessaire
+  const cleanContent = (content: string): string => {
+    try {
+      // Vérifier si le contenu est un JSON stringifié
+      if (content.startsWith('{') && content.endsWith('}')) {
+        const parsed = JSON.parse(content);
+        if (parsed.content) {
+          return parsed.content;
+        }
+      }
+      return content;
+    } catch (e) {
+      // Si ce n'est pas un JSON valide, retourner le contenu d'origine
+      return content;
+    }
+  };
+  
+  const content = cleanContent(message.content);
+  
   return (
     <div className={`flex ${isAssistant ? 'justify-start' : 'justify-end'} mb-4`}>
       {isAssistant && (
@@ -35,17 +54,17 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
                 code: ({ children }) => <code className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded">{children}</code>
               }}
             >
-              {message.content}
+              {content}
             </ReactMarkdown>
           ) : (
-            message.content
+            content
           )}
         </div>
         <div className="mt-1.5 text-xs opacity-70 text-right">
-          {message.timestamp.toLocaleTimeString('fr-FR', { 
-            hour: '2-digit', 
-            minute: '2-digit' 
-          })}
+          {message.timestamp instanceof Date 
+            ? message.timestamp.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+            : new Date(message.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+          }
         </div>
       </div>
       

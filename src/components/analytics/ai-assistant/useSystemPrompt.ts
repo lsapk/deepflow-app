@@ -1,8 +1,25 @@
 
 import { useAssistantData } from './useAssistantData';
+import { getAllHabits } from '@/services/habitService';
+import { useEffect, useState } from 'react';
 
 export const useSystemPrompt = () => {
   const { tasksData, habitsData, journalData, focusData, stats } = useAssistantData();
+  const [allHabits, setAllHabits] = useState<any[]>([]);
+  
+  // Récupérer toutes les habitudes
+  useEffect(() => {
+    const fetchHabits = async () => {
+      try {
+        const habits = await getAllHabits();
+        setAllHabits(habits);
+      } catch (error) {
+        console.error("Erreur lors de la récupération des habitudes:", error);
+      }
+    };
+    
+    fetchHabits();
+  }, []);
 
   const prepareSystemPrompt = () => {
     // Construire un résumé détaillé des données
@@ -17,10 +34,14 @@ export const useSystemPrompt = () => {
       }
     }
     
+    // Ajouter les détails des habitudes à partir des deux sources
+    let combinedHabitsData = [...(habitsData || []), ...(allHabits || [])];
+    let uniqueHabits = Array.from(new Map(combinedHabitsData.map((h: any) => [h.id, h])).values());
+    
     let habitsDetails = "Pas d'habitudes.";
-    if (habitsData && habitsData.length > 0) {
-      habitsDetails = habitsData.map((h: any) => 
-        `- ${h.title} (Série actuelle: ${h.streak || 0}, Fréquence: ${h.frequency || 'quotidienne'})`
+    if (uniqueHabits.length > 0) {
+      habitsDetails = uniqueHabits.map((h: any) => 
+        `- ${h.title} (Série actuelle: ${h.streak || 0}, Fréquence: ${h.frequency || 'quotidienne'}, Description: ${h.description || 'Non définie'})`
       ).join('\n');
     }
     
@@ -58,7 +79,7 @@ Voici une synthèse des données de l'utilisateur:
   Taux de complétion: ${stats.completionRate.toFixed(1)}%
   ${tasksDetails}
 
-• Habitudes: ${stats.totalHabits} au total (${stats.maintainedHabits} maintenues régulièrement)
+• Habitudes: ${uniqueHabits.length} au total (${stats.maintainedHabits} maintenues régulièrement)
   Taux de cohérence: ${stats.habitConsistency.toFixed(1)}%
   ${habitsDetails}
 
@@ -73,6 +94,12 @@ Tes objectifs:
 2. Offrir des conseils personnalisés pour améliorer la productivité
 3. Répondre aux questions de manière concise, professionnelle et encourageante
 4. Toujours répondre en français avec un ton positif et motivant
+
+Astuces importantes:
+- Utilise les informations sur les habitudes pour donner des conseils personnalisés
+- Quand tu analyses les données de focus, mentionne les tendances et propose des améliorations
+- Si l'utilisateur n'a pas beaucoup de données, suggère-lui de nouvelles habitudes ou techniques
+- Quand tu réponds, évite le format JSON ou les structures imbriquées - réponds en texte simple
 
 Si tu n'as pas assez de données spécifiques, propose des suggestions générales pour améliorer la productivité ou demande plus de détails.`;
   };

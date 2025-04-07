@@ -5,22 +5,42 @@ import { Message } from './types';
 import { useSystemPrompt } from './useSystemPrompt';
 import { sendMessageToAI } from '@/services/aiService';
 import { v4 as uuidv4 } from 'uuid';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
 export const useAssistantLogic = (initialMessage: string, maxHistory: number = 10) => {
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([
-    { 
-      id: uuidv4(),
-      role: 'assistant', 
-      content: initialMessage, 
-      timestamp: new Date() 
-    }
-  ]);
+  const [memoryMode, setMemoryMode] = useState(true);
+  
+  // Utiliser localStorage pour sauvegarder les messages
+  const [savedMessages, setSavedMessages] = useLocalStorage<Message[]>('ai-assistant-messages', []);
+  
+  const [messages, setMessages] = useState<Message[]>(() => {
+    // Si on a des messages sauvegardés et que le mode mémoire est activé, on les utilise
+    if (savedMessages && savedMessages.length > 0 && memoryMode) {
+      return savedMessages;
+    } 
+    // Sinon, on commence avec le message initial
+    return [
+      { 
+        id: uuidv4(),
+        role: 'assistant', 
+        content: initialMessage, 
+        timestamp: new Date() 
+      }
+    ];
+  });
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { prepareSystemPrompt } = useSystemPrompt();
+
+  // Mettre à jour le localStorage quand les messages changent
+  useEffect(() => {
+    if (memoryMode && messages.length > 0) {
+      setSavedMessages(messages);
+    }
+  }, [messages, memoryMode, setSavedMessages]);
 
   // Scroll to bottom of messages
   useEffect(() => {
@@ -35,6 +55,28 @@ export const useAssistantLogic = (initialMessage: string, maxHistory: number = 1
 
   const toggleThinking = () => {
     setIsThinking(!isThinking);
+  };
+  
+  const toggleMemoryMode = () => {
+    setMemoryMode(!memoryMode);
+    
+    // Si on active la mémoire et qu'on a des messages sauvegardés, on les restaure
+    if (!memoryMode && savedMessages && savedMessages.length > 0) {
+      setMessages(savedMessages);
+      toast.success('Mémoire des conversations restaurée');
+    } 
+    // Si on désactive la mémoire, on réinitialise la conversation
+    else if (memoryMode) {
+      setMessages([
+        { 
+          id: uuidv4(),
+          role: 'assistant', 
+          content: initialMessage, 
+          timestamp: new Date() 
+        }
+      ]);
+      toast.info('Mémoire désactivée, conversation réinitialisée');
+    }
   };
 
   const handleQuerySubmit = async (e: React.FormEvent) => {
@@ -103,6 +145,8 @@ export const useAssistantLogic = (initialMessage: string, maxHistory: number = 1
     toggleThinking,
     messages,
     messagesEndRef,
-    handleQuerySubmit
+    handleQuerySubmit,
+    memoryMode,
+    toggleMemoryMode
   };
 };

@@ -75,7 +75,25 @@ export async function sendMessageToAI(
     }
 
     const result = await response.json();
-    return result.generated_text || "Désolé, je n'ai pas pu générer de réponse.";
+    
+    // Vérifier si la réponse est déjà un JSON formaté incorrectement
+    let cleanedText = result.generated_text || "Désolé, je n'ai pas pu générer de réponse.";
+    
+    // Essayer de détecter si la réponse est un JSON mal formaté
+    try {
+      if (cleanedText.includes('{"role":"assistant","content":')) {
+        const jsonMatch = cleanedText.match(/\{.*\}/s);
+        if (jsonMatch) {
+          const parsedJson = JSON.parse(jsonMatch[0]);
+          cleanedText = parsedJson.content;
+        }
+      }
+    } catch (error) {
+      console.warn("Erreur lors du nettoyage de la réponse JSON:", error);
+      // En cas d'erreur de parsing, on garde le texte tel quel
+    }
+    
+    return cleanedText;
   } catch (error) {
     console.error("Erreur lors de l'appel à l'API Hugging Face:", error);
     return "Une erreur s'est produite lors de la communication avec l'assistant IA. Veuillez réessayer plus tard.";

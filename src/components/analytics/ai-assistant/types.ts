@@ -20,6 +20,8 @@ export interface AssistantHeaderProps {
   title: string;
   toggleThinking?: () => void;
   isThinking?: boolean;
+  toggleMemoryMode?: () => void;
+  memoryMode?: boolean;
 }
 
 // Interface pour les éléments de message

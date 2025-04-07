@@ -17,7 +17,7 @@ import { fr } from 'date-fns/locale';
 
 const AnalyticsPage: React.FC = () => {
   const { currentUser } = useAuth();
-  const [activeTab, setActiveTab] = useState("insights");
+  const [activeTab, setActiveTab] = useState("assistant");
 
   // Current date for the "last updated" information
   const now = new Date();
@@ -35,6 +35,10 @@ const AnalyticsPage: React.FC = () => {
 
         <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="mb-8 grid grid-cols-4 md:w-fit">
+            <TabsTrigger value="assistant" className="flex items-center gap-2">
+              <Brain className="h-4 w-4" />
+              <span>Assistant IA</span>
+            </TabsTrigger>
             <TabsTrigger value="insights" className="flex items-center gap-2">
               <Sparkles className="h-4 w-4" />
               <span>Insights IA</span>
@@ -47,11 +51,18 @@ const AnalyticsPage: React.FC = () => {
               <BookOpen className="h-4 w-4" />
               <span>Habitudes</span>
             </TabsTrigger>
-            <TabsTrigger value="assistant" className="flex items-center gap-2">
-              <Brain className="h-4 w-4" />
-              <span>Assistant IA</span>
-            </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="assistant">
+            <Card className="h-[calc(100vh-240px)] min-h-[600px]">
+              <CardContent className="p-0 h-full">
+                <AIAssistant 
+                  initialMessage="Bonjour ! Je suis votre assistant IA personnel. Je peux vous aider à analyser vos données de productivité et répondre à vos questions. N'hésitez pas à me demander des conseils sur votre organisation, vos habitudes ou votre concentration."
+                  maxHistory={20}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           <TabsContent value="insights">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -166,17 +177,6 @@ const AnalyticsPage: React.FC = () => {
                 </CardContent>
               </Card>
             </div>
-          </TabsContent>
-
-          <TabsContent value="assistant">
-            <Card className="h-[600px]">
-              <CardContent className="p-0 h-full">
-                <AIAssistant 
-                  initialMessage="Bonjour ! Je suis votre assistant IA personnel. Je peux vous aider à analyser vos données de productivité et répondre à vos questions. N'hésitez pas à me demander des conseils sur votre organisation, vos habitudes ou votre concentration."
-                  maxHistory={10}
-                />
-              </CardContent>
-            </Card>
           </TabsContent>
         </Tabs>
       </div>
