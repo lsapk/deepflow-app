@@ -5,7 +5,7 @@ import { Message } from './types';
 import { useSystemPrompt } from './useSystemPrompt';
 import { hfInstance } from './types';
 
-export const useAssistantLogic = (initialMessage: string) => {
+export const useAssistantLogic = (initialMessage: string, maxHistory: number = 10) => {
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
@@ -20,6 +20,12 @@ export const useAssistantLogic = (initialMessage: string) => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Limiter l'historique au nombre spécifié
+  const limitMessageHistory = (msgs: Message[]): Message[] => {
+    if (msgs.length <= maxHistory) return msgs;
+    return msgs.slice(msgs.length - maxHistory);
+  };
+
   const handleQuerySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -27,12 +33,12 @@ export const useAssistantLogic = (initialMessage: string) => {
     
     // Add user message
     const userMessage: Message = { role: 'user', content: query, timestamp: new Date() };
-    setMessages(prev => [...prev, userMessage]);
+    setMessages(prev => limitMessageHistory([...prev, userMessage]));
     setQuery('');
     setIsLoading(true);
     
     try {
-      // Prepare conversation history
+      // Prepare conversation history - limitée au maximum spécifié
       const conversationHistory = messages.map(msg => ({
         role: msg.role,
         content: msg.content
@@ -45,9 +51,9 @@ export const useAssistantLogic = (initialMessage: string) => {
         { role: 'user', content: query }
       ];
       
-      // Call Hugging Face API with DeepSeek-R1 model
+      // Call Hugging Face API with Mistral model
       const response = await hfInstance.textGeneration({
-        model: "deepseek-ai/DeepSeek-R1",
+        model: "mistralai/Mistral-7B-Instruct-v0.2",
         inputs: JSON.stringify(fullConversation),
         parameters: {
           max_new_tokens: 1024,
@@ -61,12 +67,12 @@ export const useAssistantLogic = (initialMessage: string) => {
       const aiResponse = response.generated_text || 
         "Désolé, je n'ai pas pu traiter votre demande. Veuillez réessayer.";
       
-      // Add AI response
-      setMessages(prev => [...prev, { 
+      // Add AI response and ensure history limit
+      setMessages(prev => limitMessageHistory([...prev, { 
         role: 'assistant', 
         content: aiResponse, 
         timestamp: new Date() 
-      }]);
+      }]));
     } catch (error) {
       console.error('Error querying AI assistant:', error);
       
@@ -83,11 +89,11 @@ export const useAssistantLogic = (initialMessage: string) => {
       toast.error('Problème de connexion avec l\'assistant IA. Mode hors ligne activé.');
       
       // Add simulated response
-      setMessages(prev => [...prev, { 
+      setMessages(prev => limitMessageHistory([...prev, { 
         role: 'assistant', 
         content: `Mode hors-ligne: ${randomResponse}`, 
         timestamp: new Date() 
-      }]);
+      }]));
     } finally {
       setIsLoading(false);
     }

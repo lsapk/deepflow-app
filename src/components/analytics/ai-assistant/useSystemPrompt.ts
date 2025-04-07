@@ -34,12 +34,28 @@ export const useSystemPrompt = () => {
     let journalDetails = "Pas d'entrées de journal.";
     if (journalData && journalData.length > 0) {
       journalDetails = `${journalData.length} entrées de journal, la plus récente datant du ${new Date(journalData[0]?.date || Date.now()).toLocaleDateString('fr-FR')}`;
+      
+      // Ajouter les dernières entrées de journal pour plus de contexte
+      if (journalData.length > 0) {
+        const recentEntries = journalData.slice(0, 3);
+        journalDetails += '\nEntrées récentes:\n' + recentEntries.map((entry: any) => 
+          `- ${new Date(entry.date).toLocaleDateString('fr-FR')}: ${entry.title} (Humeur: ${entry.mood || 'non précisée'})`
+        ).join('\n');
+      }
     }
     
     let focusDetails = "Pas de sessions de concentration.";
     if (focusData && focusData.length > 0) {
       const totalMinutes = focusData.reduce((acc: number, session: any) => acc + (session.duration || 0), 0);
       focusDetails = `${focusData.length} sessions de concentration totalisant ${totalMinutes} minutes`;
+      
+      // Ajouter des détails sur les sessions récentes
+      if (focusData.length > 0) {
+        const recentSessions = focusData.slice(0, 3);
+        focusDetails += '\nSessions récentes:\n' + recentSessions.map((session: any) => 
+          `- ${new Date(session.date).toLocaleDateString('fr-FR')}: ${session.duration} minutes (${session.task || 'sans tâche'})`
+        ).join('\n');
+      }
     }
 
     return `Tu es un assistant productivité professionnel dédié à aider l'utilisateur à analyser ses données et améliorer son organisation.
@@ -60,6 +76,7 @@ Voici une synthèse des données de l'utilisateur :
 
 Ton objectif est de fournir des analyses pertinentes et des conseils adaptés aux données de l'utilisateur.
 Réponds toujours en français de manière concise, professionnelle et encourageante.
+Utilise les données fournies pour personnaliser tes réponses et offrir des insights utiles.
 Si tu n'as pas assez de données spécifiques, propose des suggestions générales pour améliorer la productivité ou demande plus de détails.`;
   };
 

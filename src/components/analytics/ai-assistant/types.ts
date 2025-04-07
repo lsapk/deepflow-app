@@ -2,34 +2,15 @@
 import { HfInference } from '@huggingface/inference';
 
 export interface Message {
-  role: 'assistant' | 'user';
+  role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
 }
 
 export interface AIAssistantProps {
   initialMessage?: string;
+  maxHistory?: number;
 }
 
-export interface MessageListProps {
-  messages: Message[];
-  messagesEndRef: React.RefObject<HTMLDivElement>;
-}
-
-export interface MessageItemProps {
-  message: Message;
-}
-
-export interface AssistantHeaderProps {
-  title: string;
-}
-
-export interface QueryFormProps {
-  query: string;
-  setQuery: (query: string) => void;
-  handleQuerySubmit: (e: React.FormEvent) => void;
-  isLoading: boolean;
-}
-
-// Singleton pour l'instance HuggingFace
-export const hfInstance = new HfInference("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");
+// Créer une instance du client Hugging Face pour réutilisation
+export const hfInstance = new HfInference("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");

@@ -9,7 +9,8 @@ import { useAssistantLogic } from './ai-assistant/useAssistantLogic';
 import { AIAssistantProps } from './ai-assistant/types';
 
 const AIAssistant: React.FC<AIAssistantProps> = ({ 
-  initialMessage = "Bonjour! Je suis votre assistant IA personnel. Je peux vous aider à analyser vos données de productivité et répondre à vos questions." 
+  initialMessage = "Bonjour! Je suis votre assistant IA personnel. Je peux vous aider à analyser vos données de productivité et répondre à vos questions.",
+  maxHistory = 10 
 }) => {
   const {
     query,
@@ -18,7 +19,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
     messages,
     messagesEndRef,
     handleQuerySubmit
-  } = useAssistantLogic(initialMessage);
+  } = useAssistantLogic(initialMessage, maxHistory);
 
   return (
     <Card className="flex flex-col bg-gradient-to-b from-blue-50/50 to-indigo-50/50 dark:from-blue-950/30 dark:to-indigo-950/30 border-blue-200 dark:border-blue-800 h-full max-h-[600px]">
