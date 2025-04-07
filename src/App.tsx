@@ -64,36 +64,38 @@ const App: React.FC = () => {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-        <BrowserRouter>
-          <AuthProvider>
-            <Routes>
-              <Route path="/" element={<LandingPage />} />
-              
-              {/* Public routes */}
-              <Route path="/signin" element={<SignInPage />} />
-              <Route path="/signup" element={<SignUpPage />} />
-              
-              {/* Protected routes */}
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/tasks" element={<TasksPage />} />
-              <Route path="/habits" element={<HabitsPage />} />
-              <Route path="/focus" element={<FocusPage />} />
-              <Route path="/journal" element={<JournalPage />} />
-              <Route path="/goals" element={<GoalsPage />} />
-              <Route path="/planning" element={<PlanningPage />} />
-              <Route path="/analytics" element={<AnalyticsPage />} />
-              <Route path="/profile" element={<ProfilePage />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              
-              {/* Catch-all route */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </AuthProvider>
-        </BrowserRouter>
-      </ThemeProvider>
-    </QueryClientProvider>
+    <React.StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <BrowserRouter>
+            <AuthProvider>
+              <Routes>
+                <Route path="/" element={<LandingPage />} />
+                
+                {/* Public routes */}
+                <Route path="/signin" element={<SignInPage />} />
+                <Route path="/signup" element={<SignUpPage />} />
+                
+                {/* Protected routes */}
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/tasks" element={<TasksPage />} />
+                <Route path="/habits" element={<HabitsPage />} />
+                <Route path="/focus" element={<FocusPage />} />
+                <Route path="/journal" element={<JournalPage />} />
+                <Route path="/goals" element={<GoalsPage />} />
+                <Route path="/planning" element={<PlanningPage />} />
+                <Route path="/analytics" element={<AnalyticsPage />} />
+                <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/settings" element={<SettingsPage />} />
+                
+                {/* Catch-all route */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </AuthProvider>
+          </BrowserRouter>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </React.StrictMode>
   );
 };
 
