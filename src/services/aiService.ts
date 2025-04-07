@@ -2,7 +2,7 @@
 import { Message } from '@/components/analytics/ai-assistant/types';
 
 // Variable pour stocker la clé API
-let currentApiKey = "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";
+let currentApiKey = "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";
 
 // Fonction pour définir une nouvelle clé API
 export const setApiKey = (apiKey: string): void => {

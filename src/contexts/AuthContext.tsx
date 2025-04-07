@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -83,7 +82,7 @@ const saveLocalData = (key: string, data: any): void => {
   }
 };
 
-export const AuthProvider = ({ children }: AuthProviderProps): React.ReactNode => {
+export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [currentUser, setCurrentUser] = useState<ExtendedUser | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -170,7 +169,7 @@ export const AuthProvider = ({ children }: AuthProviderProps): React.ReactNode =
     // Optimized session check - only runs once at startup
     const checkSession = async () => {
       try {
-        // Tenter d'abord de charger depuis le localStorage pour un accès immédiat
+        // Tenter d'aborder charger depuis le localStorage pour un accès immédiat
         const cachedSession = getLocalData('currentSession');
         const cachedUser = getLocalData('currentUser');
         const cachedProfile = getLocalData('userProfile');
