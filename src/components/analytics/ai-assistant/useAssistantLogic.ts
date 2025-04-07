@@ -3,14 +3,20 @@ import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Message } from './types';
 import { useSystemPrompt } from './useSystemPrompt';
-import { hfInstance } from './types';
+import { sendMessageToAI } from '@/services/aiService';
+import { v4 as uuidv4 } from 'uuid';
 
 export const useAssistantLogic = (initialMessage: string, maxHistory: number = 10) => {
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', content: initialMessage, timestamp: new Date() }
+    { 
+      id: uuidv4(),
+      role: 'assistant', 
+      content: initialMessage, 
+      timestamp: new Date() 
+    }
   ]);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -37,7 +43,13 @@ export const useAssistantLogic = (initialMessage: string, maxHistory: number = 1
     if (!query.trim()) return;
     
     // Add user message
-    const userMessage: Message = { role: 'user', content: query, timestamp: new Date() };
+    const userMessage: Message = { 
+      id: uuidv4(),
+      role: 'user', 
+      content: query, 
+      timestamp: new Date() 
+    };
+    
     setMessages(prev => limitMessageHistory([...prev, userMessage]));
     setQuery('');
     setIsLoading(true);
@@ -51,29 +63,17 @@ export const useAssistantLogic = (initialMessage: string, maxHistory: number = 1
       
       // Add the system prompt and user query
       const fullConversation = [
-        { role: 'system', content: prepareSystemPrompt() },
+        { role: 'system' as const, content: prepareSystemPrompt() },
         ...conversationHistory,
-        { role: 'user', content: query }
+        { role: 'user' as const, content: query }
       ];
       
-      // Call Hugging Face API with Mistral model
-      const response = await hfInstance.textGeneration({
-        model: "mistralai/Mistral-7B-Instruct-v0.2",
-        inputs: JSON.stringify(fullConversation),
-        parameters: {
-          max_new_tokens: 1024,
-          temperature: 0.7,
-          top_p: 0.95,
-          return_full_text: false
-        }
-      });
-      
-      // Extract the AI response
-      const aiResponse = response.generated_text || 
-        "Désolé, je n'ai pas pu traiter votre demande. Veuillez réessayer.";
+      // Appeler notre service AI
+      const aiResponse = await sendMessageToAI(fullConversation);
       
       // Add AI response and ensure history limit
       setMessages(prev => limitMessageHistory([...prev, { 
+        id: uuidv4(),
         role: 'assistant', 
         content: aiResponse, 
         timestamp: new Date() 
@@ -85,6 +85,7 @@ export const useAssistantLogic = (initialMessage: string, maxHistory: number = 1
       
       // Add error response
       setMessages(prev => limitMessageHistory([...prev, { 
+        id: uuidv4(),
         role: 'assistant', 
         content: "Je suis désolé, mais j'ai rencontré un problème technique. Veuillez réessayer dans quelques instants.", 
         timestamp: new Date() 

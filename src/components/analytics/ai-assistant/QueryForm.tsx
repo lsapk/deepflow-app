@@ -51,7 +51,7 @@ const QueryForm: React.FC<QueryFormProps> = ({
         <Button 
           type="submit" 
           size="icon" 
-          disabled={isLoading}
+          disabled={isLoading || !query.trim()}
           className="rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-md"
         >
           {isLoading ? <RefreshCw size={18} className="animate-spin" /> : <Send size={18} />}

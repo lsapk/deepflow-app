@@ -3,6 +3,7 @@ import React from 'react';
 import { Bot, User } from 'lucide-react';
 import { MessageItemProps } from './types';
 import { cn } from '@/lib/utils';
+import ReactMarkdown from 'react-markdown';
 
 const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
   const isAssistant = message.role === 'assistant';
@@ -24,7 +25,13 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
         )}
       >
         <div className="text-sm whitespace-pre-wrap leading-relaxed">
-          {message.content}
+          {isAssistant ? (
+            <ReactMarkdown className="prose prose-sm dark:prose-invert max-w-none">
+              {message.content}
+            </ReactMarkdown>
+          ) : (
+            message.content
+          )}
         </div>
         <div className="mt-1.5 text-xs opacity-70 text-right">
           {message.timestamp.toLocaleTimeString('fr-FR', { 

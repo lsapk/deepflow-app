@@ -3,9 +3,10 @@ import { HfInference } from '@huggingface/inference';
 
 // Interface pour les messages
 export interface Message {
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: Date;
+  id?: string;
 }
 
 // Interface pour le composant principal
