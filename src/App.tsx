@@ -64,9 +64,9 @@ const App: React.FC = () => {
   }, []);
 
   return (
-    <BrowserRouter>
+    <QueryClientProvider client={queryClient}>
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-        <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
           <AuthProvider>
             <Routes>
               <Route path="/" element={<LandingPage />} />
@@ -91,9 +91,9 @@ const App: React.FC = () => {
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AuthProvider>
-        </QueryClientProvider>
+        </BrowserRouter>
       </ThemeProvider>
-    </BrowserRouter>
+    </QueryClientProvider>
   );
 };
 

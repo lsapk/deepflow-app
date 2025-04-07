@@ -26,7 +26,15 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
       >
         <div className="text-sm whitespace-pre-wrap leading-relaxed">
           {isAssistant ? (
-            <ReactMarkdown className="prose prose-sm dark:prose-invert max-w-none">
+            <ReactMarkdown
+              components={{
+                p: ({ children }) => <p className="prose prose-sm dark:prose-invert mb-3">{children}</p>,
+                ul: ({ children }) => <ul className="list-disc ml-4 mb-3">{children}</ul>,
+                ol: ({ children }) => <ol className="list-decimal ml-4 mb-3">{children}</ol>,
+                li: ({ children }) => <li className="mb-1">{children}</li>,
+                code: ({ children }) => <code className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded">{children}</code>
+              }}
+            >
               {message.content}
             </ReactMarkdown>
           ) : (
