@@ -8,6 +8,7 @@ import { hfInstance } from './types';
 export const useAssistantLogic = (initialMessage: string, maxHistory: number = 10) => {
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isThinking, setIsThinking] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     { role: 'assistant', content: initialMessage, timestamp: new Date() }
   ]);
@@ -24,6 +25,10 @@ export const useAssistantLogic = (initialMessage: string, maxHistory: number = 1
   const limitMessageHistory = (msgs: Message[]): Message[] => {
     if (msgs.length <= maxHistory) return msgs;
     return msgs.slice(msgs.length - maxHistory);
+  };
+
+  const toggleThinking = () => {
+    setIsThinking(!isThinking);
   };
 
   const handleQuerySubmit = async (e: React.FormEvent) => {
@@ -76,22 +81,12 @@ export const useAssistantLogic = (initialMessage: string, maxHistory: number = 1
     } catch (error) {
       console.error('Error querying AI assistant:', error);
       
-      // Fallback for development/testing - create a simulated response
-      const simulatedResponses = [
-        "D'après vos données, vous avez une productivité plus élevée le matin. Essayez de planifier vos tâches importantes durant cette période.",
-        "Je remarque que vous maintenez bien certaines habitudes. Continuez sur cette lancée, la constance est clé dans le développement personnel.",
-        "Basé sur vos données de focus, vous pourriez améliorer votre concentration en utilisant la technique Pomodoro plus régulièrement.",
-        "Votre taux de complétion des tâches est bon. Pour l'améliorer davantage, essayez de diviser les grandes tâches en plus petites étapes."
-      ];
+      toast.error('Problème de connexion avec l\'assistant IA');
       
-      const randomResponse = simulatedResponses[Math.floor(Math.random() * simulatedResponses.length)];
-      
-      toast.error('Problème de connexion avec l\'assistant IA. Mode hors ligne activé.');
-      
-      // Add simulated response
+      // Add error response
       setMessages(prev => limitMessageHistory([...prev, { 
         role: 'assistant', 
-        content: `Mode hors-ligne: ${randomResponse}`, 
+        content: "Je suis désolé, mais j'ai rencontré un problème technique. Veuillez réessayer dans quelques instants.", 
         timestamp: new Date() 
       }]));
     } finally {
@@ -103,6 +98,8 @@ export const useAssistantLogic = (initialMessage: string, maxHistory: number = 1
     query,
     setQuery,
     isLoading,
+    isThinking,
+    toggleThinking,
     messages,
     messagesEndRef,
     handleQuerySubmit

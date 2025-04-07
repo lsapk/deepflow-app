@@ -1,35 +1,38 @@
 
 import { HfInference } from '@huggingface/inference';
 
+// Interface pour les messages
 export interface Message {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
 }
 
-// Interface for the AIAssistant component
+// Interface pour le composant principal
 export interface AIAssistantProps {
   initialMessage?: string;
   maxHistory?: number;
 }
 
-// Interface for the AssistantHeader component
+// Interface pour l'en-tête de l'assistant
 export interface AssistantHeaderProps {
   title: string;
+  toggleThinking?: () => void;
+  isThinking?: boolean;
 }
 
-// Interface for the MessageItem component
+// Interface pour les éléments de message
 export interface MessageItemProps {
   message: Message;
 }
 
-// Interface for the MessageList component
+// Interface pour la liste des messages
 export interface MessageListProps {
   messages: Message[];
   messagesEndRef: React.RefObject<HTMLDivElement>;
 }
 
-// Interface for the QueryForm component
+// Interface pour le formulaire de requête
 export interface QueryFormProps {
   query: string;
   setQuery: (query: string) => void;

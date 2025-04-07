@@ -2,26 +2,19 @@
 import { useAssistantData } from './useAssistantData';
 
 export const useSystemPrompt = () => {
-  const { tasksData, habitsData, journalData, focusData } = useAssistantData();
+  const { tasksData, habitsData, journalData, focusData, stats } = useAssistantData();
 
   const prepareSystemPrompt = () => {
-    // Create a data summary to provide context to the AI
-    const tasksCount = tasksData?.length || 0;
-    const habitsCount = habitsData?.length || 0;
-    const journalCount = journalData?.length || 0;
-    const focusSessionsCount = focusData?.length || 0;
-    
-    const completedTasks = tasksData?.filter((t: any) => t.status === 'done').length || 0;
-    const pendingTasks = tasksData?.filter((t: any) => t.status !== 'done').length || 0;
-    
-    const maintainedHabits = habitsData?.filter((h: any) => h.streak > 3).length || 0;
-
     // Construire un résumé détaillé des données
     let tasksDetails = "Pas de tâches.";
     if (tasksData && tasksData.length > 0) {
-      tasksDetails = tasksData.map((t: any) => 
+      tasksDetails = tasksData.slice(0, 10).map((t: any) => 
         `- ${t.title} (Status: ${t.status}, Priorité: ${t.priority || 'normale'}, Date: ${t.dueDate || 'non définie'})`
       ).join('\n');
+      
+      if (tasksData.length > 10) {
+        tasksDetails += `\n- ... et ${tasksData.length - 10} autres tâches`;
+      }
     }
     
     let habitsDetails = "Pas d'habitudes.";
@@ -33,9 +26,9 @@ export const useSystemPrompt = () => {
     
     let journalDetails = "Pas d'entrées de journal.";
     if (journalData && journalData.length > 0) {
+      // Ajouter les dernières entrées de journal pour plus de contexte
       journalDetails = `${journalData.length} entrées de journal, la plus récente datant du ${new Date(journalData[0]?.date || Date.now()).toLocaleDateString('fr-FR')}`;
       
-      // Ajouter les dernières entrées de journal pour plus de contexte
       if (journalData.length > 0) {
         const recentEntries = journalData.slice(0, 3);
         journalDetails += '\nEntrées récentes:\n' + recentEntries.map((entry: any) => 
@@ -46,8 +39,7 @@ export const useSystemPrompt = () => {
     
     let focusDetails = "Pas de sessions de concentration.";
     if (focusData && focusData.length > 0) {
-      const totalMinutes = focusData.reduce((acc: number, session: any) => acc + (session.duration || 0), 0);
-      focusDetails = `${focusData.length} sessions de concentration totalisant ${totalMinutes} minutes`;
+      focusDetails = `${focusData.length} sessions de concentration totalisant ${stats.totalFocusMinutes} minutes (${stats.totalFocusHours} heures)`;
       
       // Ajouter des détails sur les sessions récentes
       if (focusData.length > 0) {
@@ -61,22 +53,27 @@ export const useSystemPrompt = () => {
     return `Tu es un assistant productivité professionnel dédié à aider l'utilisateur à analyser ses données et améliorer son organisation.
 Date actuelle: ${new Date().toLocaleDateString('fr-FR')}
 
-Voici une synthèse des données de l'utilisateur :
-- Tâches: ${tasksCount} au total (${completedTasks} terminées, ${pendingTasks} en attente)
+Voici une synthèse des données de l'utilisateur:
+• Tâches: ${stats.totalTasks} au total (${stats.completedTasks} terminées, ${stats.pendingTasks} en attente)
+  Taux de complétion: ${stats.completionRate.toFixed(1)}%
   ${tasksDetails}
 
-- Habitudes: ${habitsCount} au total (${maintainedHabits} maintenues régulièrement)
+• Habitudes: ${stats.totalHabits} au total (${stats.maintainedHabits} maintenues régulièrement)
+  Taux de cohérence: ${stats.habitConsistency.toFixed(1)}%
   ${habitsDetails}
 
-- Journal: ${journalCount} entrées
+• Journal: ${stats.totalJournalEntries} entrées
   ${journalDetails}
 
-- Focus: ${focusSessionsCount} sessions
+• Focus: ${stats.totalFocusHours} heures (${stats.totalFocusMinutes} minutes)
   ${focusDetails}
 
-Ton objectif est de fournir des analyses pertinentes et des conseils adaptés aux données de l'utilisateur.
-Réponds toujours en français de manière concise, professionnelle et encourageante.
-Utilise les données fournies pour personnaliser tes réponses et offrir des insights utiles.
+Tes objectifs:
+1. Fournir des analyses pertinentes basées sur ces données
+2. Offrir des conseils personnalisés pour améliorer la productivité
+3. Répondre aux questions de manière concise, professionnelle et encourageante
+4. Toujours répondre en français avec un ton positif et motivant
+
 Si tu n'as pas assez de données spécifiques, propose des suggestions générales pour améliorer la productivité ou demande plus de détails.`;
   };
 
