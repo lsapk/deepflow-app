@@ -14,11 +14,13 @@ export const getApiKey = (): string => {
   return currentApiKey;
 };
 
-type ChatMessage = {
-  role: 'user' | 'assistant' | 'system';
+// Type pour les messages du chat
+interface ChatMessage {
+  role: "user" | "assistant" | "system";
   content: string;
-};
+}
 
+// Format de conversation pour Mistral
 function formatConversation(messages: ChatMessage[]): string {
   let conversation = "";
   
@@ -26,29 +28,24 @@ function formatConversation(messages: ChatMessage[]): string {
     if (message.role === "user") {
       conversation += `[INST] ${message.content} [/INST]\n`;
     } else if (message.role === "system") {
-      // Les messages système sont inclus au début de la conversation
-      conversation = `[INST] ${message.content} [/INST]\n` + conversation;
-    } else {
-      // Pour le dernier message assistant, ne pas ajouter son contenu car c'est ce que l'IA va générer
-      if (index !== messages.length - 1 || messages[messages.length - 1].role !== "assistant") {
-        conversation += `${message.content}\n`;
+      // Inclure le message système au début
+      if (index === 0) {
+        conversation += `[INST] <system>\n${message.content}\n</system> [/INST]\n`;
       }
+    } else {
+      // Pour un message assistant, ajouter simplement son contenu
+      conversation += `${message.content}\n`;
     }
   });
   
   return conversation.trim();
 }
 
+// Fonction pour envoyer des messages à l'API
 export async function sendMessageToAI(
   messages: ChatMessage[],
 ): Promise<string> {
   try {
-    // Format des messages pour l'API Hugging Face
-    const formattedMessages = messages.map(({ role, content }) => ({
-      role,
-      content,
-    }));
-
     console.log("Envoi de la requête à l'API Hugging Face");
 
     // Appel à l'API Hugging Face
@@ -59,7 +56,7 @@ export async function sendMessageToAI(
         "Authorization": `Bearer ${currentApiKey}`,
       },
       body: JSON.stringify({
-        inputs: formatConversation(formattedMessages),
+        inputs: formatConversation(messages),
         parameters: {
           max_new_tokens: 1000,
           temperature: 0.7,
@@ -70,32 +67,36 @@ export async function sendMessageToAI(
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`Erreur API: ${response.status} - ${JSON.stringify(errorData)}`);
+      throw new Error(`Erreur API: ${response.status} ${response.statusText}`);
     }
 
-    const result = await response.json();
+    const data = await response.json();
     
-    // Vérifier si la réponse est déjà un JSON formaté incorrectement
-    let cleanedText = result.generated_text || "Désolé, je n'ai pas pu générer de réponse.";
-    
-    // Essayer de détecter si la réponse est un JSON mal formaté
+    // Parse the response correctly - handle multiple formats
     try {
-      if (cleanedText.includes('{"role":"assistant","content":')) {
-        const jsonMatch = cleanedText.match(/\{.*\}/s);
-        if (jsonMatch) {
-          const parsedJson = JSON.parse(jsonMatch[0]);
-          cleanedText = parsedJson.content;
+      let content = data[0]?.generated_text || "";
+      
+      // Check if the content is a JSON string that needs parsing
+      if (content.includes('{"role":') || content.includes('"content":')) {
+        try {
+          const jsonStart = content.indexOf('{');
+          const jsonEnd = content.lastIndexOf('}') + 1;
+          const jsonString = content.substring(jsonStart, jsonEnd);
+          const parsed = JSON.parse(jsonString);
+          return parsed.content || parsed.message || content;
+        } catch (parseError) {
+          console.log("Erreur parsing JSON, utilisation du texte brut", parseError);
+          return content;
         }
       }
+      
+      return content;
     } catch (error) {
-      console.warn("Erreur lors du nettoyage de la réponse JSON:", error);
-      // En cas d'erreur de parsing, on garde le texte tel quel
+      console.error("Erreur lors du traitement de la réponse:", error);
+      return data[0]?.generated_text || "Désolé, je n'ai pas pu traiter votre demande.";
     }
-    
-    return cleanedText;
   } catch (error) {
-    console.error("Erreur lors de l'appel à l'API Hugging Face:", error);
-    return "Une erreur s'est produite lors de la communication avec l'assistant IA. Veuillez réessayer plus tard.";
+    console.error("Erreur lors de l'appel à l'API:", error);
+    return "Désolé, une erreur s'est produite lors de la communication avec l'assistant IA. Veuillez réessayer.";
   }
 }
