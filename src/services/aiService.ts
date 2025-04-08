@@ -41,6 +41,32 @@ function formatConversation(messages: ChatMessage[]): string {
   return conversation.trim();
 }
 
+// Fonction pour nettoyer les réponses JSON incorrectes
+function cleanResponse(text: string): string {
+  try {
+    // Vérifier si le texte est un JSON
+    if (text.includes('{"role":') || text.includes('"content":')) {
+      // Essayer de trouver et extraire un JSON valide
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const jsonString = jsonMatch[0];
+        const parsed = JSON.parse(jsonString);
+        if (parsed.content) {
+          return parsed.content;
+        }
+        if (parsed.role === "assistant" && parsed.content) {
+          return parsed.content;
+        }
+      }
+    }
+    
+    return text;
+  } catch (error) {
+    console.log("Erreur lors du nettoyage de la réponse:", error);
+    return text;
+  }
+}
+
 // Fonction pour envoyer des messages à l'API
 export async function sendMessageToAI(
   messages: ChatMessage[],
@@ -72,37 +98,18 @@ export async function sendMessageToAI(
 
     const data = await response.json();
     
-    // Parse the response correctly - handle multiple formats
-    try {
-      let content = data[0]?.generated_text || "";
-      
-      // Check if the content is a JSON string that needs parsing
-      if (content.includes('{"role":') || content.includes('"content":')) {
-        try {
-          // Extract valid JSON
-          const jsonMatch = content.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            const jsonString = jsonMatch[0];
-            const parsed = JSON.parse(jsonString);
-            return parsed.content || content;
-          }
-        } catch (parseError) {
-          console.log("Erreur parsing JSON, utilisation du texte brut", parseError);
-        }
-      }
-      
-      return content;
-    } catch (error) {
-      console.error("Erreur lors du traitement de la réponse:", error);
-      return data[0]?.generated_text || "Désolé, je n'ai pas pu traiter votre demande.";
-    }
+    // Parse and clean the response
+    let content = data[0]?.generated_text || "";
+    content = cleanResponse(content);
+    
+    return content;
   } catch (error) {
     console.error("Erreur lors de l'appel à l'API:", error);
     return "Désolé, une erreur s'est produite lors de la communication avec l'assistant IA. Veuillez réessayer.";
   }
 }
 
-// Nouvelle fonction pour analyser les notes vocales
+// Fonction pour analyser les notes vocales
 export async function analyzeNoteWithAI(noteText: string): Promise<string> {
   try {
     const messages: ChatMessage[] = [

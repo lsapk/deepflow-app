@@ -99,7 +99,7 @@ export const useAssistantLogic = (initialMessage: string, maxHistory: number = 1
     try {
       // Prepare conversation history - limitée au maximum spécifié
       const conversationHistory = messages.map(msg => ({
-        role: msg.role,
+        role: msg.role as "user" | "assistant" | "system",
         content: msg.content
       }));
       
