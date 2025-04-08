@@ -17,6 +17,7 @@ import PlanningPage from "./pages/PlanningPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import ProfilePage from "./pages/ProfilePage";
 import SettingsPage from "./pages/SettingsPage";
+import VoiceNotesPage from "./pages/VoiceNotesPage";
 import NotFound from "./pages/NotFound";
 import { useEffect } from "react";
 
@@ -81,6 +82,7 @@ const App: React.FC = () => {
               <Route path="/habits" element={<HabitsPage />} />
               <Route path="/focus" element={<FocusPage />} />
               <Route path="/journal" element={<JournalPage />} />
+              <Route path="/voice-notes" element={<VoiceNotesPage />} />
               <Route path="/goals" element={<GoalsPage />} />
               <Route path="/planning" element={<PlanningPage />} />
               <Route path="/analytics" element={<AnalyticsPage />} />

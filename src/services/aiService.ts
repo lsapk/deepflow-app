@@ -79,14 +79,15 @@ export async function sendMessageToAI(
       // Check if the content is a JSON string that needs parsing
       if (content.includes('{"role":') || content.includes('"content":')) {
         try {
-          const jsonStart = content.indexOf('{');
-          const jsonEnd = content.lastIndexOf('}') + 1;
-          const jsonString = content.substring(jsonStart, jsonEnd);
-          const parsed = JSON.parse(jsonString);
-          return parsed.content || parsed.message || content;
+          // Extract valid JSON
+          const jsonMatch = content.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const jsonString = jsonMatch[0];
+            const parsed = JSON.parse(jsonString);
+            return parsed.content || content;
+          }
         } catch (parseError) {
           console.log("Erreur parsing JSON, utilisation du texte brut", parseError);
-          return content;
         }
       }
       
@@ -100,3 +101,25 @@ export async function sendMessageToAI(
     return "Désolé, une erreur s'est produite lors de la communication avec l'assistant IA. Veuillez réessayer.";
   }
 }
+
+// Nouvelle fonction pour analyser les notes vocales
+export async function analyzeNoteWithAI(noteText: string): Promise<string> {
+  try {
+    const messages = [
+      {
+        role: "system",
+        content: "Tu es un assistant spécialisé dans l'analyse de notes vocales. Ton objectif est de résumer, structurer et extraire les points clés et idées importantes de la transcription fournie. Format ta réponse en sections claires avec des puces pour les points clés."
+      },
+      {
+        role: "user",
+        content: `Analyse la note suivante et extrais-en les points clés, les idées principales et fournis un résumé structuré :\n\n${noteText}`
+      }
+    ];
+
+    return await sendMessageToAI(messages);
+  } catch (error) {
+    console.error("Erreur lors de l'analyse de la note:", error);
+    return "Désolé, je n'ai pas pu analyser cette note. Veuillez réessayer.";
+  }
+}
+
