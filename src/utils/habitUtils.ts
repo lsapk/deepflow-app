@@ -1,51 +1,11 @@
 
 import { HfInference } from '@huggingface/inference';
-import { getApiKey } from '@/services/aiService';
 
-// Fonction pour obtenir toutes les habitudes
+// Fonction pour obtenir toutes les habitudes (stub pour l'instant)
 export const getAllHabits = async (): Promise<any[]> => {
-  try {
-    // Récupération des habitudes depuis IndexedDB
-    const dbRequest = window.indexedDB.open("app-database", 1);
-    
-    return new Promise((resolve, reject) => {
-      dbRequest.onerror = () => {
-        console.error("Erreur lors de l'ouverture de la base de données");
-        resolve([]); // En cas d'erreur, retourner un tableau vide
-      };
-      
-      dbRequest.onsuccess = (event) => {
-        const db = (event.target as IDBOpenDBRequest).result;
-        
-        try {
-          // Vérifier si le store "habits" existe
-          if (!db.objectStoreNames.contains("habits")) {
-            resolve([]);
-            return;
-          }
-          
-          const transaction = db.transaction(["habits"], "readonly");
-          const store = transaction.objectStore("habits");
-          const request = store.getAll();
-          
-          request.onsuccess = () => {
-            resolve(request.result || []);
-          };
-          
-          request.onerror = () => {
-            console.error("Erreur lors de la récupération des habitudes");
-            resolve([]);
-          };
-        } catch (error) {
-          console.error("Erreur lors de l'accès au store habits:", error);
-          resolve([]);
-        }
-      };
-    });
-  } catch (error) {
-    console.error("Erreur lors de la récupération des habitudes:", error);
-    return [];
-  }
+  // Cette fonction devrait récupérer les habitudes depuis une base de données
+  // Pour l'instant, on retourne juste un tableau vide
+  return [];
 };
 
 // Instance HuggingFace pour la transcription
@@ -79,3 +39,10 @@ export const transcribeAudio = async (audioBlob: Blob): Promise<string> => {
     throw error;
   }
 };
+
+// Importe la fonction getApiKey depuis aiService
+function getApiKey(): string {
+  // Import dynamique pour éviter les cycles d'importation
+  const aiService = require('@/services/aiService');
+  return aiService.getApiKey();
+}

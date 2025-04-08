@@ -12,15 +12,10 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
   const cleanContent = (content: string): string => {
     try {
       // Vérifier si le contenu est un JSON stringifié
-      if (content.includes('{"role":') || content.includes('"content":')) {
-        // Essayer de trouver et extraire un JSON valide
-        const jsonMatch = content.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const jsonString = jsonMatch[0];
-          const parsed = JSON.parse(jsonString);
-          if (parsed.content) {
-            return parsed.content;
-          }
+      if (content.startsWith('{') && content.endsWith('}')) {
+        const parsed = JSON.parse(content);
+        if (parsed.content) {
+          return parsed.content;
         }
       }
       return content;

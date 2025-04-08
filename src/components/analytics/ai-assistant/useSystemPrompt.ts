@@ -1,6 +1,6 @@
 
 import { useAssistantData } from './useAssistantData';
-import { getAllHabits } from '@/utils/habitUtils';
+import { getAllHabits } from '@/services/habitService';
 import { useEffect, useState } from 'react';
 
 export const useSystemPrompt = () => {
