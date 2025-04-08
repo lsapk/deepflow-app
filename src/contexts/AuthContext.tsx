@@ -83,7 +83,7 @@ const saveLocalData = (key: string, data: any): void => {
   }
 };
 
-export const AuthProvider = ({ children }: AuthProviderProps) => {
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Initialize state hooks properly within the functional component
   const [currentUser, setCurrentUser] = useState<ExtendedUser | null>(null);
   const [session, setSession] = useState<Session | null>(null);

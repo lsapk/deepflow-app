@@ -1,6 +1,4 @@
 
-import { Message } from '@/components/analytics/ai-assistant/types';
-
 // Variable pour stocker la clé API
 let currentApiKey = "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";
 
