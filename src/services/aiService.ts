@@ -105,7 +105,7 @@ export async function sendMessageToAI(
 // Nouvelle fonction pour analyser les notes vocales
 export async function analyzeNoteWithAI(noteText: string): Promise<string> {
   try {
-    const messages = [
+    const messages: ChatMessage[] = [
       {
         role: "system",
         content: "Tu es un assistant spécialisé dans l'analyse de notes vocales. Ton objectif est de résumer, structurer et extraire les points clés et idées importantes de la transcription fournie. Format ta réponse en sections claires avec des puces pour les points clés."
@@ -122,4 +122,3 @@ export async function analyzeNoteWithAI(noteText: string): Promise<string> {
     return "Désolé, je n'ai pas pu analyser cette note. Veuillez réessayer.";
   }
 }
-

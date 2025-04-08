@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
@@ -318,7 +317,7 @@ Analyse: ${selectedNote.analysis || "Aucune analyse disponible."}`
       const apiMessages = [
         systemMessage,
         ...chatMessages.map(msg => ({
-          role: msg.role,
+          role: msg.role as "user" | "assistant" | "system",
           content: msg.content
         })),
         {
