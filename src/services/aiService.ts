@@ -1,5 +1,6 @@
 
 import { Message } from '@/components/analytics/ai-assistant/types';
+import { v4 as uuidv4 } from 'uuid';
 
 // Variable pour stocker la clé API
 let currentApiKey = "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";
@@ -76,7 +77,7 @@ export async function sendMessageToAI(
     try {
       let content = data[0]?.generated_text || "";
       
-      // Check if the content is a JSON string that needs parsing
+      // Check if the content looks like JSON and try to parse it
       if (content.includes('{"role":') || content.includes('"content":')) {
         try {
           // Extract valid JSON

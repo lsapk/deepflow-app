@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,6 +11,7 @@ import {
   ensureUserInDatabase
 } from '@/services/supabase';
 import { toast } from 'sonner';
+import { v4 as uuidv4 } from 'uuid';
 
 // Étendre l'interface User de Supabase pour ajouter des propriétés compatibles avec Firebase
 interface ExtendedUser extends User {

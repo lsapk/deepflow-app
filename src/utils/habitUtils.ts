@@ -1,11 +1,45 @@
 
 import { HfInference } from '@huggingface/inference';
+import { getApiKey } from '@/services/aiService';
 
 // Fonction pour obtenir toutes les habitudes (stub pour l'instant)
 export const getAllHabits = async (): Promise<any[]> => {
   // Cette fonction devrait récupérer les habitudes depuis une base de données
-  // Pour l'instant, on retourne juste un tableau vide
-  return [];
+  try {
+    // Access IndexedDB directly to get all habits
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open('deepflow-db', 1);
+
+      request.onerror = (event) => {
+        console.error('Error opening IndexedDB:', event);
+        resolve([]);
+      };
+
+      request.onsuccess = (event) => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains('habits')) {
+          resolve([]);
+          return;
+        }
+
+        const transaction = db.transaction(['habits'], 'readonly');
+        const store = transaction.objectStore('habits');
+        const getAllRequest = store.getAll();
+
+        getAllRequest.onsuccess = () => {
+          resolve(getAllRequest.result || []);
+        };
+
+        getAllRequest.onerror = (event) => {
+          console.error('Error getting habits:', event);
+          resolve([]);
+        };
+      };
+    });
+  } catch (error) {
+    console.error("Error fetching habits:", error);
+    return [];
+  }
 };
 
 // Instance HuggingFace pour la transcription
@@ -39,10 +73,3 @@ export const transcribeAudio = async (audioBlob: Blob): Promise<string> => {
     throw error;
   }
 };
-
-// Importe la fonction getApiKey depuis aiService
-function getApiKey(): string {
-  // Import dynamique pour éviter les cycles d'importation
-  const aiService = require('@/services/aiService');
-  return aiService.getApiKey();
-}
