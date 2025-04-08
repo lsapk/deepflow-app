@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -82,7 +83,7 @@ const saveLocalData = (key: string, data: any): void => {
   }
 };
 
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+export const AuthProvider = ({ children }: AuthProviderProps) => {
   // Initialize state hooks properly within the functional component
   const [currentUser, setCurrentUser] = useState<ExtendedUser | null>(null);
   const [session, setSession] = useState<Session | null>(null);
