@@ -12,10 +12,19 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
   const cleanContent = (content: string): string => {
     try {
       // Vérifier si le contenu est un JSON stringifié
-      if (content.startsWith('{') && content.endsWith('}')) {
-        const parsed = JSON.parse(content);
-        if (parsed.content) {
-          return parsed.content;
+      if (content.includes('{"role":') || content.includes('"content":')) {
+        try {
+          // Try to extract a JSON object
+          const jsonMatch = content.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const jsonString = jsonMatch[0];
+            const parsed = JSON.parse(jsonString);
+            if (parsed.content) {
+              return parsed.content;
+            }
+          }
+        } catch (e) {
+          console.log("Error parsing potential JSON content", e);
         }
       }
       return content;
