@@ -11,10 +11,10 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
   // Fonction pour nettoyer le contenu si nécessaire
   const cleanContent = (content: string): string => {
     try {
-      // Vérifier si le contenu est un JSON stringifié
+      // Vérifier si le contenu contient une structure JSON
       if (content.includes('{"role":') || content.includes('"content":')) {
         try {
-          // Try to extract a JSON object
+          // Essayer d'extraire un objet JSON
           const jsonMatch = content.match(/\{[\s\S]*\}/);
           if (jsonMatch) {
             const jsonString = jsonMatch[0];

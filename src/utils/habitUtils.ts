@@ -1,5 +1,4 @@
 
-import { HfInference } from '@huggingface/inference';
 import { getApiKey } from '@/services/aiService';
 
 // Fonction pour obtenir toutes les habitudes (stub pour l'instant)
@@ -41,9 +40,6 @@ export const getAllHabits = async (): Promise<any[]> => {
     return [];
   }
 };
-
-// Instance HuggingFace pour la transcription
-export const hfInstance = new HfInference(getApiKey());
 
 // Fonction pour transcrire l'audio
 export const transcribeAudio = async (audioBlob: Blob): Promise<string> => {
