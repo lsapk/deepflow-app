@@ -1,4 +1,3 @@
-
 // Clé API pour Gemini AI
 const GEMINI_API_KEY = "AIzaSyAdOinCnHfqjOyk6XBbTzQkR_IOdRvlliU";
 

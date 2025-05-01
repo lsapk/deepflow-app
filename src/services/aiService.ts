@@ -1,4 +1,5 @@
 
+import * as React from 'react';
 import { Message } from '@/components/analytics/ai-assistant/types';
 import { v4 as uuidv4 } from 'uuid';
 import { sendMessageToGemini } from './geminiService';
