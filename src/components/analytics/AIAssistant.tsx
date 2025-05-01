@@ -1,111 +1,93 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
+import { Bot, Send } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Maximize2, Minimize2, Sparkles } from 'lucide-react';
-import AssistantHeader from './ai-assistant/AssistantHeader';
-import MessageList from './ai-assistant/MessageList';
-import ThinkingView from './ai-assistant/ThinkingView';
-import QueryForm from './ai-assistant/QueryForm';
-import { useAssistantLogic } from './ai-assistant/useAssistantLogic';
-import { AIAssistantProps } from './ai-assistant/types';
-import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
 
-const AIAssistant: React.FC<AIAssistantProps> = ({ 
-  initialMessage = "Bonjour! Je suis votre assistant IA personnel propulsé par Gemini. Je peux vous aider à analyser vos données de productivité et répondre à vos questions. N'hésitez pas à me demander des conseils sur votre organisation, vos habitudes ou votre concentration.",
-  maxHistory = 10 
-}) => {
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  
-  const {
-    query,
-    setQuery,
-    isLoading,
-    isThinking,
-    toggleThinking,
-    messages,
-    messagesEndRef,
-    handleQuerySubmit,
-    memoryMode,
-    toggleMemoryMode
-  } = useAssistantLogic(initialMessage, maxHistory);
+interface AIAssistantProps {
+  message: string;
+}
 
-  const toggleFullscreen = () => {
-    setIsFullscreen(!isFullscreen);
+const AIAssistant: React.FC<AIAssistantProps> = ({ message }) => {
+  const [userQuery, setUserQuery] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [aiResponse, setAiResponse] = useState(message);
+
+  const handleQuerySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!userQuery.trim()) return;
+    
+    setIsLoading(true);
+    
+    try {
+      // In a real implementation, this would call your API with the OpenAI key
+      // For now, we'll simulate a response
+      setTimeout(() => {
+        setAiResponse(`Basé sur votre question "${userQuery}": ${message}`);
+        setUserQuery('');
+        setIsLoading(false);
+      }, 1000);
+      
+      // Example of how you would implement the real API call:
+      /*
+      const response = await fetch('/api/analytics/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: userQuery })
+      });
+      
+      const data = await response.json();
+      if (data.error) throw new Error(data.error);
+      
+      setAiResponse(data.response);
+      */
+    } catch (error) {
+      console.error('Error querying AI assistant:', error);
+      toast.error('Impossible de traiter votre demande pour le moment.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Effet pour gérer la classe du body quand on est en plein écran
-  useEffect(() => {
-    if (isFullscreen) {
-      document.body.classList.add('overflow-hidden');
-    } else {
-      document.body.classList.remove('overflow-hidden');
-    }
-    
-    return () => {
-      document.body.classList.remove('overflow-hidden');
-    };
-  }, [isFullscreen]);
-
   return (
-    <AnimatePresence>
-      <motion.div 
-        className={`transition-all duration-300 z-50 ${isFullscreen ? 'fixed inset-0 bg-black/50 flex items-center justify-center p-4' : ''}`}
-        initial={false}
-        animate={isFullscreen ? { opacity: 1 } : { opacity: 1 }}
-      >
-        <motion.div 
-          className="w-full h-full"
-          initial={false}
-          animate={isFullscreen ? { scale: 1 } : { scale: 1 }}
-        >
-          <Card className={`flex flex-col bg-gradient-to-b from-blue-50/80 to-indigo-50/80 dark:from-blue-950/20 dark:to-indigo-950/20 border-blue-200 dark:border-blue-800 shadow-xl rounded-xl ${isFullscreen ? 'h-full max-h-full' : 'h-full max-h-[600px]'}`}>
-            <CardContent className="flex flex-col h-full p-4">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                  <Sparkles size={18} className="text-blue-500" />
-                  <AssistantHeader 
-                    title="Assistant Gemini" 
-                    toggleThinking={toggleThinking}
-                    isThinking={isThinking}
-                    toggleMemoryMode={toggleMemoryMode}
-                    memoryMode={memoryMode}
-                  />
-                </div>
-                
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={toggleFullscreen}
-                  className="ml-auto"
-                >
-                  {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
-                </Button>
-              </div>
-              
-              {isThinking ? (
-                <ThinkingView />
-              ) : (
-                <MessageList 
-                  messages={messages} 
-                  messagesEndRef={messagesEndRef} 
-                />
-              )}
-              
-              <Separator className="my-3 bg-blue-100 dark:bg-blue-900" />
-              
-              <QueryForm 
-                query={query}
-                setQuery={setQuery}
-                handleQuerySubmit={handleQuerySubmit}
-                isLoading={isLoading}
-              />
-            </CardContent>
-          </Card>
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
+    <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200 dark:from-blue-950/40 dark:to-indigo-950/40 dark:border-blue-800">
+      <CardContent className="pt-6 space-y-4">
+        <div className="flex items-start gap-4">
+          <div className="bg-blue-600 text-white p-2 rounded-full shrink-0">
+            <Bot size={20} />
+          </div>
+          <div className="flex-1">
+            <h3 className="font-medium text-blue-700 dark:text-blue-400 mb-1">
+              Assistant IA
+            </h3>
+            <p className="text-gray-700 dark:text-gray-300">
+              {aiResponse}
+            </p>
+          </div>
+        </div>
+        
+        <form onSubmit={handleQuerySubmit} className="flex items-center gap-2 pt-2">
+          <Input
+            value={userQuery}
+            onChange={(e) => setUserQuery(e.target.value)}
+            placeholder="Posez une question sur vos données..."
+            className="flex-1"
+            disabled={isLoading}
+          />
+          <Button 
+            type="submit" 
+            size="icon" 
+            disabled={isLoading}
+            className="shrink-0"
+          >
+            <Send size={18} />
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   );
 };
 

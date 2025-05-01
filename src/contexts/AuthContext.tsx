@@ -1,6 +1,5 @@
 
-import * as React from 'react';
-import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { 
@@ -9,11 +8,9 @@ import {
   registerUser, 
   signInWithGoogle, 
   UserProfile,
-  getUserProfile,
-  ensureUserInDatabase
+  getUserProfile
 } from '@/services/supabase';
 import { toast } from 'sonner';
-import { v4 as uuidv4 } from 'uuid';
 
 // Étendre l'interface User de Supabase pour ajouter des propriétés compatibles avec Firebase
 interface ExtendedUser extends User {
@@ -123,7 +120,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     // Configuration du listener pour les changements d'état d'authentification
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, newSession) => {
+      (event, newSession) => {
         // Avoid unnecessary state updates if session hasn't changed
         if (JSON.stringify(session) === JSON.stringify(newSession)) return;
         
@@ -132,13 +129,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setCurrentUser(adaptedUser);
         
         if (newSession?.user) {
-          // Ensure the user is in the database
-          try {
-            await ensureUserInDatabase(newSession.user);
-          } catch (error) {
-            console.error("Error ensuring user in database:", error);
-          }
-          
           // Sauvegarder les données de session en local pour un accès hors ligne
           saveLocalData('currentSession', newSession);
           saveLocalData('currentUser', adaptedUser);
@@ -172,7 +162,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Optimized session check - only runs once at startup
     const checkSession = async () => {
       try {
-        // Tenter d'aborder charger depuis le localStorage pour un accès immédiat
+        // Tenter d'abord de charger depuis le localStorage pour un accès immédiat
         const cachedSession = getLocalData('currentSession');
         const cachedUser = getLocalData('currentUser');
         const cachedProfile = getLocalData('userProfile');
@@ -182,6 +172,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           setCurrentUser(cachedUser);
           setUserProfile(cachedProfile);
           setAutoLoginAttempted(true);
+          
+          // Auto sign-in with stored credentials if available
+          const storedCredentials = getLocalData('userCredentials');
+          if (storedCredentials && storedCredentials.email && storedCredentials.password) {
+            try {
+              await loginUser(storedCredentials.email, storedCredentials.password);
+              // Successful silent login
+              console.log("Auto-login successful");
+            } catch (error) {
+              console.error("Auto-login failed, but proceeding with cached data:", error);
+              // Continue with cached data even if auto-login fails
+            }
+          }
         }
         
         if (isOnline) {
@@ -194,14 +197,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             saveLocalData('currentSession', initialSession);
             saveLocalData('currentUser', adaptedUser);
             
-            // Ensure the user is in the database
             if (initialSession?.user) {
-              try {
-                await ensureUserInDatabase(initialSession.user);
-              } catch (error) {
-                console.error("Error ensuring user in database:", error);
-              }
-              
               // We don't need to await this - it can load in the background
               getUserProfile(initialSession.user.id)
                 .then(profile => {
@@ -259,7 +255,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return adaptUser(user);
     } catch (error: any) {
       console.error("Sign in error:", error);
-      toast.error(`Erreur de connexion: ${error.message || "Identifiants incorrects"}`);
       throw error;
     } finally {
       setLoading(false);
@@ -273,7 +268,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Pas de redirection ici car OAuth gère sa propre redirection
     } catch (error: any) {
       console.error("Google sign in error:", error);
-      toast.error(`Erreur de connexion avec Google: ${error.message}`);
       throw error;
     } finally {
       setLoading(false);
@@ -291,7 +285,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return adaptUser(user);
     } catch (error: any) {
       console.error("Sign up error:", error);
-      toast.error(`Erreur d'inscription: ${error.message}`);
       throw error;
     } finally {
       setLoading(false);

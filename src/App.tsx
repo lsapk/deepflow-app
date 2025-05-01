@@ -1,7 +1,7 @@
 
 import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ThemeProvider } from "next-themes"; 
 import LandingPage from "./pages/LandingPage";
@@ -17,7 +17,6 @@ import PlanningPage from "./pages/PlanningPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import ProfilePage from "./pages/ProfilePage";
 import SettingsPage from "./pages/SettingsPage";
-import VoiceNotesPage from "./pages/VoiceNotesPage";
 import NotFound from "./pages/NotFound";
 import { useEffect } from "react";
 
@@ -65,9 +64,9 @@ const App: React.FC = () => {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
+    <BrowserRouter>
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-        <BrowserRouter>
+        <QueryClientProvider client={queryClient}>
           <AuthProvider>
             <Routes>
               <Route path="/" element={<LandingPage />} />
@@ -82,7 +81,6 @@ const App: React.FC = () => {
               <Route path="/habits" element={<HabitsPage />} />
               <Route path="/focus" element={<FocusPage />} />
               <Route path="/journal" element={<JournalPage />} />
-              <Route path="/voice-notes" element={<VoiceNotesPage />} />
               <Route path="/goals" element={<GoalsPage />} />
               <Route path="/planning" element={<PlanningPage />} />
               <Route path="/analytics" element={<AnalyticsPage />} />
@@ -93,9 +91,9 @@ const App: React.FC = () => {
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AuthProvider>
-        </BrowserRouter>
+        </QueryClientProvider>
       </ThemeProvider>
-    </QueryClientProvider>
+    </BrowserRouter>
   );
 };
 
