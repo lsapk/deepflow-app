@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { sendMessageToGemini } from './geminiService';
 
 // Variable pour stocker la clé API
-let currentApiKey = "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";
+let currentApiKey = "AIzaSyAdOinCnHfqjOyk6XBbTzQkR_IOdRvlliU";
 
 // Fonction pour définir une nouvelle clé API
 export const setApiKey = (apiKey: string): void => {
@@ -22,33 +22,12 @@ interface ChatMessage {
   content: string;
 }
 
-// Format de conversation pour Mistral
-function formatConversation(messages: ChatMessage[]): string {
-  let conversation = "";
-  
-  messages.forEach((message, index) => {
-    if (message.role === "user") {
-      conversation += `[INST] ${message.content} [/INST]\n`;
-    } else if (message.role === "system") {
-      // Inclure le message système au début
-      if (index === 0) {
-        conversation += `[INST] <system>\n${message.content}\n</system> [/INST]\n`;
-      }
-    } else {
-      // Pour un message assistant, ajouter simplement son contenu
-      conversation += `${message.content}\n`;
-    }
-  });
-  
-  return conversation.trim();
-}
-
 // Fonction pour envoyer des messages à l'API
 export async function sendMessageToAI(
   messages: ChatMessage[],
 ): Promise<string> {
   try {
-    // Utiliser Gemini AI au lieu de Mistral
+    // Utiliser Gemini AI
     return await sendMessageToGemini(messages);
   } catch (error) {
     console.error("Erreur lors de l'appel à l'API:", error);
@@ -56,7 +35,7 @@ export async function sendMessageToAI(
   }
 }
 
-// Nouvelle fonction pour analyser les notes vocales
+// Fonction pour analyser les notes vocales
 export async function analyzeNoteWithAI(noteText: string): Promise<string> {
   try {
     const messages: ChatMessage[] = [

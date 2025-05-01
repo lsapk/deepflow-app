@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -83,7 +84,7 @@ const saveLocalData = (key: string, data: any): void => {
   }
 };
 
-export const AuthProvider = ({ children }: AuthProviderProps) => {
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<ExtendedUser | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -180,19 +181,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           setCurrentUser(cachedUser);
           setUserProfile(cachedProfile);
           setAutoLoginAttempted(true);
-          
-          // Auto sign-in with stored credentials if available
-          const storedCredentials = getLocalData('userCredentials');
-          if (storedCredentials && storedCredentials.email && storedCredentials.password) {
-            try {
-              await loginUser(storedCredentials.email, storedCredentials.password);
-              // Successful silent login
-              console.log("Auto-login successful");
-            } catch (error) {
-              console.error("Auto-login failed, but proceeding with cached data:", error);
-              // Continue with cached data even if auto-login fails
-            }
-          }
         }
         
         if (isOnline) {
