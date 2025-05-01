@@ -1,6 +1,7 @@
 
 import { Message } from '@/components/analytics/ai-assistant/types';
 import { v4 as uuidv4 } from 'uuid';
+import { sendMessageToGemini } from './geminiService';
 
 // Variable pour stocker la clé API
 let currentApiKey = "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";
@@ -47,56 +48,8 @@ export async function sendMessageToAI(
   messages: ChatMessage[],
 ): Promise<string> {
   try {
-    console.log("Envoi de la requête à l'API Hugging Face");
-
-    // Appel à l'API Hugging Face
-    const response = await fetch("https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${currentApiKey}`,
-      },
-      body: JSON.stringify({
-        inputs: formatConversation(messages),
-        parameters: {
-          max_new_tokens: 1000,
-          temperature: 0.7,
-          top_p: 0.95,
-          return_full_text: false
-        }
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Erreur API: ${response.status} ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    
-    // Parse the response correctly - handle multiple formats
-    try {
-      let content = data[0]?.generated_text || "";
-      
-      // Check if the content looks like JSON and try to parse it
-      if (content.includes('{"role":') || content.includes('"content":')) {
-        try {
-          // Extract valid JSON
-          const jsonMatch = content.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            const jsonString = jsonMatch[0];
-            const parsed = JSON.parse(jsonString);
-            return parsed.content || content;
-          }
-        } catch (parseError) {
-          console.log("Erreur parsing JSON, utilisation du texte brut", parseError);
-        }
-      }
-      
-      return content;
-    } catch (error) {
-      console.error("Erreur lors du traitement de la réponse:", error);
-      return data[0]?.generated_text || "Désolé, je n'ai pas pu traiter votre demande.";
-    }
+    // Utiliser Gemini AI au lieu de Mistral
+    return await sendMessageToGemini(messages);
   } catch (error) {
     console.error("Erreur lors de l'appel à l'API:", error);
     return "Désolé, une erreur s'est produite lors de la communication avec l'assistant IA. Veuillez réessayer.";
