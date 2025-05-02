@@ -103,6 +103,18 @@ const EnhancedAIAssistant: React.FC<EnhancedAIAssistantProps> = ({
     }
   };
 
+  // Function to render markdown content with safe fallback
+  const renderMarkdown = (text: string) => {
+    try {
+      return <ReactMarkdown>{text}</ReactMarkdown>;
+    } catch (error) {
+      console.error('Error rendering markdown:', error);
+      return (
+        <div className="whitespace-pre-wrap">{text}</div>
+      );
+    }
+  };
+
   return (
     <Card className="bg-gradient-to-br from-violet-50 to-indigo-50 border-violet-200 dark:from-violet-950/40 dark:to-indigo-950/40 dark:border-violet-800 h-full flex flex-col">
       <CardHeader className="pb-2">
@@ -140,7 +152,7 @@ const EnhancedAIAssistant: React.FC<EnhancedAIAssistantProps> = ({
                   : 'bg-white dark:bg-gray-800 shadow'
               }`}>
                 <div className="prose dark:prose-invert prose-sm max-w-none">
-                  <ReactMarkdown>{message.text}</ReactMarkdown>
+                  {renderMarkdown(message.text)}
                 </div>
                 <div className={`text-xs mt-1 ${
                   message.isUser ? 'text-violet-100' : 'text-gray-500'
