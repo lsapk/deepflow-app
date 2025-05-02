@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import * as React from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { 
@@ -30,10 +30,10 @@ interface AuthContextProps {
   signUp: (email: string, password: string, displayName: string) => Promise<ExtendedUser | undefined>;
 }
 
-const AuthContext = createContext<AuthContextProps | undefined>(undefined);
+const AuthContext = React.createContext<AuthContextProps | undefined>(undefined);
 
 export function useAuth() {
-  const context = useContext(AuthContext);
+  const context = React.useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
@@ -41,7 +41,7 @@ export function useAuth() {
 }
 
 interface AuthProviderProps {
-  children: ReactNode;
+  children: React.ReactNode;
 }
 
 // Fonction utilitaire pour adapter l'utilisateur Supabase à notre format étendu
@@ -82,15 +82,15 @@ const saveLocalData = (key: string, data: any): void => {
 };
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<ExtendedUser | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [isOnline, setIsOnline] = useState(checkOnlineStatus());
-  const [autoLoginAttempted, setAutoLoginAttempted] = useState(false);
+  const [currentUser, setCurrentUser] = React.useState<ExtendedUser | null>(null);
+  const [session, setSession] = React.useState<Session | null>(null);
+  const [userProfile, setUserProfile] = React.useState<UserProfile | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  const [isOnline, setIsOnline] = React.useState(checkOnlineStatus());
+  const [autoLoginAttempted, setAutoLoginAttempted] = React.useState(false);
 
   // Écouteur pour l'état de connexion
-  useEffect(() => {
+  React.useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
       // Informer le service worker que nous sommes de retour en ligne
@@ -116,7 +116,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   // Effet pour gérer l'état d'authentification
-  useEffect(() => {
+  React.useEffect(() => {
     // Configuration du listener pour les changements d'état d'authentification
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, newSession) => {

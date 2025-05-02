@@ -1,19 +1,22 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line } from 'recharts';
-import AIAssistant from '@/components/analytics/AIAssistant';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, Legend, LineChart, Line, AreaChart, Area
+} from 'recharts';
+import EnhancedAIAssistant from '@/components/analytics/EnhancedAIAssistant';
 import { useAuth } from '@/contexts/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { getAllTasks, Task } from '@/services/taskService';
 import { getAllHabits, Habit } from '@/services/habitService';
 import { getUserFocusData, getFocusSessions } from '@/services/focusService';
 import { Skeleton } from '@/components/ui/skeleton';
-import { RefreshCcw } from 'lucide-react';
+import { RefreshCcw, BarChart2, PieChart as PieChartIcon, LineChart as LineChartIcon, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { useTheme } from 'next-themes';
 
 // Define internal types for the analytics page
 interface AnalyticsTask {
@@ -44,6 +47,8 @@ interface AnalyticsHabit {
 const AnalyticsPage = () => {
   const { currentUser } = useAuth();
   const isMobile = useIsMobile();
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
   
   const [weeklyTaskData, setWeeklyTaskData] = useState([]);
   const [habitCompletionData, setHabitCompletionData] = useState([]);
@@ -56,7 +61,9 @@ const AnalyticsPage = () => {
   const [hasData, setHasData] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
+  const COLORS = ['#8b5cf6', '#3b82f6', '#22c55e', '#ef4444', '#f59e0b', '#06b6d4'];
+  const TEXT_COLOR = isDark ? "#e5e7eb" : "#374151";
+  const GRID_COLOR = isDark ? "#4b5563" : "#e5e7eb";
   
   const loadData = useCallback(async () => {
     if (!currentUser) {
@@ -68,15 +75,13 @@ const AnalyticsPage = () => {
       setRefreshing(true);
       
       const tasks = await getAllTasks();
-      
       const habits = await getAllHabits();
-      
       const focusData = await getUserFocusData(currentUser.uid);
       
       setHasData(tasks.length > 0 || habits.length > 0 || (focusData && focusData.completedSessions > 0));
       
       if (tasks.length > 0) {
-        // Map service Task to AnalyticsTask, converting 'in_progress' to 'in-progress'
+        // Map service Task to AnalyticsTask
         const analyticsTasks: AnalyticsTask[] = tasks.map(task => ({
           id: task.id,
           title: task.title,
@@ -123,7 +128,7 @@ const AnalyticsPage = () => {
       setRefreshing(false);
       toast.error("Impossible de charger les données d'analyse");
     }
-  }, [currentUser]);
+  }, [currentUser, isDark]);
   
   useEffect(() => {
     loadData();
@@ -131,7 +136,7 @@ const AnalyticsPage = () => {
     // Set up a refresh interval for real-time updates
     const refreshInterval = setInterval(() => {
       loadData();
-    }, 60000); // Refresh every minute
+    }, 300000); // Refresh every 5 minutes (more reasonable interval)
     
     return () => clearInterval(refreshInterval);
   }, [loadData]);
@@ -200,8 +205,6 @@ const AnalyticsPage = () => {
   };
   
   const generateTaskTrendData = () => {
-    // This would ideally come from a real data source
-    // For now, we'll simulate trend data for the last 7 days
     const trend = [];
     const today = new Date();
     
@@ -220,13 +223,11 @@ const AnalyticsPage = () => {
   };
   
   const generateInsightMessage = (tasks: Task[], habits: Habit[], focusData: any) => {
-    // Convert the Task[] to match expected internal types first
     const analyzedTasks = tasks.map(task => ({
       ...task,
       status: task.status === 'in_progress' ? 'in-progress' : task.status
     } as unknown as AnalyticsTask));
     
-    // Convert Habits to match expected internal types
     const analyzedHabits = habits.map(habit => ({
       ...habit,
       name: habit.title,
@@ -293,11 +294,16 @@ const AnalyticsPage = () => {
   };
 
   const renderNoDataMessage = () => (
-    <div className="flex flex-col items-center justify-center h-[300px] text-center">
-      <p className="text-lg text-muted-foreground mb-2">Aucune donnée disponible</p>
-      <p className="text-sm text-muted-foreground">
-        Commencez à utiliser les fonctionnalités de l'application pour générer des analyses.
-      </p>
+    <div className="flex flex-col items-center justify-center h-[300px] text-center p-4">
+      <div className="bg-violet-100 dark:bg-violet-900/30 p-8 rounded-lg max-w-md">
+        <div className="text-violet-500 dark:text-violet-400 flex justify-center mb-4">
+          <Calendar size={48} />
+        </div>
+        <p className="text-lg font-medium mb-2">Aucune donnée disponible</p>
+        <p className="text-sm text-muted-foreground">
+          Commencez à utiliser les fonctionnalités de l'application pour générer des analyses. Ajoutez des tâches, des habitudes et utilisez le mode focus pour voir apparaître des données ici.
+        </p>
+      </div>
     </div>
   );
   
@@ -309,7 +315,7 @@ const AnalyticsPage = () => {
   return (
     <MainLayout>
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold mb-2">Analytiques</h1>
             <p className="text-gray-500 dark:text-gray-400">
@@ -320,7 +326,7 @@ const AnalyticsPage = () => {
             onClick={handleRefresh}
             variant="outline"
             size="sm"
-            className="flex gap-2 items-center"
+            className="flex gap-2 items-center self-end md:self-auto"
             disabled={refreshing || loading}
           >
             <RefreshCcw size={16} className={refreshing ? "animate-spin" : ""} />
@@ -328,213 +334,296 @@ const AnalyticsPage = () => {
           </Button>
         </div>
 
-        <div>
-          <AIAssistant message={insightMessage} />
-        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            {loading ? (
+              <Skeleton className="h-[400px] w-full rounded-md" />
+            ) : (
+              <Tabs defaultValue="overview" className="space-y-4">
+                <TabsList className="grid grid-cols-4 w-full">
+                  <TabsTrigger value="overview" className="flex items-center gap-2">
+                    <BarChart2 size={16} />
+                    <span className="hidden sm:inline">Vue d'ensemble</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="tasks" className="flex items-center gap-2">
+                    <PieChartIcon size={16} />
+                    <span className="hidden sm:inline">Tâches</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="habits" className="flex items-center gap-2">
+                    <LineChartIcon size={16} />
+                    <span className="hidden sm:inline">Habitudes</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="focus" className="flex items-center gap-2">
+                    <Calendar size={16} />
+                    <span className="hidden sm:inline">Focus</span>
+                  </TabsTrigger>
+                </TabsList>
 
-        {loading ? (
-          <div className="space-y-4">
-            <Skeleton className="h-[300px] w-full rounded-md" />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Skeleton className="h-[250px] rounded-md" />
-              <Skeleton className="h-[250px] rounded-md" />
-            </div>
-          </div>
-        ) : (
-          <Tabs defaultValue="overview" className="space-y-4">
-            <TabsList className="grid grid-cols-4 lg:w-[500px] w-full">
-              <TabsTrigger value="overview">Vue d'ensemble</TabsTrigger>
-              <TabsTrigger value="tasks">Tâches</TabsTrigger>
-              <TabsTrigger value="habits">Habitudes</TabsTrigger>
-              <TabsTrigger value="focus">Focus</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="overview" className="space-y-4">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <div>
+                <TabsContent value="overview" className="space-y-4 pt-2">
+                  <Card>
+                    <CardHeader className="pb-2">
                       <CardTitle>Évolution des tâches</CardTitle>
-                      <CardDescription>
-                        Progression sur les 7 derniers jours
-                      </CardDescription>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="h-[300px]">
-                    {hasData && taskTrendData.length > 0 ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={taskTrendData}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="date" />
-                          <YAxis />
-                          <Tooltip />
-                          <Legend />
-                          <Line type="monotone" dataKey="completed" stroke="#8884d8" name="Tâches terminées" />
-                          <Line type="monotone" dataKey="created" stroke="#82ca9d" name="Tâches créées" />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    ) : renderNoDataMessage()}
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle>Statut des tâches</CardTitle>
-                    <CardDescription>
-                      Répartition par statut
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="h-[300px]">
-                    {hasData && statusData.length > 0 && statusData.some(item => item.value > 0) ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={statusData}
-                            cx={isMobile ? "50%" : "50%"}
-                            cy={isMobile ? "40%" : "50%"}
-                            outerRadius={isMobile ? 80 : 100}
-                            fill="#8884d8"
-                            dataKey="value"
-                            nameKey="name"
-                            label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                      <CardDescription>Progression sur les 7 derniers jours</CardDescription>
+                    </CardHeader>
+                    <CardContent className="h-[350px]">
+                      {hasData && taskTrendData.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={taskTrendData}>
+                            <defs>
+                              <linearGradient id="colorCompleted" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8}/>
+                                <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.1}/>
+                              </linearGradient>
+                              <linearGradient id="colorCreated" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
+                                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.1}/>
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} />
+                            <XAxis dataKey="date" stroke={TEXT_COLOR} />
+                            <YAxis stroke={TEXT_COLOR} />
+                            <Tooltip 
+                              contentStyle={{ 
+                                backgroundColor: isDark ? '#1f2937' : '#fff',
+                                borderColor: isDark ? '#374151' : '#e5e7eb',
+                                color: TEXT_COLOR
+                              }} 
+                            />
+                            <Legend />
+                            <Area 
+                              type="monotone" 
+                              dataKey="completed" 
+                              stroke="#8b5cf6" 
+                              fillOpacity={1} 
+                              fill="url(#colorCompleted)" 
+                              name="Tâches terminées" 
+                            />
+                            <Area 
+                              type="monotone" 
+                              dataKey="created" 
+                              stroke="#3b82f6" 
+                              fillOpacity={1} 
+                              fill="url(#colorCreated)" 
+                              name="Tâches créées" 
+                            />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      ) : renderNoDataMessage()}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="tasks" className="space-y-4 pt-2">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle>Statut des tâches</CardTitle>
+                        <CardDescription>Répartition par statut</CardDescription>
+                      </CardHeader>
+                      <CardContent className="h-[300px]">
+                        {hasData && statusData.length > 0 && statusData.some(item => item.value > 0) ? (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={statusData}
+                                cx="50%"
+                                cy="50%"
+                                outerRadius={isMobile ? 80 : 100}
+                                fill="#8884d8"
+                                dataKey="value"
+                                nameKey="name"
+                                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                              >
+                                {statusData.map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                ))}
+                              </Pie>
+                              <Legend 
+                                layout="horizontal" 
+                                verticalAlign="bottom" 
+                                align="center"
+                              />
+                              <Tooltip 
+                                contentStyle={{ 
+                                  backgroundColor: isDark ? '#1f2937' : '#fff',
+                                  borderColor: isDark ? '#374151' : '#e5e7eb',
+                                  color: TEXT_COLOR
+                                }}
+                              />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        ) : renderNoDataMessage()}
+                      </CardContent>
+                    </Card>
+                    
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle>Priorité des tâches</CardTitle>
+                        <CardDescription>Répartition par niveau de priorité</CardDescription>
+                      </CardHeader>
+                      <CardContent className="h-[300px]">
+                        {hasData && priorityData.length > 0 && priorityData.some(item => item.value > 0) ? (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={priorityData}
+                                cx="50%"
+                                cy="50%"
+                                outerRadius={isMobile ? 80 : 100}
+                                fill="#8884d8"
+                                dataKey="value"
+                                nameKey="name"
+                                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                              >
+                                {priorityData.map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                ))}
+                              </Pie>
+                              <Legend layout="horizontal" verticalAlign="bottom" align="center" />
+                              <Tooltip 
+                                contentStyle={{ 
+                                  backgroundColor: isDark ? '#1f2937' : '#fff',
+                                  borderColor: isDark ? '#374151' : '#e5e7eb',
+                                  color: TEXT_COLOR
+                                }}
+                              />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        ) : renderNoDataMessage()}
+                      </CardContent>
+                    </Card>
+                  </div>
+                  
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle>Tâches par jour</CardTitle>
+                      <CardDescription>Répartition sur la semaine</CardDescription>
+                    </CardHeader>
+                    <CardContent className="h-[300px]">
+                      {hasData && weeklyTaskData.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={weeklyTaskData}>
+                            <defs>
+                              <linearGradient id="taskGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8}/>
+                                <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.3}/>
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} />
+                            <XAxis dataKey="name" stroke={TEXT_COLOR} />
+                            <YAxis stroke={TEXT_COLOR} />
+                            <Tooltip 
+                              contentStyle={{ 
+                                backgroundColor: isDark ? '#1f2937' : '#fff',
+                                borderColor: isDark ? '#374151' : '#e5e7eb',
+                                color: TEXT_COLOR
+                              }}
+                            />
+                            <Bar 
+                              dataKey="tasks" 
+                              fill="url(#taskGradient)" 
+                              name="Tâches" 
+                              radius={[4, 4, 0, 0]}
+                            />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      ) : renderNoDataMessage()}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="habits" className="space-y-4 pt-2">
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle>Complétion des habitudes</CardTitle>
+                      <CardDescription>Pourcentage d'habitudes complétées aujourd'hui</CardDescription>
+                    </CardHeader>
+                    <CardContent className="h-[300px]">
+                      {hasData && habitCompletionData.length > 0 && habitCompletionData.some(item => item.value > 0) ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={habitCompletionData}
+                              cx="50%"
+                              cy="50%"
+                              outerRadius={100}
+                              fill="#8884d8"
+                              dataKey="value"
+                              nameKey="name"
+                              label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                            >
+                              {habitCompletionData.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <Legend layout="horizontal" verticalAlign="bottom" align="center" />
+                            <Tooltip 
+                              contentStyle={{ 
+                                backgroundColor: isDark ? '#1f2937' : '#fff',
+                                borderColor: isDark ? '#374151' : '#e5e7eb',
+                                color: TEXT_COLOR
+                              }}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      ) : renderNoDataMessage()}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="focus" className="space-y-4 pt-2">
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle>Temps de concentration</CardTitle>
+                      <CardDescription>Statistiques de vos sessions de focus</CardDescription>
+                    </CardHeader>
+                    <CardContent className="h-[300px]">
+                      {hasData && focusTimeData.length > 0 && focusTimeData.some(item => item.value > 0) ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart
+                            data={focusTimeData}
+                            layout="horizontal"
                           >
-                            {statusData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                            ))}
-                          </Pie>
-                          <Legend layout={isMobile ? "horizontal" : "vertical"} verticalAlign="bottom" align="center" />
-                          <Tooltip />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    ) : renderNoDataMessage()}
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="tasks" className="space-y-4">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle>Priorité des tâches</CardTitle>
-                    <CardDescription>
-                      Répartition par niveau de priorité
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="h-[300px]">
-                    {hasData && priorityData.length > 0 && priorityData.some(item => item.value > 0) ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={priorityData}
-                            cx="50%"
-                            cy="50%"
-                            outerRadius={isMobile ? 80 : 100}
-                            fill="#8884d8"
-                            dataKey="value"
-                            nameKey="name"
-                            label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                          >
-                            {priorityData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                            ))}
-                          </Pie>
-                          <Legend layout="horizontal" verticalAlign="bottom" align="center" />
-                          <Tooltip />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    ) : renderNoDataMessage()}
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle>Tâches par jour</CardTitle>
-                    <CardDescription>
-                      Répartition sur la semaine
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="h-[300px]">
-                    {hasData && weeklyTaskData.length > 0 ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={weeklyTaskData}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="name" />
-                          <YAxis />
-                          <Tooltip />
-                          <Bar dataKey="tasks" fill="#8884d8" name="Tâches" />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    ) : renderNoDataMessage()}
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="habits" className="space-y-4">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle>Complétion des habitudes</CardTitle>
-                  <CardDescription>
-                    Pourcentage d'habitudes complétées aujourd'hui
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="h-[300px]">
-                  {hasData && habitCompletionData.length > 0 && habitCompletionData.some(item => item.value > 0) ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={habitCompletionData}
-                          cx="50%"
-                          cy="50%"
-                          outerRadius={100}
-                          fill="#8884d8"
-                          dataKey="value"
-                          nameKey="name"
-                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                        >
-                          {habitCompletionData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Legend layout="horizontal" verticalAlign="bottom" align="center" />
-                        <Tooltip />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  ) : renderNoDataMessage()}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="focus" className="space-y-4">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle>Temps de concentration</CardTitle>
-                  <CardDescription>
-                    Statistiques de vos sessions de focus
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="h-[300px]">
-                  {hasData && focusTimeData.length > 0 && focusTimeData.some(item => item.value > 0) ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={focusTimeData}
-                        layout="horizontal"
-                      >
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" />
-                        <YAxis />
-                        <Tooltip />
-                        <Legend />
-                        <Bar dataKey="value" fill="#8884d8" name="Valeur" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  ) : renderNoDataMessage()}
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        )}
+                            <defs>
+                              <linearGradient id="focusGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8}/>
+                                <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.3}/>
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} />
+                            <XAxis dataKey="name" stroke={TEXT_COLOR} />
+                            <YAxis stroke={TEXT_COLOR} />
+                            <Tooltip 
+                              contentStyle={{ 
+                                backgroundColor: isDark ? '#1f2937' : '#fff',
+                                borderColor: isDark ? '#374151' : '#e5e7eb',
+                                color: TEXT_COLOR
+                              }}
+                            />
+                            <Legend />
+                            <Bar 
+                              dataKey="value" 
+                              fill="url(#focusGradient)" 
+                              name="Valeur" 
+                              radius={[4, 4, 0, 0]}
+                            />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      ) : renderNoDataMessage()}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              </Tabs>
+            )}
+          </div>
+          <div className="lg:col-span-1 h-full">
+            {loading ? (
+              <Skeleton className="h-[400px] w-full rounded-md" />
+            ) : (
+              <EnhancedAIAssistant insightData={insightMessage} />
+            )}
+          </div>
+        </div>
       </div>
     </MainLayout>
   );
