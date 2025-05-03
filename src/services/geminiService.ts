@@ -1,7 +1,7 @@
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// Initialize the Gemini API with your API key
+// Initialiser l'API Gemini avec votre clé API
 const genAI = new GoogleGenerativeAI("AIzaSyAdOinCnHfqjOyk6XBbTzQkR_IOdRvlliU");
 const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
@@ -17,7 +17,7 @@ export async function getGeminiResponse(prompt: string): Promise<GeminiResponse>
     const text = response.text();
     return { text };
   } catch (error) {
-    console.error("Error with Gemini API:", error);
+    console.error("Erreur avec l'API Gemini:", error);
     return { 
       text: "Je ne peux pas répondre pour le moment. Veuillez réessayer plus tard.",
       error: error instanceof Error ? error.message : String(error)

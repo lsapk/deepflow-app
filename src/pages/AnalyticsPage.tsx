@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -6,43 +7,17 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend, LineChart, Line, AreaChart, Area
 } from 'recharts';
-import EnhancedAIAssistant from '@/components/analytics/EnhancedAIAssistant';
+import AIAssistant from '@/components/analytics/AIAssistant';
 import { useAuth } from '@/contexts/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { getAllTasks, Task } from '@/services/taskService';
-import { getAllHabits, Habit } from '@/services/habitService';
-import { getUserFocusData, getFocusSessions } from '@/services/focusService';
+import { getAllTasks } from '@/services/taskService';
+import { getAllHabits } from '@/services/habitService';
+import { getUserFocusData } from '@/services/focusService';
 import { Skeleton } from '@/components/ui/skeleton';
 import { RefreshCcw, BarChart2, PieChart as PieChartIcon, LineChart as LineChartIcon, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { useTheme } from 'next-themes';
-
-// Define internal types for the analytics page
-interface AnalyticsTask {
-  id: string;
-  title: string;
-  description?: string;
-  priority: 'low' | 'medium' | 'high';
-  status: 'todo' | 'in-progress' | 'done';
-  due_date?: string;
-  created_at: string;
-  tags?: string[];
-}
-
-interface AnalyticsHabit {
-  id: string;
-  name: string;
-  description?: string;
-  frequency: string[];
-  streak: number;
-  total_completions: number;
-  created_at: string;
-  completed_today: boolean;
-  last_completed?: string;
-  color?: string;
-  category?: string;
-}
 
 const AnalyticsPage = () => {
   const { currentUser } = useAuth();
@@ -81,34 +56,11 @@ const AnalyticsPage = () => {
       setHasData(tasks.length > 0 || habits.length > 0 || (focusData && focusData.completedSessions > 0));
       
       if (tasks.length > 0) {
-        // Map service Task to AnalyticsTask
-        const analyticsTasks: AnalyticsTask[] = tasks.map(task => ({
-          id: task.id,
-          title: task.title,
-          description: task.description,
-          priority: task.priority,
-          status: task.status === 'in_progress' ? 'in-progress' : task.status as any,
-          due_date: task.due_date,
-          created_at: task.created_at,
-        }));
-        processTaskData(analyticsTasks);
+        processTaskData(tasks);
       }
       
       if (habits.length > 0) {
-        // Map service Habit to AnalyticsHabit with the additional properties needed
-        const analyticsHabits: AnalyticsHabit[] = habits.map(habit => ({
-          id: habit.id,
-          name: habit.title,
-          description: habit.description,
-          frequency: [habit.frequency],
-          streak: habit.streak,
-          total_completions: habit.streak || 0,
-          created_at: habit.created_at || '',
-          completed_today: habit.last_completed ? new Date(habit.last_completed).toDateString() === new Date().toDateString() : false,
-          last_completed: habit.last_completed,
-          category: habit.category
-        }));
-        processHabitData(analyticsHabits);
+        processHabitData(habits);
       }
       
       if (focusData) {
@@ -116,8 +68,6 @@ const AnalyticsPage = () => {
       }
       
       generateInsightMessage(tasks, habits, focusData);
-      
-      // Generate task trend data (simulation for now)
       generateTaskTrendData();
       
       setLoading(false);
@@ -133,18 +83,17 @@ const AnalyticsPage = () => {
   useEffect(() => {
     loadData();
     
-    // Set up a refresh interval for real-time updates
     const refreshInterval = setInterval(() => {
       loadData();
-    }, 300000); // Refresh every 5 minutes (more reasonable interval)
+    }, 300000); // Refresh every 5 minutes
     
     return () => clearInterval(refreshInterval);
   }, [loadData]);
   
-  const processTaskData = (tasks: AnalyticsTask[]) => {
+  const processTaskData = (tasks) => {
     const statusCounts = {
       'todo': 0,
-      'in-progress': 0,
+      'in_progress': 0,
       'done': 0
     };
     
@@ -159,7 +108,6 @@ const AnalyticsPage = () => {
     
     tasks.forEach(task => {
       statusCounts[task.status]++;
-      
       priorityCounts[task.priority]++;
       
       if (task.due_date) {
@@ -171,7 +119,7 @@ const AnalyticsPage = () => {
     
     const statusDataForChart = [
       { name: 'À faire', value: statusCounts['todo'] },
-      { name: 'En cours', value: statusCounts['in-progress'] },
+      { name: 'En cours', value: statusCounts['in_progress'] },
       { name: 'Terminées', value: statusCounts['done'] }
     ];
     
@@ -186,16 +134,22 @@ const AnalyticsPage = () => {
     setPriorityData(priorityDataForChart);
   };
   
-  const processHabitData = (habits: AnalyticsHabit[]) => {
+  const processHabitData = (habits) => {
+    const completedCount = habits.filter(h => 
+      h.last_completed && new Date(h.last_completed).toDateString() === new Date().toDateString()
+    ).length;
+    
+    const notCompletedCount = habits.length - completedCount;
+    
     const completionData = [
-      { name: 'Complétées', value: habits.filter(h => h.completed_today).length },
-      { name: 'Non complétées', value: habits.filter(h => !h.completed_today).length }
+      { name: 'Complétées', value: completedCount },
+      { name: 'Non complétées', value: notCompletedCount }
     ];
     
     setHabitCompletionData(completionData);
   };
   
-  const processFocusData = (focusData: any) => {
+  const processFocusData = (focusData) => {
     const focusTimeDataForChart = [
       { name: 'Sessions terminées', value: focusData.completedSessions },
       { name: 'Temps total (min)', value: focusData.totalTimeMinutes }
@@ -222,29 +176,17 @@ const AnalyticsPage = () => {
     setTaskTrendData(trend);
   };
   
-  const generateInsightMessage = (tasks: Task[], habits: Habit[], focusData: any) => {
-    const analyzedTasks = tasks.map(task => ({
-      ...task,
-      status: task.status === 'in_progress' ? 'in-progress' : task.status
-    } as unknown as AnalyticsTask));
-    
-    const analyzedHabits = habits.map(habit => ({
-      ...habit,
-      name: habit.title,
-      total_completions: habit.streak || 0,
-      completed_today: habit.last_completed ? new Date(habit.last_completed).toDateString() === new Date().toDateString() : false,
-    } as unknown as AnalyticsHabit));
-    
-    if (analyzedTasks.length === 0 && analyzedHabits.length === 0 && (!focusData || focusData.completedSessions === 0)) {
+  const generateInsightMessage = (tasks, habits, focusData) => {
+    if (tasks.length === 0 && habits.length === 0 && (!focusData || focusData.completedSessions === 0)) {
       setInsightMessage("Commencez à utiliser les fonctionnalités de l'application pour obtenir des insights personnalisés sur votre productivité.");
       return;
     }
     
     let message = "";
     
-    if (analyzedTasks.length > 0) {
-      const completedTasks = analyzedTasks.filter(t => t.status === 'done').length;
-      const completionRate = (completedTasks / analyzedTasks.length) * 100;
+    if (tasks.length > 0) {
+      const completedTasks = tasks.filter(t => t.status === 'done').length;
+      const completionRate = (completedTasks / tasks.length) * 100;
       
       if (completionRate >= 70) {
         message += "Excellent travail ! Vous avez complété plus de 70% de vos tâches. ";
@@ -254,15 +196,17 @@ const AnalyticsPage = () => {
         message += "Vous avez quelques tâches en attente. Essayez de prioriser pour augmenter votre productivité. ";
       }
       
-      const highPriorityTasks = analyzedTasks.filter(t => t.priority === 'high' && t.status !== 'done').length;
+      const highPriorityTasks = tasks.filter(t => t.priority === 'high' && t.status !== 'done').length;
       if (highPriorityTasks > 0) {
         message += `Il vous reste ${highPriorityTasks} tâche(s) à haute priorité à compléter. `;
       }
     }
     
-    if (analyzedHabits.length > 0) {
-      const completedHabits = analyzedHabits.filter(h => h.completed_today).length;
-      const habitCompletionRate = (completedHabits / analyzedHabits.length) * 100;
+    if (habits.length > 0) {
+      const completedHabits = habits.filter(h => 
+        h.last_completed && new Date(h.last_completed).toDateString() === new Date().toDateString()
+      ).length;
+      const habitCompletionRate = (completedHabits / habits.length) * 100;
       
       if (habitCompletionRate >= 80) {
         message += "Vos habitudes sont bien maintenues, excellent travail ! ";
@@ -272,7 +216,7 @@ const AnalyticsPage = () => {
         message += "N'oubliez pas de maintenir vos habitudes régulièrement pour progresser. ";
       }
       
-      const highStreak = Math.max(...analyzedHabits.map(h => h.streak));
+      const highStreak = Math.max(...habits.map(h => h.streak || 0));
       if (highStreak >= 7) {
         message += `Votre plus longue série est de ${highStreak} jours, continuez ! `;
       }
@@ -620,7 +564,7 @@ const AnalyticsPage = () => {
             {loading ? (
               <Skeleton className="h-[400px] w-full rounded-md" />
             ) : (
-              <EnhancedAIAssistant insightData={insightMessage} />
+              <AIAssistant contextData={insightMessage} />
             )}
           </div>
         </div>
