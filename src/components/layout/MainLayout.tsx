@@ -21,6 +21,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   const [displayName, setDisplayName] = useState<string>('');
   const location = useLocation();
 
+  // Vérification périodique pour le service worker
   useEffect(() => {
     if ('serviceWorker' in navigator) {
       const interval = setInterval(() => {
@@ -29,12 +30,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
             type: 'APP_ACTIVE'
           });
         }
-      }, 300000);
+      }, 300000); // Toutes les 5 minutes
 
       return () => clearInterval(interval);
     }
   }, []);
 
+  // Affichage d'une notification en mode hors ligne
   useEffect(() => {
     if (!isOnline) {
       toast.info(
@@ -44,6 +46,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
     }
   }, [isOnline]);
 
+  // Mise à jour du nom d'affichage
   useEffect(() => {
     if (currentUser) {
       if (userProfile) {
@@ -66,7 +69,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
     return <Navigate to="/signin" />;
   }
 
-  // Détermine si nous devons afficher le FeaturePanel
+  // Détermination de l'affichage du FeaturePanel
   const showFeaturePanel = location.pathname === '/dashboard';
 
   return (

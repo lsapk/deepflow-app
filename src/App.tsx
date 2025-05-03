@@ -14,7 +14,6 @@ import FocusPage from "./pages/FocusPage";
 import JournalPage from "./pages/JournalPage";
 import GoalsPage from "./pages/GoalsPage";
 import PlanningPage from "./pages/PlanningPage";
-import AnalyticsPage from "./pages/AnalyticsPage";
 import ProfilePage from "./pages/ProfilePage";
 import SettingsPage from "./pages/SettingsPage";
 import NotFound from "./pages/NotFound";
@@ -29,7 +28,6 @@ const queryClient = new QueryClient({
       staleTime: 60000, // 1 minute
       gcTime: 5 * 60 * 1000, // 5 minutes
       meta: {
-        // Put error handling in meta instead of directly on options
         errorHandler: (error: Error) => {
           console.error("Query error:", error);
         }
@@ -37,7 +35,6 @@ const queryClient = new QueryClient({
     },
     mutations: {
       meta: {
-        // Put error handling in meta instead of directly on options
         errorHandler: (error: Error) => {
           console.error("Mutation error:", error);
         }
@@ -83,9 +80,11 @@ const App: React.FC = () => {
               <Route path="/journal" element={<JournalPage />} />
               <Route path="/goals" element={<GoalsPage />} />
               <Route path="/planning" element={<PlanningPage />} />
-              <Route path="/analytics" element={<AnalyticsPage />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/settings" element={<SettingsPage />} />
+              
+              {/* Redirection pour l'ancienne route analytics */}
+              <Route path="/analytics" element={<Navigate to="/dashboard" replace />} />
               
               {/* Catch-all route */}
               <Route path="*" element={<NotFound />} />

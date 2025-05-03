@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { X, Info, Star, Zap, Lightbulb, Clock, Calendar, CheckCircle } from 'lucide-react';
+import { X, Info, Star, Zap, Clock, Calendar, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetClose } from '@/components/ui/sheet';
@@ -38,13 +38,6 @@ export const FeaturePanel = () => {
       icon: Calendar,
       path: "/journal",
       color: "bg-orange-100 text-orange-600 dark:bg-orange-950 dark:text-orange-300"
-    },
-    {
-      title: "Insights",
-      description: "Obtenez des conseils personnalisés basés sur vos activités",
-      icon: Lightbulb,
-      path: "/analytics",
-      color: "bg-yellow-100 text-yellow-600 dark:bg-yellow-950 dark:text-yellow-300"
     }
   ];
 

@@ -8,13 +8,23 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useAuth } from '@/contexts/AuthContext';
-import { Loader2, UserPlus, Mail, User } from 'lucide-react';
+import { Loader2, UserPlus, Mail, User, Lock, Eye, EyeOff } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { toast } from 'sonner';
 
+// Schéma de validation renforcé
 const formSchema = z.object({
   name: z.string().min(2, { message: 'Le nom doit contenir au moins 2 caractères' }),
-  email: z.string().email({ message: 'Email invalide' }),
-  password: z.string().min(6, { message: 'Le mot de passe doit contenir au moins 6 caractères' }),
+  email: z.string()
+    .email({ message: 'Email invalide' })
+    .refine(value => /.+@.+\..+/.test(value), {
+      message: "Format d'email invalide"
+    }),
+  password: z.string()
+    .min(8, { message: 'Le mot de passe doit contenir au moins 8 caractères' })
+    .regex(/[A-Z]/, { message: 'Le mot de passe doit contenir au moins une majuscule' })
+    .regex(/[0-9]/, { message: 'Le mot de passe doit contenir au moins un chiffre' })
+    .regex(/[^a-zA-Z0-9]/, { message: 'Le mot de passe doit contenir au moins un caractère spécial' }),
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Les mots de passe ne correspondent pas",
@@ -24,6 +34,8 @@ const formSchema = z.object({
 export const SignUpForm = () => {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { signUp } = useAuth();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -40,9 +52,18 @@ export const SignUpForm = () => {
     setIsSubmitting(true);
     try {
       await signUp(values.email, values.password, values.name);
+      toast.success("Compte créé avec succès !");
       navigate('/dashboard');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Registration error:', error);
+      
+      // Gestion d'erreurs explicite
+      if (error.message?.includes("User already registered")) {
+        toast.error("Cet email est déjà utilisé. Veuillez vous connecter ou utiliser un autre email.");
+        form.setError('email', { message: "Cet email est déjà utilisé" });
+      } else {
+        toast.error(error.message || "Erreur lors de l'inscription. Veuillez réessayer.");
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -82,6 +103,7 @@ export const SignUpForm = () => {
               </FormItem>
             )}
           />
+          
           <FormField
             control={form.control}
             name="email"
@@ -93,13 +115,20 @@ export const SignUpForm = () => {
                     <span className="absolute left-3 top-3 text-muted-foreground">
                       <Mail size={16} />
                     </span>
-                    <Input placeholder="votre@email.com" className="pl-10" {...field} />
+                    <Input 
+                      placeholder="votre@email.com" 
+                      className="pl-10" 
+                      type="email"
+                      autoComplete="email"
+                      {...field} 
+                    />
                   </div>
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
+          
           <FormField
             control={form.control}
             name="password"
@@ -107,15 +136,36 @@ export const SignUpForm = () => {
               <FormItem>
                 <FormLabel>Mot de passe</FormLabel>
                 <FormControl>
-                  <Input type="password" {...field} />
+                  <div className="relative">
+                    <span className="absolute left-3 top-3 text-muted-foreground">
+                      <Lock size={16} />
+                    </span>
+                    <Input 
+                      type={showPassword ? "text" : "password"} 
+                      className="pl-10" 
+                      autoComplete="new-password"
+                      {...field} 
+                    />
+                    <Button 
+                      type="button"
+                      variant="ghost" 
+                      size="icon"
+                      className="absolute right-2 top-2"
+                      onClick={() => setShowPassword(!showPassword)}
+                      tabIndex={-1}
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </Button>
+                  </div>
                 </FormControl>
                 <FormDescription>
-                  Au moins 6 caractères
+                  Au moins 8 caractères, une majuscule, un chiffre et un caractère spécial
                 </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
           />
+          
           <FormField
             control={form.control}
             name="confirmPassword"
@@ -123,12 +173,33 @@ export const SignUpForm = () => {
               <FormItem>
                 <FormLabel>Confirmer le mot de passe</FormLabel>
                 <FormControl>
-                  <Input type="password" {...field} />
+                  <div className="relative">
+                    <span className="absolute left-3 top-3 text-muted-foreground">
+                      <Lock size={16} />
+                    </span>
+                    <Input 
+                      type={showConfirmPassword ? "text" : "password"} 
+                      className="pl-10" 
+                      autoComplete="new-password"
+                      {...field} 
+                    />
+                    <Button 
+                      type="button"
+                      variant="ghost" 
+                      size="icon"
+                      className="absolute right-2 top-2"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      tabIndex={-1}
+                    >
+                      {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </Button>
+                  </div>
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
+          
           <Button 
             type="submit" 
             className="w-full button-shine" 
